@@ -48,6 +48,12 @@
         .hero-note{font-size:12px;color:var(--text-dim)}
         .hero-note strong{color:var(--text-mid)}
 
+        .waitlist-form{display:flex;gap:10px;align-items:center;margin-bottom:12px;width:100%;max-width:460px}
+        .waitlist-input{flex:1;padding:13px 18px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--text);font-family:'Sora',sans-serif;font-size:14px;outline:none;transition:all 0.2s}
+        .waitlist-input::placeholder{color:var(--text-dim)}
+        .waitlist-input:focus{border-color:rgba(124,58,237,0.4);background:rgba(255,255,255,0.06)}
+        .waitlist-success{background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);color:#22c55e;padding:14px 24px;border-radius:10px;font-size:14px;font-weight:500;text-align:center;display:none;max-width:460px;width:100%}
+
         section{padding:100px 24px;max-width:1040px;margin:0 auto}
         .sl{font-size:11px;text-transform:uppercase;letter-spacing:2.5px;color:var(--purple-l);font-weight:600;margin-bottom:14px}
         h2{font-size:clamp(26px,3.8vw,38px);font-weight:700;letter-spacing:-1px;line-height:1.15;margin-bottom:14px}
@@ -194,18 +200,19 @@
         <a href="#how">How It Works</a>
         <a href="#features">Features</a>
         <a href="#pricing">Pricing</a>
-        <a href="#pricing" class="nav-cta">Start Free Trial</a>
+        <a href="#" onclick="document.getElementById('waitlistEmail').focus();return false;" class="nav-cta">Join Waitlist</a>
     </div>
 </nav>
 
 <div class="hero">
     <h1>Stop writing applications.<br><span class="gr">Start landing jobs.</span></h1>
     <p class="hero-sub">One tailored application outperforms a hundred generic ones. Careerely writes cover letters that sound like you, not like AI.</p>
-    <div class="hero-ctas">
-        <a href="#pricing" class="bp">Start Free Trial</a>
-        <a href="#how" class="bg">See How It Works</a>
+    <div class="waitlist-form">
+        <input type="email" class="waitlist-input" id="waitlistEmail" placeholder="Enter your email address" />
+        <button class="bp" onclick="joinWaitlist()">Join Waitlist</button>
     </div>
-    <p class="hero-note">7-day free trial. Plans from <strong>$29/mo</strong></p>
+    <div class="waitlist-success" id="waitlistSuccess">🎉 You're on the list! We'll let you know when we launch.</div>
+    <p class="hero-note">Launching soon.</p>
 </div>
 
 <!-- MANIFESTO -->
@@ -446,8 +453,12 @@
 <!-- CTA -->
 <div class="cta reveal">
     <h2>Your next job is<br>one click away.</h2>
-    <p>Stop spending hours on applications. Let Careerely do the work.</p>
-    <a href="#pricing" class="bp">Start Free Trial</a>
+    <p>Join the waitlist and be first in the door when we launch.</p>
+    <div class="waitlist-form" style="justify-content:center;margin:0 auto 12px">
+        <input type="email" class="waitlist-input" id="waitlistEmail2" placeholder="Enter your email address" />
+        <button class="bp" onclick="joinWaitlist2()">Join Waitlist</button>
+    </div>
+    <div class="waitlist-success" id="waitlistSuccess2">🎉 You're on the list!</div>
 </div>
 
 <footer>
@@ -455,8 +466,47 @@
     <div><a href="#">Twitter</a><a href="#">Privacy</a><a href="#">Terms</a></div>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-function tf(i){const o=i.classList.contains('open');document.querySelectorAll('.fi2').forEach(x=>x.classList.remove('open'));if(!o)i.classList.add('open')}
+const SUPABASE_URL = 'https://loqhbrtsiqktbhneyfvw.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_fGzwQbrEox7o0Mxa9h493Q_A12yfn-s';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function submitEmail(email, inputId, successId) {
+    if (!email || !email.includes('@')) {
+        document.getElementById(inputId).style.borderColor = '#ef4444';
+        return;
+    }
+    const btn = event.target;
+    btn.textContent = 'Joining...';
+    btn.disabled = true;
+    
+    const { error } = await supabaseClient.from('waitlist').insert([{ email: email, created_at: new Date().toISOString() }]);
+    
+    if (error && error.code !== '23505') {
+        btn.textContent = 'Join Waitlist';
+        btn.disabled = false;
+        alert('Something went wrong. Please try again.');
+        return;
+    }
+    document.getElementById(inputId).parentElement.style.display = 'none';
+    const success = document.getElementById(successId);
+    success.style.display = 'block';
+}
+
+function joinWaitlist() {
+    const email = document.getElementById('waitlistEmail').value;
+    submitEmail(email, 'waitlistEmail', 'waitlistSuccess');
+}
+
+function joinWaitlist2() {
+    const email = document.getElementById('waitlistEmail2').value;
+    submitEmail(email, 'waitlistEmail2', 'waitlistSuccess2');
+}
+
+document.getElementById('waitlistEmail').addEventListener('keypress', e => { if(e.key==='Enter') joinWaitlist(); });
+document.getElementById('waitlistEmail2').addEventListener('keypress', e => { if(e.key==='Enter') joinWaitlist2(); });
+</script>
 function setB(t){
     document.querySelectorAll('.bo').forEach((b,i)=>{b.classList.toggle('act',(t==='m'&&i===0)||(t==='a'&&i===1))});
     if(t==='a'){
