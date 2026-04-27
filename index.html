@@ -4,523 +4,104 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Careerely — Applications That Sound Like You</title>
-    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg:#06060b;
-            --surface:#0c0c14;
-            --surface-2:#101018;
             --border:rgba(255,255,255,0.06);
-            --border-h:rgba(255,255,255,0.12);
             --text:#eaeaf0;
             --text-mid:#9898ad;
             --text-dim:#64647a;
-            --purple:#7c3aed;
-            --purple-l:#a78bfa;
             --gradient:linear-gradient(135deg,#ec4899,#a855f7,#7c3aed);
-            --gradient-s:linear-gradient(135deg,rgba(236,72,153,0.07),rgba(168,85,247,0.07),rgba(124,58,237,0.07));
         }
         *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden}
-        body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");pointer-events:none;z-index:9999}
-        .reveal{opacity:0;transform:translateY(28px);transition:opacity 0.65s cubic-bezier(0.16,1,0.3,1),transform 0.65s cubic-bezier(0.16,1,0.3,1)}
-        .reveal.v{opacity:1;transform:translateY(0)}
-
-        nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:16px 32px;display:flex;justify-content:space-between;align-items:center;backdrop-filter:blur(24px) saturate(1.2);background:rgba(6,6,11,0.78);border-bottom:1px solid var(--border)}
-        .logo{font-weight:700;font-size:19px;letter-spacing:-0.3px}
+        html,body{height:100%}
+        body{
+            font-family:'Sora',sans-serif;
+            background:var(--bg);
+            color:var(--text);
+            -webkit-font-smoothing:antialiased;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            min-height:100vh;
+            text-align:center;
+            padding:24px;
+            overflow:hidden;
+        }
+        body::before{
+            content:'';
+            position:fixed;
+            top:-200px;left:50%;
+            transform:translateX(-50%);
+            width:800px;height:800px;
+            background:radial-gradient(circle,rgba(124,58,237,0.07) 0%,rgba(236,72,153,0.04) 40%,transparent 70%);
+            filter:blur(60px);
+            pointer-events:none;
+        }
+        body::after{
+            content:'';
+            position:fixed;inset:0;
+            background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+            pointer-events:none;
+            z-index:9999;
+        }
+        .logo{font-weight:700;font-size:18px;letter-spacing:-0.3px;margin-bottom:48px}
         .logo span{background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-        .nr{display:flex;align-items:center;gap:24px}
-        .nr a{color:var(--text-dim);text-decoration:none;font-size:13px;font-weight:500;transition:color 0.2s}
-        .nr a:hover{color:var(--text)}
-        .nav-cta{background:var(--gradient);color:white;padding:9px 22px;border-radius:8px;font-weight:600;font-size:13px;text-decoration:none;transition:all 0.25s;box-shadow:0 2px 12px rgba(124,58,237,0.15)}
-        .nav-cta:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(124,58,237,0.3)}
-
-        .hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:140px 24px 80px;position:relative}
-        .hero::before{content:'';position:absolute;top:-120px;left:50%;transform:translateX(-50%);width:700px;height:700px;background:radial-gradient(circle,rgba(124,58,237,0.06) 0%,rgba(236,72,153,0.03) 40%,transparent 70%);filter:blur(60px);pointer-events:none}
-        h1{font-size:clamp(36px,5.2vw,62px);font-weight:800;line-height:1.08;letter-spacing:-2px;max-width:700px;margin-bottom:20px}
+        h1{font-size:clamp(38px,6vw,68px);font-weight:800;line-height:1.08;letter-spacing:-2px;max-width:680px;margin-bottom:20px}
         h1 .gr{background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-        .hero-sub{font-size:17px;line-height:1.6;color:var(--text-mid);max-width:500px;margin-bottom:36px;font-weight:400}
-        .hero-ctas{display:flex;gap:14px;align-items:center;margin-bottom:12px}
-        .bp{background:var(--gradient);color:white;padding:13px 30px;border-radius:10px;font-family:'Sora',sans-serif;font-size:14px;font-weight:600;border:none;cursor:pointer;text-decoration:none;display:inline-block;transition:all 0.25s;box-shadow:0 4px 16px rgba(124,58,237,0.2)}
-        .bp:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(124,58,237,0.35)}
-        .bg{color:var(--text-mid);padding:13px 30px;border-radius:10px;font-family:'Sora',sans-serif;font-size:14px;font-weight:500;border:1px solid var(--border);background:none;cursor:pointer;text-decoration:none;transition:all 0.2s}
-        .bg:hover{border-color:var(--border-h);color:var(--text);background:rgba(255,255,255,0.02)}
-        .hero-note{font-size:12px;color:var(--text-dim)}
-        .hero-note strong{color:var(--text-mid)}
-
-        .waitlist-form{display:flex;gap:10px;align-items:center;margin-bottom:12px;width:100%;max-width:460px}
+        .sub{font-size:16px;line-height:1.6;color:var(--text-mid);max-width:440px;margin-bottom:36px}
+        .waitlist-form{display:flex;gap:10px;align-items:center;width:100%;max-width:460px;margin-bottom:12px}
         .waitlist-input{flex:1;padding:13px 18px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--text);font-family:'Sora',sans-serif;font-size:14px;outline:none;transition:all 0.2s}
         .waitlist-input::placeholder{color:var(--text-dim)}
         .waitlist-input:focus{border-color:rgba(124,58,237,0.4);background:rgba(255,255,255,0.06)}
-        .waitlist-success{background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);color:#22c55e;padding:14px 24px;border-radius:10px;font-size:14px;font-weight:500;text-align:center;display:none;max-width:460px;width:100%}
-
-        section{padding:100px 24px;max-width:1040px;margin:0 auto}
-        .sl{font-size:11px;text-transform:uppercase;letter-spacing:2.5px;color:var(--purple-l);font-weight:600;margin-bottom:14px}
-        h2{font-size:clamp(26px,3.8vw,38px);font-weight:700;letter-spacing:-1px;line-height:1.15;margin-bottom:14px}
-        .ss{font-size:15px;color:var(--text-dim);max-width:460px;line-height:1.6;margin-bottom:48px}
-
-        .mf{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:52px 48px;overflow:hidden}
-        .mf::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:var(--gradient);opacity:0.4}
-        .mf p{font-size:16px;color:var(--text-mid);line-height:1.7;max-width:540px}
-        .mf p strong{color:var(--text)}
-
-        .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-        .sc{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px 26px;position:relative;transition:all 0.3s;overflow:hidden}
-        .sc:hover{border-color:rgba(124,58,237,0.2);transform:translateY(-3px)}
-        .sc::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--gradient);opacity:0;transition:opacity 0.3s}
-        .sc:hover::after{opacity:1}
-        .sn{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;color:var(--purple-l);letter-spacing:2px;margin-bottom:16px}
-        .sc h3{font-size:16px;font-weight:600;margin-bottom:8px}
-        .sc p{font-size:13px;color:var(--text-dim);line-height:1.6}
-
-        /* MOCKUP */
-        .mockup-section{padding:0 24px 60px;max-width:940px;margin:0 auto}
-        .mockup-label{text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:2.5px;color:var(--purple-l);font-weight:600;margin-bottom:20px}
-        .mockup{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.35)}
-        .mockup-bar{display:flex;align-items:center;gap:7px;padding:11px 16px;background:var(--surface-2);border-bottom:1px solid var(--border)}
-        .mockup-dot{width:9px;height:9px;border-radius:50%}
-        .mockup-dot:nth-child(1){background:#ef4444}
-        .mockup-dot:nth-child(2){background:#eab308}
-        .mockup-dot:nth-child(3){background:#22c55e}
-        .mockup-url{margin-left:12px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:5px;padding:4px 14px;font-size:11px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;flex:1;max-width:280px}
-        .mockup-body{padding:20px;display:grid;grid-template-columns:1fr 300px;gap:16px}
-        .mock-jobs{display:flex;flex-direction:column;gap:10px}
-        .mj{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;justify-content:space-between;align-items:flex-start;transition:border-color 0.2s}
-        .mj:first-child{border-color:rgba(124,58,237,0.2)}
-        .mj-title{font-size:13px;font-weight:600;margin-bottom:3px}
-        .mj-company{font-size:11px;color:var(--purple-l);margin-bottom:6px}
-        .mj-meta{font-size:10px;color:var(--text-dim)}
-        .mj-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
-        .mj-score{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;padding:3px 8px;border-radius:6px;background:rgba(34,197,94,0.1);color:#22c55e}
-        .mj-score-mid{background:rgba(234,179,8,0.1);color:#eab308}
-        .mj-btn{font-size:9px;background:var(--gradient);color:white;padding:5px 12px;border-radius:5px;font-weight:600;white-space:nowrap}
-        .mock-side{display:flex;flex-direction:column;gap:10px}
-        .ms-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px}
-        .ms-title{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
-        .ms-num{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:500;background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-        .ms-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-        .ms-cl{flex:1}
-        .ms-cl-title{font-size:10px;color:var(--purple-l);margin-bottom:8px;font-weight:600}
-        .ms-cl-line{height:5px;background:rgba(255,255,255,0.04);border-radius:3px;margin-bottom:4px}
-        .ms-cl-line:nth-child(2){width:95%}
-        .ms-cl-line:nth-child(3){width:85%}
-        .ms-cl-line:nth-child(4){width:90%}
-        .ms-cl-line:nth-child(5){width:75%}
-        .ms-cl-line:nth-child(6){width:88%}
-        .ms-cl-line:nth-child(7){width:55%}
-        .ms-cl-btn{margin-top:8px;font-size:9px;background:var(--gradient);color:white;padding:5px 12px;border-radius:5px;font-weight:600;display:inline-block}
-        .ms-chat{flex:1}
-        .ms-chat-title{font-size:10px;color:var(--purple-l);margin-bottom:8px;font-weight:600}
-        .ms-bubble{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:10px;color:var(--text-dim);line-height:1.4;margin-bottom:6px}
-        .ms-bubble-ai{background:rgba(124,58,237,0.06);border-color:rgba(124,58,237,0.12)}
-        .ms-input{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:10px;color:var(--text-dim);margin-top:4px;width:100%}
-
-        .ct{width:100%;border-collapse:collapse}
-        .ct th{text-align:left;padding:12px 18px;font-size:12px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border)}
-        .ct th:last-child{background:var(--gradient-s);color:var(--purple-l);border-radius:12px 12px 0 0}
-        .ct td{padding:12px 18px;font-size:13.5px;color:var(--text-dim);border-bottom:1px solid var(--border)}
-        .ct td:first-child{color:var(--text-mid);font-weight:500}
-        .ct td:last-child{background:rgba(124,58,237,0.03)}
-        .ct tr:last-child td{border-bottom:none}
-        .ct tr:last-child td:last-child{border-radius:0 0 12px 12px}
-        .ck{color:var(--purple-l);font-weight:700}
-        .cx{opacity:0.4}
-
-        .fg{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-        .fc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:26px 22px;transition:all 0.3s}
-        .fc:hover{border-color:rgba(124,58,237,0.2)}
-        .fi{width:38px;height:38px;border-radius:10px;background:var(--gradient-s);display:flex;align-items:center;justify-content:center;font-size:17px;margin-bottom:14px;border:1px solid rgba(124,58,237,0.1)}
-        .fc h3{font-size:14px;font-weight:600;margin-bottom:6px}
-        .fc p{font-size:12.5px;color:var(--text-dim);line-height:1.55}
-
-        .ph{text-align:center;margin-bottom:48px}
-        .bt{display:inline-flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:4px;margin-top:20px}
-        .bo{padding:8px 20px;border-radius:100px;font-size:13px;font-weight:500;color:var(--text-dim);cursor:pointer;transition:all 0.2s;border:none;background:none;font-family:'Sora',sans-serif}
-        .bo.act{background:var(--gradient);color:white}
-        .sv{font-size:10px;background:rgba(34,197,94,0.12);color:#22c55e;padding:3px 8px;border-radius:100px;font-weight:600;margin-left:4px}
-        .pg{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:1000px;margin:0 auto}
-        .pc{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:36px 28px;position:relative;display:flex;flex-direction:column;transition:all 0.3s}
-        .pc:hover{border-color:var(--border-h)}
-        .pc.ft{border-color:rgba(124,58,237,0.4);background:linear-gradient(180deg,rgba(124,58,237,0.05) 0%,var(--surface) 40%)}
-        .pb{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--gradient);color:white;padding:4px 16px;border-radius:100px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
-        .pt{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--text-dim);font-weight:600;margin-bottom:10px}
-        .pa{font-size:44px;font-weight:800;letter-spacing:-2px;line-height:1}
-        .pa .cu{font-size:20px;font-weight:600;vertical-align:top;margin-right:2px}
-        .pp{font-size:13px;color:var(--text-dim);margin-top:4px;margin-bottom:20px;min-height:20px}
-        .pd{height:1px;background:var(--border);margin-bottom:18px}
-        .pf{list-style:none;flex:1;margin-bottom:24px}
-        .pf li{font-size:13px;padding:5px 0;display:flex;align-items:flex-start;gap:10px;color:var(--text-dim)}
-        .pf li::before{content:'✓';color:var(--purple-l);font-weight:700;font-size:12px;margin-top:2px}
-        .pbtn{display:block;width:100%;padding:13px;border-radius:10px;font-family:'Sora',sans-serif;font-size:14px;font-weight:600;cursor:pointer;text-align:center;text-decoration:none;transition:all 0.25s;border:none}
-        .pbtn-p{background:var(--gradient);color:white;box-shadow:0 2px 12px rgba(124,58,237,0.15)}
-        .pbtn-p:hover{box-shadow:0 6px 28px rgba(124,58,237,0.3);transform:translateY(-1px)}
-        .pbtn-o{background:transparent;color:var(--text);border:1px solid var(--border)}
-        .pbtn-o:hover{border-color:rgba(124,58,237,0.3)}
-
-        .fq{max-width:620px;margin:0 auto;padding:60px 24px}
-        .fq h2{font-size:24px;margin-bottom:24px}
-        .fi2{border-bottom:1px solid var(--border);padding:14px 0;cursor:pointer}
-        .fqq{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:500;color:var(--text-mid)}
-        .ft2{color:var(--text-dim);font-size:16px;transition:transform 0.3s;flex-shrink:0;margin-left:16px}
-        .fa{max-height:0;overflow:hidden;transition:max-height 0.35s ease;font-size:13px;color:var(--text-dim);line-height:1.65}
-        .fi2.open .fa{max-height:250px;padding-top:10px}
-        .fi2.open .ft2{transform:rotate(45deg)}
-        .fi2.open .fqq{color:var(--text)}
-
-        .cta{text-align:center;padding:80px 24px 60px;position:relative}
-        .cta::before{content:'';position:absolute;bottom:-60px;left:50%;transform:translateX(-50%);width:500px;height:500px;background:radial-gradient(circle,rgba(124,58,237,0.05) 0%,transparent 70%);filter:blur(60px);pointer-events:none}
-        .cta h2{margin-bottom:14px}
-        .cta p{font-size:15px;color:var(--text-dim);margin-bottom:32px;max-width:400px;margin-left:auto;margin-right:auto}
-
-        footer{border-top:1px solid var(--border);padding:28px 40px;display:flex;justify-content:space-between;align-items:center;max-width:1040px;margin:0 auto}
-        footer p{font-size:12px;color:var(--text-dim)}
-        footer a{color:var(--text-dim);text-decoration:none;font-size:12px;margin-left:20px}
-        footer a:hover{color:var(--text-mid)}
-
-        @media(max-width:768px){
-            nav{padding:14px 20px}
-            .nr a:not(.nav-cta){display:none}
-            .steps,.fg,.pg{grid-template-columns:1fr}
-            .hero-ctas{flex-direction:column;width:100%}
-            .hero-ctas a{width:100%;text-align:center}
-            .mf{padding:32px 24px}
-            .ct{font-size:12px}
-            .ct th,.ct td{padding:10px 12px}
-            .mockup-body{grid-template-columns:1fr}
-            .ms-row{grid-template-columns:1fr}
-            footer{flex-direction:column;gap:12px;text-align:center}
-        }
+        .btn{background:var(--gradient);color:white;padding:13px 26px;border-radius:10px;font-family:'Sora',sans-serif;font-size:14px;font-weight:600;border:none;cursor:pointer;white-space:nowrap;transition:all 0.25s;box-shadow:0 4px 16px rgba(124,58,237,0.2)}
+        .btn:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(124,58,237,0.35)}
+        .note{font-size:12px;color:var(--text-dim)}
+        .success{background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);color:#22c55e;padding:14px 24px;border-radius:10px;font-size:14px;font-weight:500;display:none;max-width:460px;width:100%;margin-bottom:12px}
     </style>
 </head>
 <body>
-
-<nav>
     <div class="logo">Career<span>ely</span></div>
-    <div class="nr">
-        <a href="#how">How It Works</a>
-        <a href="#features">Features</a>
-        <a href="#pricing">Pricing</a>
-        <a href="#" onclick="document.getElementById('waitlistEmail').focus();return false;" class="nav-cta">Join Waitlist</a>
-    </div>
-</nav>
-
-<div class="hero">
     <h1>Stop writing applications.<br><span class="gr">Start landing jobs.</span></h1>
-    <p class="hero-sub">One tailored application outperforms a hundred generic ones. Careerely writes cover letters that sound like you, not like AI.</p>
+    <p class="sub">One tailored application outperforms a hundred generic ones. Careerely writes cover letters that sound like you, not like AI.</p>
     <div class="waitlist-form">
         <input type="email" class="waitlist-input" id="waitlistEmail" placeholder="Enter your email address" />
-        <button class="bp" onclick="joinWaitlist()">Join Waitlist</button>
+        <button class="btn" onclick="joinWaitlist()">Join Waitlist</button>
     </div>
-    <div class="waitlist-success" id="waitlistSuccess">🎉 You're on the list! We'll let you know when we launch.</div>
-    <p class="hero-note">Launching soon.</p>
-</div>
-
-<!-- MANIFESTO -->
-<section>
-    <div class="mf reveal">
-        <div class="sl">Our Approach</div>
-        <p>Most job tools help you send more applications. We help you send <strong>better</strong> ones.</p>
-        <p style="font-size:22px;font-weight:600;color:var(--text);line-height:1.35;margin:24px 0;max-width:520px;letter-spacing:-0.5px">Every cover letter reads like <em style="background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-style:normal">you wrote it yourself</em>.</p>
-        <p>Paste a cover letter you've written before. Careerely learns your voice and writes every new cover letter in that same voice, tailored to each job's specific requirements. Hiring managers can't tell the difference.</p>
-    </div>
-</section>
-
-<!-- HOW IT WORKS -->
-<section id="how">
-    <div class="reveal">
-        <div class="sl">How It Works</div>
-        <h2>Three steps to your next job offer</h2>
-    </div>
-    <div class="steps">
-        <div class="sc reveal">
-            <div class="sn">01</div>
-            <h3>Tell us about yourself</h3>
-            <p>Your experience, your target roles, and a cover letter you've written before. Careerely learns your voice from a real application. Takes five minutes.</p>
-        </div>
-        <div class="sc reveal">
-            <div class="sn">02</div>
-            <h3>We find the right jobs</h3>
-            <p>We scan job boards and company career pages around the clock. Every match scored and ranked against your profile. Best opportunities first.</p>
-        </div>
-        <div class="sc reveal">
-            <div class="sn">03</div>
-            <h3>One click. Done.</h3>
-            <p>Hit apply. A cover letter is generated in your voice, referencing the job's specific requirements. PDF downloaded, job page opened. You upload and submit.</p>
-        </div>
-    </div>
-</section>
-
-<!-- DASHBOARD MOCKUP -->
-<div class="mockup-section reveal">
-    <div class="mockup-label">Your Dashboard</div>
-    <div class="mockup">
-        <div class="mockup-bar">
-            <div class="mockup-dot"></div>
-            <div class="mockup-dot"></div>
-            <div class="mockup-dot"></div>
-            <div class="mockup-url">careerely.ai/dashboard</div>
-        </div>
-        <div class="mockup-body">
-            <div class="mock-jobs">
-                <div class="mj">
-                    <div>
-                        <div class="mj-title">Business Development Manager</div>
-                        <div class="mj-company">Company A</div>
-                        <div class="mj-meta">Remote · $120k - $160k · 2 hours ago</div>
-                    </div>
-                    <div class="mj-right">
-                        <div class="mj-score">9/10</div>
-                        <div class="mj-btn">One-Click Apply</div>
-                    </div>
-                </div>
-                <div class="mj">
-                    <div>
-                        <div class="mj-title">Partnerships Lead</div>
-                        <div class="mj-company">Company B</div>
-                        <div class="mj-meta">London · $140k - $180k · 5 hours ago</div>
-                    </div>
-                    <div class="mj-right">
-                        <div class="mj-score">8/10</div>
-                        <div class="mj-btn">One-Click Apply</div>
-                    </div>
-                </div>
-                <div class="mj">
-                    <div>
-                        <div class="mj-title">Sales Manager, Enterprise</div>
-                        <div class="mj-company">Company C</div>
-                        <div class="mj-meta">New York · $130k - $170k · 1 day ago</div>
-                    </div>
-                    <div class="mj-right">
-                        <div class="mj-score mj-score-mid">6/10</div>
-                        <div class="mj-btn">One-Click Apply</div>
-                    </div>
-                </div>
-            </div>
-            <div class="mock-side">
-                <div class="ms-row">
-                    <div class="ms-card">
-                        <div class="ms-title">Applications</div>
-                        <div class="ms-num">24</div>
-                    </div>
-                    <div class="ms-card">
-                        <div class="ms-title">Interviews</div>
-                        <div class="ms-num">7</div>
-                    </div>
-                </div>
-                <div class="ms-card ms-cl">
-                    <div class="ms-cl-title">Cover Letter Preview</div>
-                    <div class="ms-cl-line"></div>
-                    <div class="ms-cl-line"></div>
-                    <div class="ms-cl-line"></div>
-                    <div class="ms-cl-line"></div>
-                    <div class="ms-cl-line"></div>
-                    <div class="ms-cl-line"></div>
-                    <div class="ms-cl-btn">Download PDF</div>
-                </div>
-                <div class="ms-card ms-chat">
-                    <div class="ms-chat-title">AI Career Assistant</div>
-                    <div class="ms-bubble">How should I answer "why are you leaving your current role?"</div>
-                    <div class="ms-bubble ms-bubble-ai">Focus on what you're moving toward, not what you're leaving. Frame it around growth...</div>
-                    <div class="ms-input">Ask anything...</div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- COMPARISON -->
-<section>
-    <div class="reveal">
-        <div class="sl">Why Careerely</div>
-        <h2>Quality beats volume</h2>
-        <p class="ss">Every feature is built to make each application stronger, not to send more of them.</p>
-    </div>
-    <table class="ct reveal">
-        <thead><tr><th></th><th>On Your Own</th><th>ChatGPT</th><th>Careerely</th></tr></thead>
-        <tbody>
-            <tr><td>Time per application</td><td>2-3 hours</td><td>10-15 min</td><td class="ck">&lt;2 min</td></tr>
-            <tr><td>Sounds like you</td><td class="ck">✓</td><td class="cx">✗</td><td class="ck">✓</td></tr>
-            <tr><td>References job requirements</td><td class="ck">✓</td><td class="cx">Sometimes</td><td class="ck">Always</td></tr>
-            <tr><td>Finds jobs for you</td><td class="cx">✗</td><td class="cx">✗</td><td class="ck">✓</td></tr>
-            <tr><td>Scores job fit</td><td class="cx">✗</td><td class="cx">✗</td><td class="ck">✓</td></tr>
-            <tr><td>Tracks applications</td><td>Spreadsheet</td><td class="cx">✗</td><td class="ck">Built-in</td></tr>
-            <tr><td>Interview prep</td><td class="cx">✗</td><td>Generic</td><td class="ck">Role-specific</td></tr>
-        </tbody>
-    </table>
-</section>
-
-<!-- FEATURES -->
-<section id="features">
-    <div class="reveal">
-        <div class="sl">Features</div>
-        <h2>Built to get you hired.</h2>
-    </div>
-    <div class="fg">
-        <div class="fc reveal"><div class="fi">✍️</div><h3>Your Voice, Every Time</h3><p>Paste a cover letter you've written before. Careerely learns your tone and writes every new letter the same way. Not generic AI. You.</p></div>
-        <div class="fc reveal"><div class="fi">🚀</div><h3>One-Click Apply</h3><p>Tailored cover letter generated, PDF downloaded, job page opened. One click. Under two minutes.</p></div>
-        <div class="fc reveal"><div class="fi">🔍</div><h3>Job Discovery</h3><p>Job boards and career pages scanned continuously. Every match scored and ranked. Dream company alerts when roles open.</p></div>
-        <div class="fc reveal"><div class="fi">💬</div><h3>AI Career Assistant</h3><p>Chat with an AI that knows your profile. Interview answers, salary negotiation, follow-up emails, recruiter messages. On demand.</p></div>
-        <div class="fc reveal"><div class="fi">🎯</div><h3>Interview Prep</h3><p>Land an interview? Get a custom prep sheet with likely questions, strong answers from your experience, and smart questions to ask.</p></div>
-        <div class="fc reveal"><div class="fi">📄</div><h3>CV Builder</h3><p>Build a CV from scratch or upload yours and let Careerely improve it. Download as a clean PDF anytime.</p></div>
-        <div class="fc reveal"><div class="fi">✅</div><h3>ATS Optimisation</h3><p>Get past the filters. Careerely scores your CV against applicant tracking systems and tells you exactly what to fix.</p></div>
-    </div>
-</section>
-
-<!-- PRICING -->
-<section id="pricing">
-    <div class="ph reveal">
-        <div class="sl">Pricing</div>
-        <h2>Pick your plan. Land your job.</h2>
-        <div class="bt">
-            <button class="bo act" onclick="setB('m')">Monthly</button>
-            <button class="bo" onclick="setB('a')">Annual <span class="sv">Save 20%</span></button>
-        </div>
-    </div>
-    <div class="pg">
-        <div class="pc reveal">
-            <div class="pt">Standard</div>
-            <div class="pa"><span class="cu">$</span><span id="s-p">29</span></div>
-            <div class="pp" id="s-pp">per month</div>
-            <div class="pd"></div>
-            <p style="font-size:13.5px;color:var(--text-mid);margin-bottom:20px;line-height:1.4">For casual job seekers testing the market.</p>
-            <ul class="pf">
-                <li>10 cover letters per month</li>
-                <li>Voice matching from your application</li>
-                <li>Application dashboard</li>
-                <li>PDF cover letter downloads</li>
-                <li>CV review (upload and improve)</li>
-                <li>Basic ATS score</li>
-            </ul>
-            <a href="#" class="pbtn pbtn-o">Start 7-Day Free Trial</a>
-        </div>
-        <div class="pc ft reveal">
-            <div class="pb">Most Popular</div>
-            <div class="pt">Pro</div>
-            <div class="pa"><span class="cu">$</span><span id="p-p">49</span></div>
-            <div class="pp" id="p-pp">per month</div>
-            <div class="pd"></div>
-            <p style="font-size:13.5px;color:var(--text-mid);margin-bottom:20px;line-height:1.4">For active job seekers ready to move fast.</p>
-            <ul class="pf">
-                <li>Unlimited cover letters</li>
-                <li>Voice matching from your application</li>
-                <li>Real-time job board scraping</li>
-                <li>One-click apply</li>
-                <li>Quality scoring and ranking</li>
-                <li>Application dashboard</li>
-                <li>PDF cover letter downloads</li>
-                <li>CV builder from scratch + review</li>
-                <li>Full ATS optimisation + keywords</li>
-                <li>AI Career Assistant (10 chats/day)</li>
-                <li>Daily email digest</li>
-            </ul>
-            <a href="#" class="pbtn pbtn-p">Start 7-Day Free Trial</a>
-        </div>
-        <div class="pc reveal">
-            <div class="pt">Premium</div>
-            <div class="pa"><span class="cu">$</span><span id="pr-p">79</span></div>
-            <div class="pp" id="pr-pp">per month</div>
-            <div class="pd"></div>
-            <p style="font-size:13.5px;color:var(--text-mid);margin-bottom:20px;line-height:1.4">For maximum results. Every advantage unlocked.</p>
-            <ul class="pf">
-                <li>Everything in Pro</li>
-                <li>ATS optimisation per job</li>
-                <li>AI Career Assistant (unlimited)</li>
-                <li>Interview prep generator</li>
-                <li>Follow-up email drafts</li>
-                <li>Recruiter outreach drafts</li>
-                <li>Dream company monitoring</li>
-                <li>Priority generation speed</li>
-                <li>Salary intelligence and benchmarks</li>
-                <li>Application analytics and insights</li>
-                <li>Weekly job market report</li>
-            </ul>
-            <a href="#" class="pbtn pbtn-o">Start 7-Day Free Trial</a>
-        </div>
-    </div>
-</section>
-
-<!-- FAQ -->
-<div class="fq" id="faq">
-    <div class="reveal"><h2>FAQ</h2></div>
-    <div class="fi2 reveal" onclick="tf(this)"><div class="fqq">How does it sound like me and not like AI? <span class="ft2">+</span></div><div class="fa">You paste a cover letter you've written before. Careerely analyses your tone, sentence structure, and vocabulary, then writes every new letter in that same voice. It also references the specific requirements from each job posting.</div></div>
-    <div class="fi2 reveal" onclick="tf(this)"><div class="fqq">What's the difference between the plans? <span class="ft2">+</span></div><div class="fa">Standard gives you voice-matched cover letters, a dashboard, CV review, and a basic ATS score. Pro adds unlimited cover letters, automatic job discovery, one-click apply, AI Career Assistant (10 chats/day), CV builder, and full ATS optimisation with keywords. Premium unlocks unlimited AI chat, interview prep, recruiter outreach drafts, follow-up drafts, dream company monitoring, salary intelligence, application analytics, and ATS optimisation tailored per job.</div></div>
-    <div class="fi2 reveal" onclick="tf(this)"><div class="fqq">What job boards do you scrape? <span class="ft2">+</span></div><div class="fa">We scrape all major job boards plus industry-specific ones, including company career pages directly. We're always adding new sources. Job scraping is available on Pro and Premium plans.</div></div>
-    <div class="fi2 reveal" onclick="tf(this)"><div class="fqq">Does it auto-apply for me? <span class="ft2">+</span></div><div class="fa">It generates your cover letter, formats the PDF, and opens the application page. You click submit. Most companies have unique forms, and fully automating submissions would hurt your chances.</div></div>
-    <div class="fi2 reveal" onclick="tf(this)"><div class="fqq">Can I use this for any industry? <span class="ft2">+</span></div><div class="fa">Yes. Careerely works for any industry. The voice-matched cover letters, AI Career Assistant, application tracking, and interview prep are designed to be universal.</div></div>
-    <div class="fi2 reveal" onclick="tf(this)"><div class="fqq">Can I cancel anytime? <span class="ft2">+</span></div><div class="fa">Yes. No contracts. Cancel from your dashboard and keep access until the end of your billing period.</div></div>
-</div>
-
-<!-- CTA -->
-<div class="cta reveal">
-    <h2>Your next job is<br>one click away.</h2>
-    <p>Join the waitlist and be first in the door when we launch.</p>
-    <div class="waitlist-form" style="justify-content:center;margin:0 auto 12px">
-        <input type="email" class="waitlist-input" id="waitlistEmail2" placeholder="Enter your email address" />
-        <button class="bp" onclick="joinWaitlist2()">Join Waitlist</button>
-    </div>
-    <div class="waitlist-success" id="waitlistSuccess2">🎉 You're on the list!</div>
-</div>
-
-<footer>
-    <p>&copy; 2026 Careerely. All rights reserved.</p>
-    <div><a href="#">Twitter</a><a href="#">Privacy</a><a href="#">Terms</a></div>
-</footer>
+    <div class="success" id="waitlistSuccess">🎉 You're on the list! We'll let you know when we launch.</div>
+    <p class="note">Launching soon.</p>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-const SUPABASE_URL = 'https://loqhbrtsiqktbhneyfvw.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_fGzwQbrEox7o0Mxa9h493Q_A12yfn-s';
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const SUPABASE_URL = 'https://loqhbrtsiqktbhneyfvw.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_fGzwQbrEox7o0Mxa9h493Q_A12yfn-s';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-async function submitEmail(email, inputId, successId) {
-    if (!email || !email.includes('@')) {
-        document.getElementById(inputId).style.borderColor = '#ef4444';
-        return;
+    async function joinWaitlist() {
+        const email = document.getElementById('waitlistEmail').value;
+        if (!email || !email.includes('@')) {
+            document.getElementById('waitlistEmail').style.borderColor = '#ef4444';
+            return;
+        }
+        const btn = event.target;
+        btn.textContent = 'Joining...';
+        btn.disabled = true;
+        const { error } = await supabaseClient.from('waitlist').insert([{ email, created_at: new Date().toISOString() }]);
+        if (error && error.code !== '23505') {
+            btn.textContent = 'Join Waitlist';
+            btn.disabled = false;
+            alert('Something went wrong. Please try again.');
+            return;
+        }
+        document.querySelector('.waitlist-form').style.display = 'none';
+        document.getElementById('waitlistSuccess').style.display = 'block';
     }
-    const btn = event.target;
-    btn.textContent = 'Joining...';
-    btn.disabled = true;
-    
-    const { error } = await supabaseClient.from('waitlist').insert([{ email: email, created_at: new Date().toISOString() }]);
-    
-    if (error && error.code !== '23505') {
-        btn.textContent = 'Join Waitlist';
-        btn.disabled = false;
-        alert('Something went wrong. Please try again.');
-        return;
-    }
-    document.getElementById(inputId).parentElement.style.display = 'none';
-    const success = document.getElementById(successId);
-    success.style.display = 'block';
-}
 
-function joinWaitlist() {
-    const email = document.getElementById('waitlistEmail').value;
-    submitEmail(email, 'waitlistEmail', 'waitlistSuccess');
-}
-
-function joinWaitlist2() {
-    const email = document.getElementById('waitlistEmail2').value;
-    submitEmail(email, 'waitlistEmail2', 'waitlistSuccess2');
-}
-
-document.getElementById('waitlistEmail').addEventListener('keypress', e => { if(e.key==='Enter') joinWaitlist(); });
-document.getElementById('waitlistEmail2').addEventListener('keypress', e => { if(e.key==='Enter') joinWaitlist2(); });
-</script>
-function setB(t){
-    document.querySelectorAll('.bo').forEach((b,i)=>{b.classList.toggle('act',(t==='m'&&i===0)||(t==='a'&&i===1))});
-    if(t==='a'){
-        document.getElementById('s-p').textContent='23';document.getElementById('s-pp').textContent='per month, billed annually';
-        document.getElementById('p-p').textContent='39';document.getElementById('p-pp').textContent='per month, billed annually';
-        document.getElementById('pr-p').textContent='63';document.getElementById('pr-pp').textContent='per month, billed annually';
-    }else{
-        document.getElementById('s-p').textContent='29';document.getElementById('s-pp').textContent='per month';
-        document.getElementById('p-p').textContent='49';document.getElementById('p-pp').textContent='per month';
-        document.getElementById('pr-p').textContent='79';document.getElementById('pr-pp').textContent='per month';
-    }
-}
-const obs=new IntersectionObserver(e=>{e.forEach(x=>{if(x.isIntersecting)x.target.classList.add('v')})},{threshold:0.1,rootMargin:'0px 0px -40px 0px'});
-document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+    document.getElementById('waitlistEmail').addEventListener('keypress', e => {
+        if (e.key === 'Enter') joinWaitlist();
+    });
 </script>
 </body>
 </html>
