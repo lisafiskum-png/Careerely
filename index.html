@@ -60,12 +60,9 @@
     <p>&copy; 2026 Careerely. All rights reserved.</p>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-const client = supabase.createClient(
-    'https://loqhbrtsiqktbhneyfvw.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xbHRicnRzaXFrdGJobmV5ZnZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyODEwODgsImV4cCI6MjA5Mjg1NzA4OH0.HMNMh0YI3PPJH0ZN_QatpVateaHOFgT3wELyeExya7M'
-);
+const SURL = 'https://loqhbrtsiqktbhneyfvw.supabase.co';
+const SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xbHRicnRzaXFrdGJobmV5ZnZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyODEwODgsImV4cCI6MjA5Mjg1NzA4OH0.HMNMh0YI3PPJH0ZN_QatpVateaHOFgT3wELyeExya7M';
 
 async function join() {
     const email = document.getElementById('email').value.trim();
@@ -76,16 +73,34 @@ async function join() {
     const btn = document.getElementById('btn');
     btn.textContent = 'Joining...';
     btn.disabled = true;
-    const { error } = await client.from('waitlist').insert([{ email }]);
-    if (error && error.code !== '23505') {
+
+    try {
+        const res = await fetch(SURL + '/rest/v1/waitlist', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SKEY,
+                'Authorization': 'Bearer ' + SKEY,
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ email })
+        });
+
+        if (res.ok || res.status === 409) {
+            document.getElementById('form').style.display = 'none';
+            document.getElementById('note').style.display = 'none';
+            document.getElementById('success').style.display = 'block';
+        } else {
+            const err = await res.text();
+            btn.textContent = 'Join Waitlist';
+            btn.disabled = false;
+            alert('Error ' + res.status + ': ' + err);
+        }
+    } catch(e) {
         btn.textContent = 'Join Waitlist';
         btn.disabled = false;
-       Error: ' + error.message + ' Code: ' + error.code
-        return;
+        alert('Network error: ' + e.message);
     }
-    document.getElementById('form').style.display = 'none';
-    document.getElementById('note').style.display = 'none';
-    document.getElementById('success').style.display = 'block';
 }
 
 document.getElementById('email').addEventListener('keypress', e => { if(e.key === 'Enter') join(); });
