@@ -76,11 +76,11 @@ async function join() {
     const btn = document.getElementById('btn');
     btn.textContent = 'Joining...';
     btn.disabled = true;
-    const { error } = await client.from('waitlist').insert([{ email, created_at: new Date().toISOString() }]);
+    const { error } = await client.from('waitlist').insert([{ email }]);
     if (error && error.code !== '23505') {
         btn.textContent = 'Join Waitlist';
         btn.disabled = false;
-        alert('Something went wrong. Please try again.');
+       Error: ' + error.message + ' Code: ' + error.code
         return;
     }
     document.getElementById('form').style.display = 'none';
