@@ -542,9 +542,9 @@ export default function Dashboard() {
                 {plan === 'premium' ? `Welcome back, ${name}` : `Good to see you, ${name}`}
               </p>
               <p style={{ fontSize: 13, color: T.text2 }}>
-                {plan === 'standard' && 'You're on the Standard plan. Upgrade for the full toolkit.'}
-                {plan === 'pro' && 'You're on the Pro plan. All tools are unlocked and ready.'}
-                {plan === 'premium' && 'You're on Premium — every feature is yours to use.'}
+                {plan === 'standard' && "You're on the Standard plan. Upgrade for the full toolkit."}
+                {plan === 'pro' && "You're on the Pro plan. All tools are unlocked and ready."}
+                {plan === 'premium' && "You're on Premium — every feature is yours to use."}
               </p>
             </div>
             <button
