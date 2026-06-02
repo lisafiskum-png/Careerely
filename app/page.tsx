@@ -1,321 +1,393 @@
 'use client'
+import { useEffect, useState, useRef } from 'react'
+import { motion, useInView } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
-import { pricingPlans } from '../lib/plans'
 
-const PUR  = '#7c3aed'
-const BLK  = '#111111'
-const MID  = '#374151'
-const GR   = '#9ca3af'
-const BDR  = '#e5e7eb'
-const BG   = '#f9fafb'
-const WH   = '#ffffff'
-const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
-
-export default function Landing() {
-  const router = useRouter()
-  const [heroEmail, setHeroEmail]   = useState('')
-  const [ctaEmail,  setCtaEmail]    = useState('')
-
-  const features = [
-    { title: 'Job Discovery',    desc: 'Scrapes the entire web for roles matching your profile. No more manual searching across 10 different boards.' },
-    { title: 'Voice Matching',   desc: 'Paste one cover letter. Every new application sounds exactly like you wrote it yourself.' },
-    { title: 'One-Click Apply',  desc: 'Found a role? Apply in one click with a tailored cover letter. Under 2 minutes.' },
-    { title: 'ATS Optimization', desc: 'Every letter is optimized for applicant tracking systems. Keywords, format, tone — all handled.' },
-    { title: 'CV Builder',       desc: 'Build a CV from scratch or optimize your existing one. Tailored to each role automatically.' },
-    { title: 'Interview Prep',   desc: 'AI-generated interview questions based on the exact job description. Practice before you walk in.' },
-  ]
-
-  const steps = [
-    { n: '01', title: 'Paste your voice',    desc: 'Upload a cover letter you have written before. Careerely learns your tone, phrasing, and personality in seconds.' },
-    { n: '02', title: 'We find the jobs',    desc: 'Our scraper searches the entire job market for roles that match your profile. Ranked by fit score.' },
-    { n: '03', title: 'Apply automatically', desc: 'One click. Tailored cover letter in your voice. Sent. Done. Move on to the next one.' },
-  ]
-
-  const comparison = [
-    { feature: 'Finds jobs for you',   own: '—',      gpt: '—',       us: '✓' },
-    { feature: 'Sounds like you',      own: '✓',      gpt: '—',       us: '✓', ownWeak: true },
-    { feature: 'Tailored per job',     own: 'Slow',   gpt: 'Generic', us: '✓' },
-    { feature: 'One-click apply',      own: '—',      gpt: '—',       us: '✓' },
-    { feature: 'ATS optimized',        own: '—',      gpt: '—',       us: '✓' },
-    { feature: 'Time per application', own: '45 min', gpt: '15 min',  us: '2 min', isTime: true },
-  ]
-
-  const faqs = [
-    { q: 'How does voice matching work?',          a: 'You paste a cover letter you have written before. Our AI learns your unique tone, phrasing, and style, then applies it to every new letter. Hiring managers cannot tell the difference.' },
-    { q: 'What does the job scraper actually do?', a: 'It searches the entire internet for job postings that match your profile, experience, and preferences. Not just one board — everywhere. Results are ranked by how well they fit you.' },
-    { q: 'Can I switch plans later?',              a: 'Yes. Upgrade or downgrade anytime. Changes take effect at your next billing cycle.' },
-    { q: 'Is my data secure?',                     a: 'All data is encrypted at rest and in transit. We never share your information with third parties or use it to train models.' },
-    { q: 'Can I cancel anytime?',                  a: 'Yes. No contracts, no commitments. Cancel from your dashboard and keep access until the end of your billing period.' },
-  ]
-
-  const SectionLabel = ({ children }: { children: string }) => (
-    <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: GR, marginBottom: 20 }}>{children}</p>
+function Section({ children, className = '', id }: { children: React.ReactNode; className?: string; id?: string }) {
+  const ref = useRef(null)
+  const isInView = useInView(ref, { once: true, margin: '-100px' })
+  return (
+    <motion.section
+      ref={ref}
+      id={id}
+      className={className}
+      initial={{ opacity: 0, y: 40 }}
+      animate={isInView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.8 }}
+    >
+      {children}
+    </motion.section>
   )
+}
+
+export default function Home() {
+  const router = useRouter()
+  const [email, setEmail] = useState('')
+  const [ctaEmail, setCtaEmail] = useState('')
+  const [isScrolled, setIsScrolled] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 20)
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
-        body { font-family: ${FONT}; background: ${BG}; color: ${BLK}; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
-        a { color: inherit; text-decoration: none; }
-        .hero-input::placeholder { color: ${GR}; }
-        .cta-input::placeholder { color: #4b5563; }
-      `}</style>
+    <div className="min-h-screen bg-[#FAFAFA]">
 
-      {/* ── Nav ── */}
-      <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: WH, borderBottom: `1px solid ${BDR}` }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 64px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.3px', color: BLK }}>
-            Career<span style={{ color: PUR }}>ely</span>
+      {/* ── NAVIGATION ── */}
+      <nav
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+          isScrolled ? 'bg-[#FAFAFA]/90 backdrop-blur-xl border-b border-zinc-200/60' : ''
+        }`}
+      >
+        <div className="max-w-[1200px] mx-auto px-6 md:px-12 py-5 flex items-center justify-between">
+          <div className="text-[22px] font-semibold tracking-[-0.04em]">
+            <span className="text-[#0A0A0A]">Career</span>
+            <span className="text-[#6D28D9]">ely</span>
           </div>
-          <div style={{ display: 'flex', gap: 40 }}>
-            {[['How it works', '#how'], ['Features', '#features'], ['Pricing', '#pricing']].map(([label, href]) => (
-              <a key={label} href={href} style={{ fontSize: 14, fontWeight: 500, color: GR, transition: 'color 0.15s' }}
-                onMouseEnter={e => (e.currentTarget.style.color = BLK)}
-                onMouseLeave={e => (e.currentTarget.style.color = GR)}
-              >{label}</a>
-            ))}
+
+          <div className="hidden md:flex items-center gap-10">
+            <a href="#how"      className="text-[14px] text-zinc-500 hover:text-[#0A0A0A] transition-colors duration-200">How it works</a>
+            <a href="#features" className="text-[14px] text-zinc-500 hover:text-[#0A0A0A] transition-colors duration-200">Features</a>
+            <a href="#pricing"  className="text-[14px] text-zinc-500 hover:text-[#0A0A0A] transition-colors duration-200">Pricing</a>
           </div>
-          <button onClick={() => router.push('/auth')} style={{ padding: '9px 22px', background: BLK, color: WH, border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>
+
+          <button
+            onClick={() => router.push('/auth')}
+            className="bg-[#0A0A0A] text-white text-[14px] font-medium px-5 py-2.5 rounded-md hover:bg-[#1a1a1a] active:scale-[0.97] transition-all duration-200"
+          >
             Join Waitlist
           </button>
         </div>
       </nav>
 
-      {/* ── Hero ── */}
-      <div style={{ background: WH }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '88px 64px 52px' }}>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: GR, marginBottom: 28 }}>INVITE ONLY</p>
-          <h1 style={{ fontSize: 'clamp(52px, 7vw, 92px)', fontWeight: 900, letterSpacing: '-3.5px', lineHeight: 1.03, color: BLK, marginBottom: 28, maxWidth: 820 }}>
-            Stop writing applications.<br />
-            <span style={{ color: PUR }}>Start landing jobs.</span>
-          </h1>
-          <p style={{ fontSize: 17, color: MID, lineHeight: 1.65, marginBottom: 36, maxWidth: 500 }}>
-            Careerely learns your voice from one cover letter, scrapes the entire job market, and applies for you. In under 2 minutes.
-          </p>
-          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-            <input
-              className="hero-input"
-              type="email"
-              placeholder="your@email.com"
-              value={heroEmail}
-              onChange={e => setHeroEmail(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && router.push('/auth')}
-              style={{ padding: '13px 18px', border: `1px solid ${BDR}`, borderRadius: 8, fontSize: 15, color: BLK, fontFamily: FONT, outline: 'none', width: 300, background: WH }}
-            />
-            <button
-              onClick={() => router.push('/auth')}
-              style={{ padding: '13px 24px', background: BLK, color: WH, border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: FONT, whiteSpace: 'nowrap' }}
-            >Join Waitlist</button>
-          </div>
-          <p style={{ fontSize: 13, color: GR }}>50 spots this week. Founding-member pricing locked in.</p>
-        </div>
+      {/* ── HERO ── */}
+      <section className="pt-40 pb-32 px-6 md:px-12">
+        <div className="max-w-[1200px] mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.1 }}
+            className="max-w-[800px]"
+          >
+            <p className="text-[14px] font-medium text-zinc-400 uppercase tracking-[0.15em] mb-8">
+              Invite only
+            </p>
 
-        {/* Stats */}
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 64px' }}>
-          <div style={{ borderTop: `1px solid ${BDR}`, paddingTop: 40, paddingBottom: 88, display: 'flex', gap: 64 }}>
+            <h1 className="text-[clamp(48px,7vw,88px)] font-semibold text-[#0A0A0A] leading-[1.05] tracking-[-0.035em] mb-8">
+              Stop writing applications.{' '}
+              <span className="text-[#6D28D9]">Start landing jobs.</span>
+            </h1>
+
+            <p className="text-[20px] md:text-[22px] text-zinc-500 leading-[1.6] max-w-[600px] mb-12">
+              Careerely learns your voice from one cover letter, scrapes the entire job market, and applies for you. In under 2 minutes.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3 max-w-[480px] mb-6">
+              <input
+                type="email"
+                placeholder="your@email.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && router.push('/auth')}
+                className="flex-1 px-4 py-3.5 rounded-md bg-white border border-zinc-200 text-[#0A0A0A] text-[15px] placeholder:text-zinc-400 focus:outline-none focus:border-[#6D28D9] focus:ring-1 focus:ring-[#6D28D9]/20 transition-all"
+              />
+              <button
+                onClick={() => router.push('/auth')}
+                className="bg-[#0A0A0A] text-white text-[15px] font-medium px-7 py-3.5 rounded-md hover:bg-[#1a1a1a] active:scale-[0.97] transition-all duration-200 whitespace-nowrap"
+              >
+                Join Waitlist
+              </button>
+            </div>
+
+            <p className="text-[13px] text-zinc-400">
+              50 spots this week. Founding-member pricing locked in.
+            </p>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── SOCIAL PROOF BAR ── */}
+      <Section className="pb-24 px-6 md:px-12">
+        <div className="max-w-[1200px] mx-auto">
+          <div className="flex flex-wrap items-center gap-8 md:gap-16 py-8 border-t border-b border-zinc-200/80">
             {[
-              { n: '2,847',  label: 'On the waitlist' },
-              { n: '94%',    label: 'Interview rate' },
-              { n: '<2 min', label: 'Per application' },
-              { n: '10x',    label: 'Faster than manual' },
-            ].map(s => (
-              <div key={s.label}>
-                <p style={{ fontSize: 34, fontWeight: 900, color: BLK, letterSpacing: '-1px', marginBottom: 4 }}>{s.n}</p>
-                <p style={{ fontSize: 14, color: GR }}>{s.label}</p>
+              { num: '2,847',  label: 'On the waitlist' },
+              { num: '94%',    label: 'Interview rate' },
+              { num: '<2 min', label: 'Per application' },
+              { num: '10x',    label: 'Faster than manual' },
+            ].map((stat, i) => (
+              <div key={i}>
+                <div className="text-[28px] md:text-[32px] font-semibold text-[#0A0A0A] tracking-[-0.02em]">{stat.num}</div>
+                <div className="text-[13px] text-zinc-400 mt-1">{stat.label}</div>
               </div>
             ))}
           </div>
         </div>
-      </div>
+      </Section>
 
-      {/* ── How it works ── */}
-      <div id="how" style={{ background: WH, padding: '80px 64px 100px' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <SectionLabel>HOW IT WORKS</SectionLabel>
-          <h2 style={{ fontSize: 'clamp(40px, 6vw, 76px)', fontWeight: 900, letterSpacing: '-3px', lineHeight: 1.03, color: BLK, marginBottom: 72 }}>
-            Three steps to your<br />next role.
+      {/* ── HOW IT WORKS ── */}
+      <Section id="how" className="py-32 px-6 md:px-12">
+        <div className="max-w-[1200px] mx-auto">
+          <p className="text-[14px] font-medium text-zinc-400 uppercase tracking-[0.15em] mb-4">How it works</p>
+          <h2 className="text-[clamp(36px,5vw,56px)] font-semibold text-[#0A0A0A] leading-[1.1] tracking-[-0.03em] mb-20 max-w-[600px]">
+            Three steps to your next role.
           </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}>
-            {steps.map((step, i) => (
-              <div key={i} style={{
-                paddingLeft:  i > 0 ? 52 : 0,
-                paddingRight: i < 2 ? 52 : 0,
-                borderLeft:   i > 0 ? `1px solid ${BDR}` : 'none',
-              }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: PUR, marginBottom: 20, letterSpacing: '0.02em' }}>{step.n}</p>
-                <h3 style={{ fontSize: 20, fontWeight: 700, color: BLK, marginBottom: 12, letterSpacing: '-0.3px' }}>{step.title}</h3>
-                <p style={{ fontSize: 15, color: GR, lineHeight: 1.7 }}>{step.desc}</p>
+
+          <div className="grid md:grid-cols-3 gap-0">
+            {[
+              {
+                num: '01',
+                title: 'Paste your voice',
+                desc: 'Upload a cover letter you have written before. Careerely learns your tone, phrasing, and personality in seconds.',
+              },
+              {
+                num: '02',
+                title: 'We find the jobs',
+                desc: 'Our scraper searches the entire job market for roles that match your profile. Ranked by fit score.',
+              },
+              {
+                num: '03',
+                title: 'Apply automatically',
+                desc: 'One click. Tailored cover letter in your voice. Sent. Done. Move on to the next one.',
+              },
+            ].map((step, i) => (
+              <div
+                key={i}
+                className={`py-10 md:py-0 md:px-10 ${i < 2 ? 'border-b md:border-b-0 md:border-r border-zinc-200' : ''} ${i === 0 ? 'md:pl-0' : ''}`}
+              >
+                <span className="text-[13px] font-medium text-[#6D28D9] tracking-[0.1em] uppercase">{step.num}</span>
+                <h3 className="text-[24px] font-semibold text-[#0A0A0A] tracking-[-0.02em] mt-4 mb-4">{step.title}</h3>
+                <p className="text-[16px] text-zinc-500 leading-[1.7]">{step.desc}</p>
               </div>
             ))}
           </div>
         </div>
-      </div>
+      </Section>
 
-      {/* ── Features ── */}
-      <div id="features" style={{ background: WH, padding: '0 64px 100px' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <SectionLabel>FEATURES</SectionLabel>
-          <h2 style={{ fontSize: 'clamp(40px, 5.5vw, 72px)', fontWeight: 900, letterSpacing: '-3px', lineHeight: 1.03, color: BLK, marginBottom: 64 }}>
-            Everything you need.<br />Nothing you don&apos;t.
+      {/* ── FEATURES ── */}
+      <Section id="features" className="py-32 px-6 md:px-12 bg-white">
+        <div className="max-w-[1200px] mx-auto">
+          <p className="text-[14px] font-medium text-zinc-400 uppercase tracking-[0.15em] mb-4">Features</p>
+          <h2 className="text-[clamp(36px,5vw,56px)] font-semibold text-[#0A0A0A] leading-[1.1] tracking-[-0.03em] mb-20 max-w-[700px]">
+            {"Everything you need. Nothing you don't."}
           </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: `1px solid ${BDR}` }}>
-            {features.map((f, i) => (
-              <div key={i} style={{
-                padding: '48px 44px',
-                borderRight:  i % 2 === 0 ? `1px solid ${BDR}` : 'none',
-                borderBottom: i < 4        ? `1px solid ${BDR}` : 'none',
-                background: WH,
-              }}>
-                <h3 style={{ fontSize: 19, fontWeight: 700, color: BLK, marginBottom: 12, letterSpacing: '-0.3px' }}>{f.title}</h3>
-                <p style={{ fontSize: 14, color: GR, lineHeight: 1.7 }}>{f.desc}</p>
+
+          <div className="grid md:grid-cols-2 gap-px bg-zinc-200 border border-zinc-200 rounded-lg overflow-hidden">
+            {[
+              { title: 'Job Discovery',    desc: 'Scrapes the entire web for roles matching your profile. No more manual searching across 10 different boards.' },
+              { title: 'Voice Matching',   desc: 'Paste one cover letter. Every new application sounds exactly like you wrote it yourself.' },
+              { title: 'One-Click Apply',  desc: 'Found a role? Apply in one click with a tailored cover letter. Under 2 minutes per application.' },
+              { title: 'ATS Optimization', desc: 'Every letter is optimized for applicant tracking systems. Keywords, formatting, structure — handled.' },
+              { title: 'CV Builder',       desc: 'Build a CV from scratch or optimize your existing one. Tailored to each role automatically.' },
+              { title: 'Interview Prep',   desc: 'AI-generated interview questions based on the exact job description. Practice before you walk in.' },
+            ].map((feature, i) => (
+              <div key={i} className="bg-white p-10 md:p-12">
+                <h3 className="text-[20px] font-semibold text-[#0A0A0A] tracking-[-0.01em] mb-3">{feature.title}</h3>
+                <p className="text-[15px] text-zinc-500 leading-[1.7]">{feature.desc}</p>
               </div>
             ))}
           </div>
         </div>
-      </div>
+      </Section>
 
-      {/* ── Comparison ── */}
-      <div style={{ background: WH, padding: '0 64px 100px' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <SectionLabel>WHY CAREERELY</SectionLabel>
-          <h2 style={{ fontSize: 'clamp(40px, 5.5vw, 72px)', fontWeight: 900, letterSpacing: '-3px', lineHeight: 1.03, color: BLK, marginBottom: 64 }}>
+      {/* ── COMPARISON ── */}
+      <Section className="py-32 px-6 md:px-12">
+        <div className="max-w-[1200px] mx-auto">
+          <p className="text-[14px] font-medium text-zinc-400 uppercase tracking-[0.15em] mb-4">Why Careerely</p>
+          <h2 className="text-[clamp(36px,5vw,56px)] font-semibold text-[#0A0A0A] leading-[1.1] tracking-[-0.03em] mb-20 max-w-[700px]">
             The difference is obvious.
           </h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${BDR}` }}>
-                <th style={{ textAlign: 'left', padding: '14px 0', fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: GR, width: '40%' }}>FEATURE</th>
-                <th style={{ textAlign: 'left', padding: '14px 0', fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: GR, width: '20%' }}>ON YOUR OWN</th>
-                <th style={{ textAlign: 'left', padding: '14px 0', fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: GR, width: '20%' }}>CHATGPT</th>
-                <th style={{ textAlign: 'left', padding: '14px 0', fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: PUR, width: '20%' }}>CAREERELY</th>
-              </tr>
-            </thead>
-            <tbody>
-              {comparison.map((row, i) => (
-                <tr key={i} style={{ borderBottom: `1px solid ${BDR}` }}>
-                  <td style={{ padding: '20px 0', fontSize: 15, color: BLK, fontWeight: 500 }}>{row.feature}</td>
-                  <td style={{ padding: '20px 0', fontSize: 15, color: row.ownWeak ? '#d1d5db' : GR }}>{row.own}</td>
-                  <td style={{ padding: '20px 0', fontSize: 15, color: GR }}>{row.gpt}</td>
-                  <td style={{ padding: '20px 0', fontSize: row.isTime ? 15 : 17, color: BLK, fontWeight: row.isTime ? 700 : 600 }}>{row.us}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
-      {/* ── Pricing ── */}
-      <div id="pricing" style={{ background: BG, padding: '100px 64px' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <SectionLabel>PRICING</SectionLabel>
-          <h2 style={{ fontSize: 'clamp(40px, 5.5vw, 72px)', fontWeight: 900, letterSpacing: '-3px', lineHeight: 1.03, color: BLK, marginBottom: 64 }}>
-            Simple pricing. No<br />surprises.
-          </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, alignItems: 'start' }}>
-            {pricingPlans.map(plan => {
-              const pro = !!plan.highlight
-              return (
-                <div key={plan.id} style={{
-                  background: pro ? BLK : WH,
-                  border: `1px solid ${pro ? 'transparent' : BDR}`,
-                  borderRadius: 12, padding: '36px 32px',
-                  marginTop: pro ? -20 : 0,
-                }}>
-                  {pro && (
-                    <div style={{ marginBottom: 22 }}>
-                      <span style={{ background: PUR, color: WH, fontSize: 11, fontWeight: 700, padding: '4px 14px', borderRadius: 100, letterSpacing: '0.04em' }}>Most Popular</span>
-                    </div>
-                  )}
-                  <p style={{ fontSize: 18, fontWeight: 700, color: pro ? WH : BLK, marginBottom: 4 }}>{plan.title}</p>
-                  <p style={{ fontSize: 13, color: pro ? '#6b7280' : GR, marginBottom: 24, lineHeight: 1.45 }}>{plan.tagline}</p>
-                  <div style={{ marginBottom: 28 }}>
-                    <span style={{ fontSize: 52, fontWeight: 900, color: pro ? WH : BLK, letterSpacing: '-2px' }}>${plan.monthly}</span>
-                    <span style={{ fontSize: 14, color: pro ? '#6b7280' : GR, marginLeft: 4 }}>/mo</span>
-                  </div>
-                  <button
-                    onClick={() => router.push(`/auth?plan=${plan.id}&billing=monthly`)}
-                    style={{ width: '100%', padding: '14px', borderRadius: 8, fontSize: 14, fontWeight: 700, fontFamily: FONT, cursor: 'pointer', marginBottom: 28, background: pro ? WH : BLK, color: pro ? BLK : WH, border: 'none' }}
-                  >Get Started</button>
-                  <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {plan.features.map(f => (
-                      <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, fontSize: 13, color: pro ? '#9ca3af' : MID }}>
-                        <span style={{ color: pro ? '#a78bfa' : PUR, fontWeight: 700, flexShrink: 0, fontSize: 12, marginTop: 1 }}>✓</span>
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )
-            })}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-zinc-200">
+                  <th className="py-5 pr-8 text-[14px] font-medium text-zinc-400 uppercase tracking-[0.1em]">Feature</th>
+                  <th className="py-5 px-8 text-[14px] font-medium text-zinc-400 uppercase tracking-[0.1em]">On your own</th>
+                  <th className="py-5 px-8 text-[14px] font-medium text-zinc-400 uppercase tracking-[0.1em]">ChatGPT</th>
+                  <th className="py-5 pl-8 text-[14px] font-medium text-[#6D28D9] uppercase tracking-[0.1em]">Careerely</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['Finds jobs for you',   '—',      '—',       '✓'],
+                  ['Sounds like you',      '✓',      '—',       '✓'],
+                  ['Tailored per job',     'Slow',   'Generic', '✓'],
+                  ['One-click apply',      '—',      '—',       '✓'],
+                  ['ATS optimized',        '—',      '—',       '✓'],
+                  ['Time per application', '45 min', '15 min',  '2 min'],
+                ].map((row, i) => (
+                  <tr key={i} className="border-b border-zinc-100">
+                    <td className="py-5 pr-8 text-[15px] text-[#0A0A0A] font-medium">{row[0]}</td>
+                    <td className="py-5 px-8 text-[15px] text-zinc-400">{row[1]}</td>
+                    <td className="py-5 px-8 text-[15px] text-zinc-400">{row[2]}</td>
+                    <td className="py-5 pl-8 text-[15px] text-[#0A0A0A] font-medium">{row[3]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
-      </div>
+      </Section>
+
+      {/* ── PRICING ── */}
+      <Section id="pricing" className="py-32 px-6 md:px-12 bg-white">
+        <div className="max-w-[1200px] mx-auto">
+          <p className="text-[14px] font-medium text-zinc-400 uppercase tracking-[0.15em] mb-4">Pricing</p>
+          <h2 className="text-[clamp(36px,5vw,56px)] font-semibold text-[#0A0A0A] leading-[1.1] tracking-[-0.03em] mb-20 max-w-[500px]">
+            Simple pricing. No surprises.
+          </h2>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                name: 'Standard', price: '29', id: 'standard',
+                desc: 'For casual job seekers testing the market.',
+                features: ['10 cover letters/month', 'Voice matching', 'Job scraping (25 matches/week)', 'Application dashboard', 'PDF download', 'CV review', 'Basic ATS score'],
+                highlighted: false,
+              },
+              {
+                name: 'Pro', price: '49', id: 'pro',
+                desc: 'For active job seekers ready to move fast.',
+                features: ['Unlimited cover letters', 'Real-time job scraping (unlimited)', 'One-click apply', 'Full ATS optimization', 'CV builder from scratch', 'AI career assistant (10/day)', 'Daily email digest'],
+                highlighted: true,
+              },
+              {
+                name: 'Premium', price: '79', id: 'premium',
+                desc: 'Every advantage unlocked.',
+                features: ['Everything in Pro', 'Unlimited AI assistant', 'Interview prep generator', 'Follow-up email drafts', 'Recruiter outreach drafts', 'Dream company monitoring', 'Salary intelligence', 'Weekly market report'],
+                highlighted: false,
+              },
+            ].map((plan, i) => (
+              <div
+                key={i}
+                className={`rounded-xl p-8 md:p-10 transition-all duration-300 ${
+                  plan.highlighted
+                    ? 'bg-[#0A0A0A] text-white ring-1 ring-[#0A0A0A]'
+                    : 'bg-[#FAFAFA] ring-1 ring-zinc-200'
+                }`}
+              >
+                {plan.highlighted && (
+                  <span className="inline-block text-[12px] font-medium text-[#6D28D9] bg-[#6D28D9]/10 px-3 py-1 rounded-full mb-6 border border-[#6D28D9]/20">
+                    Most Popular
+                  </span>
+                )}
+
+                <h3 className={`text-[20px] font-semibold tracking-[-0.01em] mb-2 ${plan.highlighted ? 'text-white' : 'text-[#0A0A0A]'}`}>
+                  {plan.name}
+                </h3>
+                <p className={`text-[14px] mb-6 ${plan.highlighted ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                  {plan.desc}
+                </p>
+
+                <div className="mb-8">
+                  <span className={`text-[48px] font-semibold tracking-[-0.03em] ${plan.highlighted ? 'text-white' : 'text-[#0A0A0A]'}`}>
+                    ${plan.price}
+                  </span>
+                  <span className={`text-[15px] ml-1 ${plan.highlighted ? 'text-zinc-400' : 'text-zinc-500'}`}>/mo</span>
+                </div>
+
+                <button
+                  onClick={() => router.push(`/auth?plan=${plan.id}&billing=monthly`)}
+                  className={`w-full py-3 rounded-md text-[14px] font-medium mb-8 transition-all duration-200 active:scale-[0.97] ${
+                    plan.highlighted
+                      ? 'bg-white text-[#0A0A0A] hover:bg-zinc-100'
+                      : 'bg-[#0A0A0A] text-white hover:bg-[#1a1a1a]'
+                  }`}
+                >
+                  Get Started
+                </button>
+
+                <div className="space-y-3">
+                  {plan.features.map((feature, j) => (
+                    <div key={j} className="flex items-start gap-3">
+                      <span className="text-[14px] mt-0.5 text-[#6D28D9]">✓</span>
+                      <span className={`text-[14px] leading-[1.5] ${plan.highlighted ? 'text-zinc-300' : 'text-zinc-600'}`}>
+                        {feature}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Section>
 
       {/* ── FAQ ── */}
-      <div style={{ background: WH, padding: '100px 64px' }}>
-        <div style={{ maxWidth: 800, margin: '0 auto' }}>
-          <SectionLabel>FAQ</SectionLabel>
-          <h2 style={{ fontSize: 'clamp(44px, 5.5vw, 72px)', fontWeight: 900, letterSpacing: '-3px', lineHeight: 1.0, color: BLK, marginBottom: 64 }}>
+      <Section id="faq" className="py-32 px-6 md:px-12">
+        <div className="max-w-[700px] mx-auto">
+          <p className="text-[14px] font-medium text-zinc-400 uppercase tracking-[0.15em] mb-4">FAQ</p>
+          <h2 className="text-[clamp(36px,5vw,56px)] font-semibold text-[#0A0A0A] leading-[1.1] tracking-[-0.03em] mb-16">
             Questions.
           </h2>
-          {faqs.map((faq, i) => (
-            <div key={i} style={{ borderTop: `1px solid ${BDR}`, padding: '28px 0' }}>
-              <p style={{ fontSize: 16, fontWeight: 600, color: BLK, marginBottom: 10, letterSpacing: '-0.2px' }}>{faq.q}</p>
-              <p style={{ fontSize: 15, color: GR, lineHeight: 1.7 }}>{faq.a}</p>
-            </div>
-          ))}
-          <div style={{ borderTop: `1px solid ${BDR}` }} />
-        </div>
-      </div>
 
-      {/* ── CTA (dark) ── */}
-      <div style={{ background: BLK, padding: '120px 64px' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center' }}>
-          <h2 style={{ fontSize: 'clamp(40px, 5.5vw, 64px)', fontWeight: 900, letterSpacing: '-2.5px', lineHeight: 1.05, color: WH, marginBottom: 20 }}>
+          <div className="divide-y divide-zinc-200">
+            {[
+              { q: 'How does voice matching work?',          a: 'You paste a cover letter you have written before. Our AI learns your unique tone, phrasing, and style, then applies it to every new letter. Hiring managers cannot tell the difference.' },
+              { q: 'What does the job scraper actually do?', a: 'It searches the entire internet for job postings that match your profile, experience, and preferences. Not just one board — everywhere. Results are ranked by how well they fit you.' },
+              { q: 'Can I switch plans later?',              a: 'Yes. Upgrade or downgrade anytime. Changes take effect at your next billing cycle.' },
+              { q: 'Is my data secure?',                     a: 'All data is encrypted at rest and in transit. We never share your information with third parties or use it to train models.' },
+              { q: 'Why invite only?',                       a: 'We are onboarding users in small batches to ensure quality. Every new member gets a personal onboarding and priority support during early access.' },
+              { q: 'What if I do not have a cover letter to paste?', a: 'No problem. You can write a short paragraph about yourself and Careerely will learn from that. Or use our CV builder to create everything from scratch.' },
+            ].map((item, i) => (
+              <div key={i} className="py-7">
+                <h3 className="text-[16px] font-medium text-[#0A0A0A] mb-2">{item.q}</h3>
+                <p className="text-[15px] text-zinc-500 leading-[1.7]">{item.a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Section>
+
+      {/* ── FINAL CTA ── */}
+      <Section className="py-32 px-6 md:px-12 bg-[#0A0A0A]">
+        <div className="max-w-[700px] mx-auto text-center">
+          <h2 className="text-[clamp(36px,5vw,56px)] font-semibold text-white leading-[1.1] tracking-[-0.03em] mb-6">
             Your next role is one click away.
           </h2>
-          <p style={{ fontSize: 16, color: '#6b7280', marginBottom: 36, lineHeight: 1.6 }}>
+          <p className="text-[18px] text-zinc-400 mb-10 leading-[1.6]">
             Join the waitlist. Get early access. Lock in founding-member pricing.
           </p>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center max-w-[420px] mx-auto">
             <input
-              className="cta-input"
               type="email"
               placeholder="your@email.com"
               value={ctaEmail}
               onChange={e => setCtaEmail(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && router.push('/auth')}
-              style={{ padding: '13px 18px', border: '1px solid #374151', borderRadius: 8, fontSize: 15, color: WH, fontFamily: FONT, outline: 'none', width: 260, background: 'transparent' }}
+              className="flex-1 px-4 py-3.5 rounded-md bg-white/10 border border-white/20 text-white text-[15px] placeholder:text-zinc-500 focus:outline-none focus:border-[#6D28D9] transition-all"
             />
             <button
               onClick={() => router.push('/auth')}
-              style={{ padding: '13px 24px', background: WH, color: BLK, border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: FONT, whiteSpace: 'nowrap' }}
-            >Join Waitlist</button>
+              className="bg-white text-[#0A0A0A] text-[15px] font-medium px-7 py-3.5 rounded-md hover:bg-zinc-100 active:scale-[0.97] transition-all duration-200 whitespace-nowrap"
+            >
+              Join Waitlist
+            </button>
           </div>
         </div>
-      </div>
+      </Section>
 
-      {/* ── Footer ── */}
-      <footer style={{ background: WH, borderTop: `1px solid ${BDR}`, padding: '22px 64px' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: BLK, letterSpacing: '-0.3px' }}>
-            Career<span style={{ color: PUR }}>ely</span>
+      {/* ── FOOTER ── */}
+      <footer className="bg-[#0A0A0A] border-t border-white/10 py-12 px-6 md:px-12">
+        <div className="max-w-[1200px] mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="text-[16px] font-semibold tracking-[-0.02em]">
+            <span className="text-white">Career</span>
+            <span className="text-[#6D28D9]">ely</span>
           </div>
-          <div style={{ display: 'flex', gap: 32 }}>
-            {['Twitter', 'LinkedIn', 'Instagram'].map(s => (
-              <a key={s} href="#" style={{ fontSize: 14, color: GR, transition: 'color 0.15s' }}
-                onMouseEnter={e => (e.currentTarget.style.color = BLK)}
-                onMouseLeave={e => (e.currentTarget.style.color = GR)}
-              >{s}</a>
-            ))}
+
+          <div className="flex items-center gap-8">
+            <a href="#" className="text-[13px] text-zinc-500 hover:text-white transition-colors">Twitter</a>
+            <a href="#" className="text-[13px] text-zinc-500 hover:text-white transition-colors">LinkedIn</a>
+            <a href="#" className="text-[13px] text-zinc-500 hover:text-white transition-colors">Instagram</a>
           </div>
-          <p style={{ fontSize: 13, color: GR }}>© 2025 Careerely</p>
+
+          <p className="text-[13px] text-zinc-600">© 2025 Careerely</p>
         </div>
       </footer>
-    </>
+
+    </div>
   )
 }
