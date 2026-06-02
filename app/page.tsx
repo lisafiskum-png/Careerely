@@ -1,216 +1,249 @@
 'use client'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { billingOptions, pricingPlans, type BillingPeriod } from '../lib/plans'
+import { pricingPlans } from '../lib/plans'
 
-const M  = '#c026d3'
-const MG = 'linear-gradient(135deg, #7c3aed 0%, #c026d3 55%, #ec4899 100%)'
-const BG = '#f9fafb'  // very light gray — the page background
-const WH = '#ffffff'  // white — used for cards, nav, footer
+const PUR  = '#7c3aed'
+const BLK  = '#111111'
+const MID  = '#374151'
+const GR   = '#9ca3af'
+const BDR  = '#e5e7eb'
+const BG   = '#f9fafb'
+const WH   = '#ffffff'
+const FONT = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
 
 export default function Landing() {
   const router = useRouter()
-  const [billing, setBilling] = useState<'monthly' | 'annual'>('monthly')
-  const [openFaq, setOpenFaq]  = useState<number | null>(null)
-  const [email, setEmail]       = useState('')
-
-  const faqs = [
-    { q: "What if I don't have a cover letter to paste?",    a: "No problem. Careerely can generate a CV from scratch using your profile information." },
-    { q: "How does voice matching work?",                    a: "You paste a cover letter you have written. Our AI learns your unique tone, phrasing, and style, then applies it to every new letter." },
-    { q: "Can I switch plans later?",                        a: "Yes. You can upgrade or downgrade your plan anytime. Changes take effect at your next billing cycle." },
-    { q: "Is my data secure?",                               a: "Absolutely. All data is encrypted and stored securely. We never share your information with third parties." },
-    { q: "How many jobs can I apply to?",                    a: "Pro and Premium plans have unlimited applications. Standard plan includes 10 cover letters per month." },
-    { q: "Do you offer a free trial?",                       a: "Yes — every plan comes with a 7-day free trial. No credit card required to start." },
-  ]
+  const [heroEmail, setHeroEmail]   = useState('')
+  const [ctaEmail,  setCtaEmail]    = useState('')
 
   const features = [
-    { icon: '✨', label: 'Voice-matched letters' },
-    { icon: '🔍', label: 'Job discovery' },
-    { icon: '⚡', label: 'One-click apply' },
-    { icon: '🎯', label: 'Interview prep' },
-    { icon: '📄', label: 'CV builder' },
-    { icon: '🎯', label: 'ATS optimization' },
+    { title: 'Job Discovery',    desc: 'Scrapes the entire web for roles matching your profile. No more manual searching across 10 different boards.' },
+    { title: 'Voice Matching',   desc: 'Paste one cover letter. Every new application sounds exactly like you wrote it yourself.' },
+    { title: 'One-Click Apply',  desc: 'Found a role? Apply in one click with a tailored cover letter. Under 2 minutes.' },
+    { title: 'ATS Optimization', desc: 'Every letter is optimized for applicant tracking systems. Keywords, format, tone — all handled.' },
+    { title: 'CV Builder',       desc: 'Build a CV from scratch or optimize your existing one. Tailored to each role automatically.' },
+    { title: 'Interview Prep',   desc: 'AI-generated interview questions based on the exact job description. Practice before you walk in.' },
   ]
+
+  const steps = [
+    { n: '01', title: 'Paste your voice',    desc: 'Upload a cover letter you have written before. Careerely learns your tone, phrasing, and personality in seconds.' },
+    { n: '02', title: 'We find the jobs',    desc: 'Our scraper searches the entire job market for roles that match your profile. Ranked by fit score.' },
+    { n: '03', title: 'Apply automatically', desc: 'One click. Tailored cover letter in your voice. Sent. Done. Move on to the next one.' },
+  ]
+
+  const comparison = [
+    { feature: 'Finds jobs for you',   own: '—',      gpt: '—',       us: '✓' },
+    { feature: 'Sounds like you',      own: '✓',      gpt: '—',       us: '✓', ownWeak: true },
+    { feature: 'Tailored per job',     own: 'Slow',   gpt: 'Generic', us: '✓' },
+    { feature: 'One-click apply',      own: '—',      gpt: '—',       us: '✓' },
+    { feature: 'ATS optimized',        own: '—',      gpt: '—',       us: '✓' },
+    { feature: 'Time per application', own: '45 min', gpt: '15 min',  us: '2 min', isTime: true },
+  ]
+
+  const faqs = [
+    { q: 'How does voice matching work?',          a: 'You paste a cover letter you have written before. Our AI learns your unique tone, phrasing, and style, then applies it to every new letter. Hiring managers cannot tell the difference.' },
+    { q: 'What does the job scraper actually do?', a: 'It searches the entire internet for job postings that match your profile, experience, and preferences. Not just one board — everywhere. Results are ranked by how well they fit you.' },
+    { q: 'Can I switch plans later?',              a: 'Yes. Upgrade or downgrade anytime. Changes take effect at your next billing cycle.' },
+    { q: 'Is my data secure?',                     a: 'All data is encrypted at rest and in transit. We never share your information with third parties or use it to train models.' },
+    { q: 'Can I cancel anytime?',                  a: 'Yes. No contracts, no commitments. Cancel from your dashboard and keep access until the end of your billing period.' },
+  ]
+
+  const SectionLabel = ({ children }: { children: string }) => (
+    <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: GR, marginBottom: 20 }}>{children}</p>
+  )
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
-        body { font-family: 'Sora', sans-serif; background: ${BG}; color: #111; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+        body { font-family: ${FONT}; background: ${BG}; color: ${BLK}; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+        a { color: inherit; text-decoration: none; }
+        .hero-input::placeholder { color: ${GR}; }
+        .cta-input::placeholder { color: #4b5563; }
       `}</style>
 
-      {/* ── Nav (white) ───────────────────────────────────────── */}
-      <nav style={{
-        position: 'sticky', top: 0, zIndex: 100,
-        background: WH, borderBottom: '1px solid #e5e7eb',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 48px', height: 64,
-      }}>
-        <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-0.4px', color: '#111' }}>
-          Careerely<span style={{ color: M }}>.</span>
+      {/* ── Nav ── */}
+      <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: WH, borderBottom: `1px solid ${BDR}` }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 64px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.3px', color: BLK }}>
+            Career<span style={{ color: PUR }}>ely</span>
+          </div>
+          <div style={{ display: 'flex', gap: 40 }}>
+            {[['How it works', '#how'], ['Features', '#features'], ['Pricing', '#pricing']].map(([label, href]) => (
+              <a key={label} href={href} style={{ fontSize: 14, fontWeight: 500, color: GR, transition: 'color 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.color = BLK)}
+                onMouseLeave={e => (e.currentTarget.style.color = GR)}
+              >{label}</a>
+            ))}
+          </div>
+          <button onClick={() => router.push('/auth')} style={{ padding: '9px 22px', background: BLK, color: WH, border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>
+            Join Waitlist
+          </button>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 36 }}>
-          {[['Features', '#features'], ['Pricing', '#pricing'], ['FAQ', '#faq']].map(([label, href]) => (
-            <a key={label} href={href}
-              style={{ fontSize: 14, fontWeight: 500, color: '#6b7280', textDecoration: 'none' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#111')}
-              onMouseLeave={e => (e.currentTarget.style.color = '#6b7280')}
-            >{label}</a>
-          ))}
-        </div>
-        <button
-          onClick={() => router.push('/auth')}
-          style={{ padding: '10px 22px', background: MG, border: 'none', borderRadius: 100, color: WH, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'Sora, sans-serif' }}
-        >Join Waitlist</button>
       </nav>
 
-      {/* ── Hero (white section) ──────────────────────────────── */}
+      {/* ── Hero ── */}
       <div style={{ background: WH }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '80px 48px 100px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'center' }}>
-          {/* Left */}
-          <div>
-            <h1 style={{ fontSize: 'clamp(52px, 6vw, 80px)', fontWeight: 900, lineHeight: 1.0, letterSpacing: '-3px', color: '#111', marginBottom: 24 }}>
-              Your voice.<br />Every<br />application.
-            </h1>
-            <p style={{ fontSize: 17, lineHeight: 1.65, color: '#6b7280', marginBottom: 36, maxWidth: 420 }}>
-              Stop writing generic cover letters. Careerely learns how you write and tailors every application to the exact job. In under 2 minutes.
-            </p>
-            {/* Trust badge */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-              <div style={{ display: 'flex' }}>
-                {['#ec4899', '#c026d3', '#7c3aed'].map((c, i) => (
-                  <div key={c} style={{ width: 32, height: 32, borderRadius: '50%', background: c, border: `2px solid ${WH}`, marginLeft: i ? -8 : 0 }} />
-                ))}
-              </div>
-              <span style={{ fontSize: 14, color: '#374151' }}>Trusted by <strong>2,847</strong> job seekers</span>
-            </div>
-            {/* Email form */}
-            <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-              <input
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                type="email"
-                style={{ flex: 1, padding: '13px 18px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, fontFamily: 'Sora, sans-serif', outline: 'none', color: '#111', background: WH }}
-                onFocus={e => (e.currentTarget.style.borderColor = M)}
-                onBlur={e => (e.currentTarget.style.borderColor = '#e5e7eb')}
-              />
-              <button
-                onClick={() => router.push(email ? `/auth?email=${encodeURIComponent(email)}` : '/auth')}
-                style={{ padding: '13px 28px', background: MG, border: 'none', borderRadius: 10, color: WH, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'Sora, sans-serif', whiteSpace: 'nowrap' }}
-              >Join</button>
-            </div>
-            <p style={{ fontSize: 12, color: '#9ca3af' }}>Invite only. 50 spots this week. Founding-member pricing locked in.</p>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '88px 64px 52px' }}>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: GR, marginBottom: 28 }}>INVITE ONLY</p>
+          <h1 style={{ fontSize: 'clamp(52px, 7vw, 92px)', fontWeight: 900, letterSpacing: '-3.5px', lineHeight: 1.03, color: BLK, marginBottom: 28, maxWidth: 820 }}>
+            Stop writing applications.<br />
+            <span style={{ color: PUR }}>Start landing jobs.</span>
+          </h1>
+          <p style={{ fontSize: 17, color: MID, lineHeight: 1.65, marginBottom: 36, maxWidth: 500 }}>
+            Careerely learns your voice from one cover letter, scrapes the entire job market, and applies for you. In under 2 minutes.
+          </p>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+            <input
+              className="hero-input"
+              type="email"
+              placeholder="your@email.com"
+              value={heroEmail}
+              onChange={e => setHeroEmail(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && router.push('/auth')}
+              style={{ padding: '13px 18px', border: `1px solid ${BDR}`, borderRadius: 8, fontSize: 15, color: BLK, fontFamily: FONT, outline: 'none', width: 300, background: WH }}
+            />
+            <button
+              onClick={() => router.push('/auth')}
+              style={{ padding: '13px 24px', background: BLK, color: WH, border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: FONT, whiteSpace: 'nowrap' }}
+            >Join Waitlist</button>
           </div>
-
-          {/* Right — gradient blob card */}
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <div style={{ background: 'linear-gradient(135deg, #faf5ff 0%, #fce7f3 100%)', borderRadius: 24, padding: '52px 48px', boxShadow: '0 20px 60px rgba(192,38,211,0.12)', border: '1px solid rgba(192,38,211,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 380, height: 320 }}>
-              <div style={{ width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle at 38% 32%, #c084fc, #7c3aed 35%, #c026d3 58%, #ec4899 100%)', boxShadow: '0 24px 64px rgba(192,38,211,0.45), 0 8px 24px rgba(124,58,237,0.3)' }} />
-            </div>
-          </div>
+          <p style={{ fontSize: 13, color: GR }}>50 spots this week. Founding-member pricing locked in.</p>
         </div>
-      </div>
 
-      {/* ── Steps (gray bg, white cards) ─────────────────────── */}
-      <div style={{ padding: '80px 48px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <h2 style={{ fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 800, letterSpacing: '-1.5px', color: '#111', textAlign: 'center', marginBottom: 56 }}>
-            Three steps to your next role
-          </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+        {/* Stats */}
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 64px' }}>
+          <div style={{ borderTop: `1px solid ${BDR}`, paddingTop: 40, paddingBottom: 88, display: 'flex', gap: 64 }}>
             {[
-              { n: '1', title: 'Paste your voice',  desc: 'Upload a cover letter you have written. Careerely learns your tone and voice.' },
-              { n: '2', title: 'Search jobs',        desc: 'Find roles across the entire job market. Ranked by fit to your profile.' },
-              { n: '3', title: 'Apply in seconds',   desc: 'One-click apply with a tailored cover letter. Every letter sounds like you.' },
-            ].map(step => (
-              <div key={step.n} style={{ background: WH, border: '1.5px solid #e5e7eb', borderRadius: 16, padding: '36px 28px' }}>
-                <div style={{ width: 44, height: 44, borderRadius: '50%', background: MG, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
-                  <span style={{ color: WH, fontSize: 18, fontWeight: 800 }}>{step.n}</span>
-                </div>
-                <h3 style={{ fontSize: 18, fontWeight: 700, color: '#111', marginBottom: 10, letterSpacing: '-0.3px' }}>{step.title}</h3>
-                <p style={{ fontSize: 14, color: '#6b7280', lineHeight: 1.6 }}>{step.desc}</p>
+              { n: '2,847',  label: 'On the waitlist' },
+              { n: '94%',    label: 'Interview rate' },
+              { n: '<2 min', label: 'Per application' },
+              { n: '10x',    label: 'Faster than manual' },
+            ].map(s => (
+              <div key={s.label}>
+                <p style={{ fontSize: 34, fontWeight: 900, color: BLK, letterSpacing: '-1px', marginBottom: 4 }}>{s.n}</p>
+                <p style={{ fontSize: 14, color: GR }}>{s.label}</p>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* ── Features (gray bg, white cards) ──────────────────── */}
-      <div id="features" style={{ padding: '0 48px 80px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <h2 style={{ fontSize: 'clamp(28px, 3.5vw, 44px)', fontWeight: 800, letterSpacing: '-1.2px', color: '#111', textAlign: 'center', marginBottom: 48 }}>
-            Built for professionals who don&apos;t settle
+      {/* ── How it works ── */}
+      <div id="how" style={{ background: WH, padding: '80px 64px 100px' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <SectionLabel>HOW IT WORKS</SectionLabel>
+          <h2 style={{ fontSize: 'clamp(40px, 6vw, 76px)', fontWeight: 900, letterSpacing: '-3px', lineHeight: 1.03, color: BLK, marginBottom: 72 }}>
+            Three steps to your<br />next role.
           </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}>
+            {steps.map((step, i) => (
+              <div key={i} style={{
+                paddingLeft:  i > 0 ? 52 : 0,
+                paddingRight: i < 2 ? 52 : 0,
+                borderLeft:   i > 0 ? `1px solid ${BDR}` : 'none',
+              }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: PUR, marginBottom: 20, letterSpacing: '0.02em' }}>{step.n}</p>
+                <h3 style={{ fontSize: 20, fontWeight: 700, color: BLK, marginBottom: 12, letterSpacing: '-0.3px' }}>{step.title}</h3>
+                <p style={{ fontSize: 15, color: GR, lineHeight: 1.7 }}>{step.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Features ── */}
+      <div id="features" style={{ background: WH, padding: '0 64px 100px' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <SectionLabel>FEATURES</SectionLabel>
+          <h2 style={{ fontSize: 'clamp(40px, 5.5vw, 72px)', fontWeight: 900, letterSpacing: '-3px', lineHeight: 1.03, color: BLK, marginBottom: 64 }}>
+            Everything you need.<br />Nothing you don&apos;t.
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: `1px solid ${BDR}` }}>
             {features.map((f, i) => (
-              <div key={i} style={{ background: WH, border: '1.5px solid #e5e7eb', borderRadius: 14, padding: '28px 22px' }}>
-                <div style={{ fontSize: 28, marginBottom: 14 }}>{f.icon}</div>
-                <p style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>{f.label}</p>
+              <div key={i} style={{
+                padding: '48px 44px',
+                borderRight:  i % 2 === 0 ? `1px solid ${BDR}` : 'none',
+                borderBottom: i < 4        ? `1px solid ${BDR}` : 'none',
+                background: WH,
+              }}>
+                <h3 style={{ fontSize: 19, fontWeight: 700, color: BLK, marginBottom: 12, letterSpacing: '-0.3px' }}>{f.title}</h3>
+                <p style={{ fontSize: 14, color: GR, lineHeight: 1.7 }}>{f.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* ── Pricing (gray bg, white cards) ───────────────────── */}
-      <div id="pricing" style={{ padding: '80px 48px 100px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <h2 style={{ fontSize: 'clamp(28px, 3.5vw, 44px)', fontWeight: 800, letterSpacing: '-1.2px', color: '#111', textAlign: 'center', marginBottom: 8 }}>
-            Simple, transparent pricing
+      {/* ── Comparison ── */}
+      <div style={{ background: WH, padding: '0 64px 100px' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <SectionLabel>WHY CAREERELY</SectionLabel>
+          <h2 style={{ fontSize: 'clamp(40px, 5.5vw, 72px)', fontWeight: 900, letterSpacing: '-3px', lineHeight: 1.03, color: BLK, marginBottom: 64 }}>
+            The difference is obvious.
           </h2>
-          {/* Billing toggle */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24, marginBottom: 48 }}>
-            <div style={{ display: 'inline-flex', background: '#e5e7eb', borderRadius: 100, padding: 4 }}>
-              {(['monthly', 'annual'] as BillingPeriod[]).map(period => (
-                <button
-                  key={period}
-                  onClick={() => setBilling(period)}
-                  style={{
-                    padding: '8px 22px', borderRadius: 100, border: 'none', cursor: 'pointer',
-                    fontFamily: 'Sora, sans-serif', fontSize: 13, fontWeight: 600,
-                    background: billing === period ? MG : 'transparent',
-                    color: billing === period ? WH : '#6b7280',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  {billingOptions[period].label}
-                  {billingOptions[period].discountLabel && billing !== period && (
-                    <span style={{ marginLeft: 6, fontSize: 11, background: 'rgba(34,197,94,0.15)', color: '#16a34a', borderRadius: 100, padding: '2px 8px', fontWeight: 700 }}>
-                      {billingOptions[period].discountLabel}
-                    </span>
-                  )}
-                </button>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${BDR}` }}>
+                <th style={{ textAlign: 'left', padding: '14px 0', fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: GR, width: '40%' }}>FEATURE</th>
+                <th style={{ textAlign: 'left', padding: '14px 0', fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: GR, width: '20%' }}>ON YOUR OWN</th>
+                <th style={{ textAlign: 'left', padding: '14px 0', fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: GR, width: '20%' }}>CHATGPT</th>
+                <th style={{ textAlign: 'left', padding: '14px 0', fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: PUR, width: '20%' }}>CAREERELY</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparison.map((row, i) => (
+                <tr key={i} style={{ borderBottom: `1px solid ${BDR}` }}>
+                  <td style={{ padding: '20px 0', fontSize: 15, color: BLK, fontWeight: 500 }}>{row.feature}</td>
+                  <td style={{ padding: '20px 0', fontSize: 15, color: row.ownWeak ? '#d1d5db' : GR }}>{row.own}</td>
+                  <td style={{ padding: '20px 0', fontSize: 15, color: GR }}>{row.gpt}</td>
+                  <td style={{ padding: '20px 0', fontSize: row.isTime ? 15 : 17, color: BLK, fontWeight: row.isTime ? 700 : 600 }}>{row.us}</td>
+                </tr>
               ))}
-            </div>
-          </div>
-          {/* Plan cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, maxWidth: 960, margin: '0 auto' }}>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Pricing ── */}
+      <div id="pricing" style={{ background: BG, padding: '100px 64px' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <SectionLabel>PRICING</SectionLabel>
+          <h2 style={{ fontSize: 'clamp(40px, 5.5vw, 72px)', fontWeight: 900, letterSpacing: '-3px', lineHeight: 1.03, color: BLK, marginBottom: 64 }}>
+            Simple pricing. No<br />surprises.
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, alignItems: 'start' }}>
             {pricingPlans.map(plan => {
-              const price = billing === 'annual' ? plan.annual : plan.monthly
+              const pro = !!plan.highlight
               return (
-                <div key={plan.id} style={{ background: WH, border: plan.highlight ? `2px solid ${M}` : '1.5px solid #e5e7eb', borderRadius: 18, padding: '36px 28px', position: 'relative', display: 'flex', flexDirection: 'column' }}>
-                  {plan.highlight && (
-                    <div style={{ position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)', background: MG, color: WH, fontSize: 11, fontWeight: 800, padding: '5px 18px', borderRadius: 100, letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
-                      Most Popular
+                <div key={plan.id} style={{
+                  background: pro ? BLK : WH,
+                  border: `1px solid ${pro ? 'transparent' : BDR}`,
+                  borderRadius: 12, padding: '36px 32px',
+                  marginTop: pro ? -20 : 0,
+                }}>
+                  {pro && (
+                    <div style={{ marginBottom: 22 }}>
+                      <span style={{ background: PUR, color: WH, fontSize: 11, fontWeight: 700, padding: '4px 14px', borderRadius: 100, letterSpacing: '0.04em' }}>Most Popular</span>
                     </div>
                   )}
-                  <p style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 4 }}>{plan.title}</p>
-                  <p style={{ fontSize: 13, color: '#9ca3af', marginBottom: 20, lineHeight: 1.4 }}>{plan.tagline}</p>
-                  <div style={{ marginBottom: 24 }}>
-                    <span style={{ fontSize: 48, fontWeight: 900, color: '#111', letterSpacing: '-2px' }}>${price}</span>
-                    <span style={{ fontSize: 14, color: '#9ca3af', marginLeft: 4 }}>/month</span>
+                  <p style={{ fontSize: 18, fontWeight: 700, color: pro ? WH : BLK, marginBottom: 4 }}>{plan.title}</p>
+                  <p style={{ fontSize: 13, color: pro ? '#6b7280' : GR, marginBottom: 24, lineHeight: 1.45 }}>{plan.tagline}</p>
+                  <div style={{ marginBottom: 28 }}>
+                    <span style={{ fontSize: 52, fontWeight: 900, color: pro ? WH : BLK, letterSpacing: '-2px' }}>${plan.monthly}</span>
+                    <span style={{ fontSize: 14, color: pro ? '#6b7280' : GR, marginLeft: 4 }}>/mo</span>
                   </div>
                   <button
-                    onClick={() => router.push(`/auth?plan=${plan.id}&billing=${billing}`)}
-                    style={{ width: '100%', padding: '14px', borderRadius: 10, fontSize: 14, fontWeight: 700, fontFamily: 'Sora, sans-serif', cursor: 'pointer', marginBottom: 24, background: plan.highlight ? MG : 'transparent', color: plan.highlight ? WH : '#111', border: plan.highlight ? 'none' : '1.5px solid #d1d5db', boxShadow: plan.highlight ? '0 4px 16px rgba(192,38,211,0.25)' : 'none' }}
+                    onClick={() => router.push(`/auth?plan=${plan.id}&billing=monthly`)}
+                    style={{ width: '100%', padding: '14px', borderRadius: 8, fontSize: 14, fontWeight: 700, fontFamily: FONT, cursor: 'pointer', marginBottom: 28, background: pro ? WH : BLK, color: pro ? BLK : WH, border: 'none' }}
                   >Get Started</button>
-                  <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+                  <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {plan.features.map(f => (
-                      <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 13, color: '#374151' }}>
-                        <span style={{ color: M, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
+                      <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, fontSize: 13, color: pro ? '#9ca3af' : MID }}>
+                        <span style={{ color: pro ? '#a78bfa' : PUR, fontWeight: 700, flexShrink: 0, fontSize: 12, marginTop: 1 }}>✓</span>
                         {f}
                       </li>
                     ))}
@@ -222,83 +255,65 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* ── FAQ (gray bg, white cards) ────────────────────────── */}
-      <div id="faq" style={{ padding: '0 48px 80px' }}>
-        <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          <h2 style={{ fontSize: 'clamp(28px, 3.5vw, 44px)', fontWeight: 800, letterSpacing: '-1.2px', color: '#111', textAlign: 'center', marginBottom: 40 }}>
-            Questions? We have answers.
+      {/* ── FAQ ── */}
+      <div style={{ background: WH, padding: '100px 64px' }}>
+        <div style={{ maxWidth: 800, margin: '0 auto' }}>
+          <SectionLabel>FAQ</SectionLabel>
+          <h2 style={{ fontSize: 'clamp(44px, 5.5vw, 72px)', fontWeight: 900, letterSpacing: '-3px', lineHeight: 1.0, color: BLK, marginBottom: 64 }}>
+            Questions.
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {faqs.map((faq, i) => (
-              <div
-                key={i}
-                onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                style={{ background: WH, border: '1.5px solid #e5e7eb', borderRadius: 14, padding: '20px 24px', cursor: 'pointer' }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
-                  <p style={{ fontSize: 15, fontWeight: 600, color: '#111' }}>{faq.q}</p>
-                  <span style={{ color: '#9ca3af', fontSize: 20, flexShrink: 0, transform: openFaq === i ? 'rotate(45deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' }}>+</span>
-                </div>
-                {openFaq === i && (
-                  <p style={{ fontSize: 14, color: '#6b7280', lineHeight: 1.65, marginTop: 12 }}>{faq.a}</p>
-                )}
-              </div>
-            ))}
+          {faqs.map((faq, i) => (
+            <div key={i} style={{ borderTop: `1px solid ${BDR}`, padding: '28px 0' }}>
+              <p style={{ fontSize: 16, fontWeight: 600, color: BLK, marginBottom: 10, letterSpacing: '-0.2px' }}>{faq.q}</p>
+              <p style={{ fontSize: 15, color: GR, lineHeight: 1.7 }}>{faq.a}</p>
+            </div>
+          ))}
+          <div style={{ borderTop: `1px solid ${BDR}` }} />
+        </div>
+      </div>
+
+      {/* ── CTA (dark) ── */}
+      <div style={{ background: BLK, padding: '120px 64px' }}>
+        <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center' }}>
+          <h2 style={{ fontSize: 'clamp(40px, 5.5vw, 64px)', fontWeight: 900, letterSpacing: '-2.5px', lineHeight: 1.05, color: WH, marginBottom: 20 }}>
+            Your next role is one click away.
+          </h2>
+          <p style={{ fontSize: 16, color: '#6b7280', marginBottom: 36, lineHeight: 1.6 }}>
+            Join the waitlist. Get early access. Lock in founding-member pricing.
+          </p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <input
+              className="cta-input"
+              type="email"
+              placeholder="your@email.com"
+              value={ctaEmail}
+              onChange={e => setCtaEmail(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && router.push('/auth')}
+              style={{ padding: '13px 18px', border: '1px solid #374151', borderRadius: 8, fontSize: 15, color: WH, fontFamily: FONT, outline: 'none', width: 260, background: 'transparent' }}
+            />
+            <button
+              onClick={() => router.push('/auth')}
+              style={{ padding: '13px 24px', background: WH, color: BLK, border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: FONT, whiteSpace: 'nowrap' }}
+            >Join Waitlist</button>
           </div>
         </div>
       </div>
 
-      {/* ── CTA banner (gradient) ─────────────────────────────── */}
-      <div style={{ background: MG, padding: '80px 48px', textAlign: 'center' }}>
-        <h2 style={{ fontSize: 'clamp(32px, 4.5vw, 56px)', fontWeight: 900, color: WH, letterSpacing: '-2px', marginBottom: 16 }}>
-          Ready to land your next role?
-        </h2>
-        <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.8)', marginBottom: 36, maxWidth: 480, margin: '0 auto 36px' }}>
-          Join thousands of job seekers who have transformed their applications.
-        </p>
-        <button
-          onClick={() => router.push('/auth')}
-          style={{ padding: '16px 40px', background: WH, border: 'none', borderRadius: 12, fontSize: 16, fontWeight: 800, color: M, cursor: 'pointer', fontFamily: 'Sora, sans-serif', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}
-        >Join the Waitlist</button>
-      </div>
-
-      {/* ── Footer (white) ────────────────────────────────────── */}
-      <footer style={{ background: WH, borderTop: '1px solid #e5e7eb', padding: '60px 48px 40px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr', gap: 40, marginBottom: 48 }}>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: '#111', marginBottom: 10, letterSpacing: '-0.3px' }}>
-                Careerely<span style={{ color: M }}>.</span>
-              </div>
-              <p style={{ fontSize: 13, color: '#9ca3af', lineHeight: 1.6 }}>Your voice. Every application.</p>
-            </div>
-            {[
-              { title: 'Product',  links: ['Features', 'Pricing', 'FAQ'] },
-              { title: 'Company',  links: ['About', 'Blog', 'Careers'] },
-              { title: 'Legal',    links: ['Privacy', 'Terms', 'Contact'] },
-            ].map(col => (
-              <div key={col.title}>
-                <p style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#111', marginBottom: 14 }}>{col.title}</p>
-                {col.links.map(l => (
-                  <a key={l} href="#" style={{ display: 'block', fontSize: 13, color: '#6b7280', textDecoration: 'none', marginBottom: 8 }}
-                    onMouseEnter={e => (e.currentTarget.style.color = '#111')}
-                    onMouseLeave={e => (e.currentTarget.style.color = '#6b7280')}
-                  >{l}</a>
-                ))}
-              </div>
+      {/* ── Footer ── */}
+      <footer style={{ background: WH, borderTop: `1px solid ${BDR}`, padding: '22px 64px' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: BLK, letterSpacing: '-0.3px' }}>
+            Career<span style={{ color: PUR }}>ely</span>
+          </div>
+          <div style={{ display: 'flex', gap: 32 }}>
+            {['Twitter', 'LinkedIn', 'Instagram'].map(s => (
+              <a key={s} href="#" style={{ fontSize: 14, color: GR, transition: 'color 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.color = BLK)}
+                onMouseLeave={e => (e.currentTarget.style.color = GR)}
+              >{s}</a>
             ))}
           </div>
-          <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <p style={{ fontSize: 13, color: '#9ca3af' }}>© 2025 Careerely. All rights reserved.</p>
-            <div style={{ display: 'flex', gap: 20 }}>
-              {['Twitter', 'LinkedIn', 'Instagram'].map(s => (
-                <a key={s} href="#" style={{ fontSize: 13, color: '#6b7280', textDecoration: 'none' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = '#111')}
-                  onMouseLeave={e => (e.currentTarget.style.color = '#6b7280')}
-                >{s}</a>
-              ))}
-            </div>
-          </div>
+          <p style={{ fontSize: 13, color: GR }}>© 2025 Careerely</p>
         </div>
       </footer>
     </>
