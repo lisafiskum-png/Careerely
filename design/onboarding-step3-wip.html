@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="color-scheme" content="light"/>
+<title>Careerely — Your next move</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  color-scheme:light;
+  --fg:#111111;--sec:#6B7280;--mut:#9CA3AF;--faint:#D1D5DB;
+  --accent:#5B21B6;--surface:#fff;--border:#E5E7EB;--light:#F3F4F6;
+  --ease:cubic-bezier(0.16,1,0.3,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;background:#FAFAFA !important;color:#111 !important;-webkit-font-smoothing:antialiased}
+body{font-family:'Inter',system-ui,sans-serif;font-feature-settings:"ss01","cv01";letter-spacing:-0.011em;line-height:1.5}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input{font-family:inherit}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes chipIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+
+/* layout */
+.nav{max-width:1120px;margin:0 auto;padding:0 40px;height:72px;display:flex;align-items:center;justify-content:space-between}
+@media(max-width:640px){.nav{padding:0 20px}}
+.logo{font-size:20px;font-weight:600;letter-spacing:-.04em;color:var(--fg)}
+.logo em{color:var(--accent);font-style:normal}
+.main{max-width:540px;margin:0 auto;padding:32px 20px 140px}
+@media(min-width:640px){.main{padding:48px 40px 140px}}
+
+/* views — only .on is visible */
+.view{display:none}
+.view.on{display:block}
+
+/* dots */
+.dots{display:flex;gap:8px;margin-bottom:52px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:all .4s}
+.dot.done{background:var(--accent)}
+.dot.active{background:var(--accent);transform:scale(1.3)}
+
+/* heading */
+.heading{margin-bottom:32px;animation:fadeUp .4s var(--ease) both}
+.heading h1{font-size:clamp(26px,4vw,34px);font-weight:600;letter-spacing:-.03em;margin-bottom:10px}
+.heading p{font-size:15px;color:var(--sec);line-height:1.65;max-width:420px}
+
+/* analyzing */
+.analyzing{font-size:13px;color:var(--mut);margin-bottom:16px;overflow:hidden}
+.analyzing-row{display:flex;align-items:center;gap:8px;opacity:0;transform:translateY(4px);
+  transition:opacity .25s,transform .25s;margin-bottom:4px}
+.analyzing-row.show{opacity:1;transform:none}
+.analyzing-tick{color:var(--accent);font-size:14px;flex-shrink:0}
+
+/* section group */
+.group{margin-bottom:8px}
+.group-label{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.12em;color:var(--faint);margin-bottom:6px}
+.group-desc{font-size:13px;color:var(--mut);margin-bottom:20px;line-height:1.5}
+.group-divider{height:1px;background:var(--border);margin:40px 0 36px}
+
+/* field row */
+.field-row{margin-bottom:24px}
+.field-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+.field-label{font-size:14px;font-weight:600;color:var(--fg);letter-spacing:-.01em}
+.field-counter{font-size:12px;color:var(--faint);transition:color .3s;font-variant-numeric:tabular-nums}
+.field-hint{display:flex;align-items:flex-start;gap:6px;font-size:12px;color:#8B95A2;margin-bottom:8px;line-height:1.5}
+
+/* input field */
+.field{border:1.5px solid var(--border);border-radius:10px;background:var(--surface);
+  transition:border-color .2s;position:relative;cursor:text}
+.field:focus-within{border-color:var(--accent)}
+.field.full{background:var(--light);border-color:var(--border) !important}
+.field-body{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;min-height:28px;align-items:center}
+.field-inp{flex:1;min-width:60px;border:none;background:none;font-size:14px;
+  color:var(--fg);letter-spacing:-.011em;caret-color:var(--accent)}
+.field-inp:focus{outline:none}
+.field-inp::placeholder{color:var(--faint)}
+.field-inp:disabled::placeholder{color:transparent}
+
+/* chips */
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;
+  border-radius:5px;padding:4px 9px;animation:chipIn .25s var(--ease) both;white-space:nowrap}
+.chip-user{color:var(--fg);background:var(--light);border:1px solid var(--border)}
+.chip-ai{color:#6D28D9;background:rgba(109,40,217,.02);border:1px solid rgba(109,40,217,.12)}
+.chip-rm{cursor:pointer;font-size:14px;line-height:1;transition:color .15s;display:flex;align-items:center}
+.chip-user .chip-rm{color:var(--faint)}.chip-user .chip-rm:hover{color:var(--fg)}
+.chip-ai .chip-rm{color:rgba(109,40,217,.35)}.chip-ai .chip-rm:hover{color:#6D28D9}
+
+/* dropdown */
+.drop{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--surface);
+  border:1px solid var(--border);border-radius:10px;
+  box-shadow:0 12px 32px -8px rgba(0,0,0,.1);z-index:30;padding:4px;display:none;max-height:240px;overflow-y:auto}
+.drop.open{display:block}
+.drop-head{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--faint);padding:8px 12px 4px}
+.ditem{font-size:13px;padding:8px 12px;border-radius:6px;cursor:pointer;color:var(--fg);transition:background .1s}
+.ditem:hover,.ditem.hi{background:var(--light)}
+
+/* work style */
+.ws-opts{display:flex;gap:8px;flex-wrap:wrap}
+.ws{height:40px;padding:0 20px;border-radius:999px;font-size:14px;font-weight:500;
+  color:var(--sec);border:1.5px solid var(--border);transition:all .18s;
+  display:flex;align-items:center;gap:6px}
+.ws:hover{border-color:var(--fg);color:var(--fg)}
+.ws.on{background:var(--fg);color:#fff;border-color:var(--fg)}
+.ws-tick{opacity:0;transition:opacity .15s}
+.ws.on .ws-tick{opacity:1}
+
+/* payoff */
+.payoff{font-size:13px;color:var(--mut);line-height:1.6;margin-top:36px;
+  padding-top:24px;border-top:1px solid var(--border)}
+
+/* sticky CTA */
+.cta-bar{position:fixed;bottom:0;left:0;right:0;padding:16px 20px 32px;
+  background:rgba(250,250,250,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border-top:1px solid rgba(229,231,235,.7);z-index:20}
+@media(min-width:640px){.cta-bar{padding:20px 40px 32px}}
+.cta-inner{max-width:540px;margin:0 auto}
+.btn{width:100%;height:40px;border-radius:999px;background:var(--fg);color:#fff;
+  font-size:15px;font-weight:500;transition:all .2s;letter-spacing:-.01em}
+.btn:hover{background:#1F1F1F}
+.btn:active{transform:scale(.98)}
+.btn:disabled{background:var(--border);color:var(--mut);cursor:not-allowed;transform:none}
+.cta-note{font-size:12px;color:var(--mut);text-align:center;margin-top:10px}
+
+/* transition screen */
+.tr-title{font-size:22px;font-weight:600;letter-spacing:-.025em;color:var(--fg);margin-bottom:32px;
+  animation:fadeUp .4s var(--ease) both}
+.tr-steps{display:flex;flex-direction:column;gap:16px}
+.tr-step{display:flex;align-items:center;gap:12px;font-size:15px;color:var(--fg);
+  opacity:0;transform:translateY(6px);transition:opacity .4s var(--ease),transform .4s var(--ease)}
+.tr-step.show{opacity:1;transform:none}
+.tr-tick{color:var(--accent);font-size:16px;width:20px;flex-shrink:0}
+
+/* success */
+.sico{width:52px;height:52px;border-radius:14px;background:rgba(91,33,182,.08);
+  display:flex;align-items:center;justify-content:center;margin-bottom:24px}
+.summary-card{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface);margin-bottom:24px}
+.summary-head{display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid var(--border);background:var(--light)}
+.summary-label{font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.1em;color:var(--mut)}
+.summary-edit{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500;
+  color:var(--mut);background:none;border:none;cursor:pointer;transition:color .15s;padding:0}
+.summary-edit:hover{color:var(--fg)}
+.summary-rows{padding:4px 0}
+.summary-row{display:flex;align-items:flex-start;gap:12px;padding:10px 16px;border-bottom:1px solid var(--light)}
+.summary-row:last-child{border-bottom:none}
+.summary-key{font-size:12px;font-weight:500;color:var(--mut);width:90px;flex-shrink:0;padding-top:1px}
+.summary-vals{list-style:none;display:flex;flex-wrap:wrap;gap:4px;flex:1}
+.summary-vals li{font-size:13px;color:var(--fg)}
+.summary-vals li::after{content:' ·';color:var(--faint)}
+.summary-vals li:last-child::after{content:''}
+</style>
+</head>
+<body>
+
+<nav><div class="nav">
+  <span class="logo">Career<em>ely</em></span>
+  <span id="nav-step" style="font-size:13px;color:var(--mut)">Last step</span>
+</div></nav>
+
+<div class="main">
+
+  <!-- PREFS VIEW -->
+  <div class="view on" id="v-prefs">
+    <div class="dots">
+      <div class="dot done"></div>
+      <div class="dot done"></div>
+      <div class="dot active"></div>
+    </div>
+
+    <div class="heading">
+      <h1>Your next move</h1>
+      <p>We've built your professional profile. Now let's personalise your search.</p>
+    </div>
+
+    <!-- Career direction -->
+    <div class="group">
+      <div class="analyzing" id="analyzing" style="display:none">
+        <div class="analyzing-row" id="ar1"><span class="analyzing-tick">✓</span><span>Sales &amp; BD experience found</span></div>
+        <div class="analyzing-row" id="ar2"><span class="analyzing-tick">✓</span><span>Fintech &amp; compliance background</span></div>
+        <div class="analyzing-row" id="ar3"><span class="analyzing-tick">✓</span><span>AI and Web3 exposure</span></div>
+      </div>
+
+      <div class="field-row">
+        <div class="field-head">
+          <span class="field-label">Desired roles</span>
+          <span class="field-counter" id="fn-count">Choose up to 3</span>
+        </div>
+        <p class="field-hint">Suggested from your resume. Edit if needed.</p>
+        <div class="field" id="fn-field" onclick="focusInp('fn')">
+          <div class="field-body" id="fn-body">
+            <input class="field-inp" id="fn-inp" placeholder="Add a role…"
+              autocomplete="off" oninput="onSearch('fn')" onkeydown="onKey(event,'fn')" onfocus="onFocus('fn')"/>
+          </div>
+          <div class="drop" id="fn-drop"></div>
+        </div>
+      </div>
+
+      <div class="field-row" style="margin-bottom:12px">
+        <div class="field-head">
+          <span class="field-label">Industries &amp; domains</span>
+          <span class="field-counter" id="ai-count">Up to 5</span>
+        </div>
+        <div class="field" id="ai-field" onclick="focusInp('ai')">
+          <div class="field-body" id="ai-body">
+            <input class="field-inp" id="ai-inp" placeholder="Add another industry or domain…"
+              autocomplete="off" oninput="onSearch('ai')" onkeydown="onKey(event,'ai')" onfocus="onFocus('ai')"/>
+          </div>
+          <div class="drop" id="ai-drop"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="group-divider"></div>
+
+    <!-- Preferences -->
+    <div class="group">
+      <p class="group-label">Preferences</p>
+      <p class="group-desc">Tell us how and where you'd ideally like to work.</p>
+
+      <div class="field-row">
+        <div class="field-head" style="margin-bottom:12px">
+          <span class="field-label">How you'd like to work</span>
+        </div>
+        <div class="ws-opts">
+          <button class="ws on" onclick="toggleWs(this)">
+            <svg class="ws-tick" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            On-site
+          </button>
+          <button class="ws" onclick="toggleWs(this)">
+            <svg class="ws-tick" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Hybrid
+          </button>
+          <button class="ws" onclick="toggleWs(this)">
+            <svg class="ws-tick" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Remote
+          </button>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field-head">
+          <span class="field-label">Preferred locations</span>
+          <span class="field-counter" style="color:var(--faint)">Optional</span>
+        </div>
+        <div class="field" id="loc-field" onclick="focusInp('loc')">
+          <div class="field-body" id="loc-body">
+            <input class="field-inp" id="loc-inp" placeholder="Search for a city, country, or region…"
+              autocomplete="off" oninput="onSearch('loc')" onkeydown="onKey(event,'loc')" onfocus="onFocus('loc')"/>
+          </div>
+          <div class="drop" id="loc-drop"></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="payoff">We'll combine your experience with your preferences to find the right opportunities and prepare every application.</p>
+  </div>
+
+  <!-- TRANSITION VIEW -->
+  <div class="view" id="v-transition" style="padding-top:48px">
+    <p class="tr-title">Finding your opportunities</p>
+    <div class="tr-steps">
+      <div class="tr-step" id="tr1"><span class="tr-tick">✓</span><span>Building your profile</span></div>
+      <div class="tr-step" id="tr2"><span class="tr-tick">✓</span><span>Analysing your experience</span></div>
+      <div class="tr-step" id="tr3"><span class="tr-tick">✓</span><span>Finding your opportunities</span></div>
+      <div class="tr-step" id="tr4"><span class="tr-tick">✓</span><span>Tailoring your first applications</span></div>
+    </div>
+  </div>
+
+  <!-- SUCCESS VIEW -->
+  <div class="view" id="v-success" style="padding-top:48px">
+    <div style="animation:fadeUp .5s var(--ease) both">
+      <div class="sico">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5B21B6" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h1 style="font-size:28px;font-weight:600;letter-spacing:-.03em;margin-bottom:12px">You're all set</h1>
+      <p style="font-size:15px;color:var(--sec);max-width:380px;line-height:1.65;margin-bottom:28px">
+        Careerely is now finding roles that fit your profile. We'll let you know when your first opportunities are ready.
+      </p>
+      <div class="summary-card">
+        <div class="summary-head">
+          <span class="summary-label">Your search preferences</span>
+          <button class="summary-edit" onclick="editPrefs()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+            Edit
+          </button>
+        </div>
+        <div class="summary-rows">
+          <div class="summary-row"><span class="summary-key">Roles</span><ul class="summary-vals" id="sum-roles"></ul></div>
+          <div class="summary-row"><span class="summary-key">Industries</span><ul class="summary-vals" id="sum-areas"></ul></div>
+          <div class="summary-row"><span class="summary-key">Work style</span><ul class="summary-vals" id="sum-ws"></ul></div>
+          <div class="summary-row"><span class="summary-key">Location</span><ul class="summary-vals" id="sum-loc"></ul></div>
+        </div>
+      </div>
+      <button class="btn" onclick="alert('Going to dashboard')">Go to my dashboard</button>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- STICKY CTA (only shown during prefs) -->
+<div class="cta-bar" id="cta-bar">
+  <div class="cta-inner">
+    <button class="btn" id="start-btn" onclick="goSuccess()" disabled>Find my opportunities</button>
+    <p class="cta-note">You can update these anytime from your dashboard.</p>
+  </div>
+</div>
+
+<script>
+// ── DATA ──
+const FUNCTIONS = ['Account Executive','Account Management','AI Engineer','AI Researcher','AML Analyst','AML Officer','Android Engineer','Art Director','Backend Engineer','Brand Designer','Brand Marketing Manager','Business Analyst','Business Development Manager','Business Intelligence Analyst','Business Operations Manager','Campaign Manager','CFO','Chief of Staff','CISO','CMO','COO','Compliance Analyst','Compliance Manager','Community Manager','Content Marketing Manager','Controller','Corporate Development Manager','CPO','Creative Director','CRO','CTO','Customer Success Lead','Customer Success Manager','Customer Support Manager','Data Analyst','Data Architect','Data Engineer','Data Scientist','Demand Generation Manager','Design Lead','Design Systems Lead','Developer Relations','DevOps Engineer','Digital Marketing Manager','Director of Engineering','Director of Marketing','Director of Operations','Director of Product','Director of Sales','Email Marketing Manager','Embedded Engineer','Engineering Manager','Enterprise Account Executive','Entrepreneur in Residence','Finance Manager','Financial Analyst','Firmware Engineer','FP&A Manager','Founder','Frontend Engineer','Full-stack Engineer','General Counsel','Group Product Manager','Growth Marketing Manager','HR Business Partner','HR Manager','Head of Customer Success','Head of Data','Head of Design','Head of Engineering','Head of Finance','Head of Growth','Head of Operations','Head of Partnerships','Head of People','Head of Product','Head of Sales','Head of Security','Head of Talent','Implementation Manager','In-house Counsel','Infrastructure Engineer','Investment Analyst','Investor Relations Manager','iOS Engineer','Legal Counsel','Legal Operations Manager','M&A Analyst','Marketing Analyst','Marketing Manager','Marketing Operations Manager','Mid-Market Account Executive','ML Engineer','Mobile Engineer','Motion Designer','Onboarding Manager','Paid Acquisition Manager','Paralegal','Partnerships Manager','People Operations Manager','Performance Marketing Manager','Platform Engineer','Pre-Sales Engineer','Principal Product Manager','Principal Software Engineer','Product Analyst','Product Designer','Product Director','Product Lead','Product Manager','Product Marketing Manager','Product Operations Manager','Program Manager','Project Manager','PR Manager','Quantitative Analyst','Recruiting Manager','Recruiter','Regional Sales Manager','Regulatory Affairs Manager','Research Scientist','Revenue Operations Manager','Risk Analyst','Risk Manager','Sales Development Representative','Sales Engineer','Sales Manager','SDR','Security Engineer','Senior Account Executive','Senior Business Development Manager','Senior CSM','Senior Data Analyst','Senior Data Scientist','Senior Engineering Manager','Senior Financial Analyst','Senior Operations Manager','Senior Product Manager','Senior Recruiter','Senior Sales Manager','Senior Software Engineer','Site Reliability Engineer','Smart Contract Developer','Social Media Manager','Software Engineer','Solutions Architect','Solutions Engineer','Staff Software Engineer','Strategic Partnerships Manager','Strategy & Operations Manager','Strategy Consultant','Technical Account Manager','Technical Architect','Technical Product Manager','Technical Recruiter','Technical Sales','Treasury Analyst','UX Designer','UX Researcher','UX Writer','UI Designer','Venture Capital Analyst','Visual Designer','VP Customer Success','VP Engineering','VP Finance','VP Marketing','VP Operations','VP People','VP Product','VP Sales','Web3 Engineer'].sort()
+
+const AREAS = ['AdTech','Aerospace & Defence','AgriTech','AI & Machine Learning','Analytics & BI','API & Integration','Artificial Intelligence','Autonomous Vehicles','B2B SaaS','Banking Technology','BioTech','Blockchain & Crypto','Buy Now Pay Later','Carbon Technology','Clean Energy','Climate Tech','Cloud Computing','Compliance Technology','Construction Technology','Consumer Tech','Creator Economy','Cryptocurrency','Cybersecurity','DAOs','Data Infrastructure','Database Technology','DeFi','Defence Technology','Developer Tools','DevOps & Infrastructure','Digital Assets','Digital Banking','Digital Health','Direct-to-Consumer','Drones & UAVs','E-commerce','EdTech','Embedded Finance','Enterprise Software','Esports','Fintech','Food Technology','Future of Work','Gaming','Generative AI','GovTech','HealthTech','HRTech','Identity & Access Management','Industrial IoT','InsurTech','KYC & Identity','Legal Tech','Lending Technology','LLMs & Foundation Models','Logistics & Supply Chain','Low-code & No-code','Manufacturing Technology','Marketplace','MarTech','Media & Entertainment','MedTech','Mental Health Technology','ML Infrastructure','MLOps','Mobility','Music Technology','NFTs & Digital Assets','Open Source Software','Payments','Pharmaceutical Technology','PropTech','Real Estate Technology','RegTech','Renewable Energy','Retail Technology','Robotics & Automation','Smart Cities','Social Commerce','SpaceTech','Sports Technology','Stablecoins','Subscription Commerce','Sustainability','Telemedicine','Telecommunications','Transportation Technology','Travel & Hospitality Technology','VR & AR','Water Technology','WealthTech','Web3','Workforce Technology','5G & Connectivity'].sort()
+
+const LOCATIONS = ['Abu Dhabi, UAE','Accra, Ghana','Amsterdam, Netherlands','Antwerp, Belgium','Athens, Greece','Atlanta, USA','Auckland, New Zealand','Austin, USA','Bahrain','Bangalore, India','Bangkok, Thailand','Barcelona, Spain','Basel, Switzerland','Beijing, China','Beirut, Lebanon','Belgrade, Serbia','Bergen, Norway','Berlin, Germany','Bern, Switzerland','Bilbao, Spain','Birmingham, UK','Bogotá, Colombia','Bologna, Italy','Boston, USA','Bratislava, Slovakia','Brussels, Belgium','Bucharest, Romania','Budapest, Hungary','Buenos Aires, Argentina','Calgary, Canada','Cape Town, South Africa','Chennai, India','Chicago, USA','Copenhagen, Denmark','Cork, Ireland','Dallas, USA','Delhi, India','Denver, USA','Doha, Qatar','Drammen, Norway','Dubai, UAE','Dublin, Ireland','Düsseldorf, Germany','Edinburgh, UK','Florence, Italy','Frankfurt, Germany','Geneva, Switzerland','Glasgow, UK','Gothenburg, Sweden','Guadalajara, Mexico','Hamburg, Germany','Hanoi, Vietnam','Helsinki, Finland','Ho Chi Minh City, Vietnam','Hong Kong','Houston, USA','Hyderabad, India','Istanbul, Turkey','Jakarta, Indonesia','Jeddah, Saudi Arabia','Johannesburg, South Africa','Kuala Lumpur, Malaysia','Kuwait City, Kuwait','Kyiv, Ukraine','Lagos, Nigeria','Lausanne, Switzerland','Leeds, UK','Lima, Peru','Lisbon, Portugal','Ljubljana, Slovenia','London, UK','Los Angeles, USA','Lyon, France','Madrid, Spain','Málaga, Spain','Manchester, UK','Manila, Philippines','Marseille, France','Medellín, Colombia','Melbourne, Australia','Mexico City, Mexico','Miami, USA','Milan, Italy','Minneapolis, USA','Monterrey, Mexico','Montreal, Canada','Mumbai, India','Munich, Germany','Muscat, Oman','Nairobi, Kenya','Naples, Italy','Nashville, USA','New York, USA','Oslo, Norway','Osaka, Japan','Ottawa, Canada','Paris, France','Perth, Australia','Philadelphia, USA','Phoenix, USA','Porto, Portugal','Portland, USA','Prague, Czech Republic','Pune, India','Reykjavik, Iceland','Riga, Latvia','Rio de Janeiro, Brazil','Riyadh, Saudi Arabia','Rome, Italy','Rotterdam, Netherlands','Salt Lake City, USA','San Diego, USA','San Francisco, USA','Santiago, Chile','São Paulo, Brazil','Seattle, USA','Seoul, South Korea','Shanghai, China','Shenzhen, China','Singapore','Sofia, Bulgaria','Stavanger, Norway','Stockholm, Sweden','Sydney, Australia','Taipei, Taiwan','Tallinn, Estonia','Tel Aviv, Israel','The Hague, Netherlands','Tokyo, Japan','Toronto, Canada','Trondheim, Norway','Turin, Italy','Valencia, Spain','Vancouver, Canada','Vienna, Austria','Vilnius, Lithuania','Warsaw, Poland','Washington DC, USA','Zagreb, Croatia','Zurich, Switzerland','Remote (Worldwide)','Remote (Europe)','Remote (Americas)','Remote (Asia-Pacific)','Remote (UK)','Remote (US)','Remote (EMEA)'].sort((a,b)=>a.localeCompare(b))
+
+const POPULAR = {
+  fn: ['Software Engineer','Product Manager','Business Development Manager','Sales','Customer Success Manager','Marketing Manager','Data Scientist','Account Executive'],
+  ai: ['AI & Machine Learning','Fintech','B2B SaaS','Cybersecurity','Developer Tools','Climate Tech','Web3','Digital Health'],
+  loc: ['London, UK','New York, USA','Berlin, Germany','Amsterdam, Netherlands','Oslo, Norway','Dubai, UAE','Singapore','Remote (Worldwide)','Remote (Europe)']
+}
+
+const AI_PRE = {
+  fn: ['Business Development Manager','Sales','Compliance & RegTech'],
+  ai: ['Fintech','AI & Machine Learning','Blockchain & Crypto']
+}
+
+const ALIASES = {
+  'ae':'Account Executive','bdr':'Business Development Representative','sdr':'Sales Development Representative',
+  'ml':'Machine Learning','pm':'Product Manager','em':'Engineering Manager','tpm':'Technical Product Manager',
+  'csm':'Customer Success Manager','vc':'Venture Capital Analyst','se':'Solutions Engineer',
+  'sa':'Solutions Architect','sre':'Site Reliability Engineer','gtm':'Go-to-Market',
+  'devrel':'Developer Relations','revops':'Revenue Operations Manager',
+  'ceo':'CEO','cto':'CTO','cpo':'CPO','cfo':'CFO','cmo':'CMO','coo':'COO',
+  'bd':'Business Development Manager','bus dev':'Business Development Manager',
+  'cs':'Customer Success Manager','ux':'UX Designer',
+  'fe':'Frontend Engineer','be':'Backend Engineer','fs':'Full-stack Engineer',
+  'ios':'iOS Engineer','devops':'DevOps Engineer',
+  'fintech':'Fintech','defi':'DeFi','nft':'NFTs & Digital Assets',
+  'web 3':'Web3','crypto':'Blockchain & Crypto','blockchain':'Blockchain & Crypto',
+  'nyc':'New York, USA','ny':'New York, USA','sf':'San Francisco, USA',
+  'la':'Los Angeles, USA','dc':'Washington DC, USA','uk':'London, UK','uae':'Dubai, UAE'
+}
+
+const DATA = { fn:FUNCTIONS, ai:AREAS, loc:LOCATIONS }
+const LIMITS = { fn:3, ai:5 }
+const state = { fn:[...AI_PRE.fn], ai:[...AI_PRE.ai], ws:new Set(['On-site']), loc:[] }
+const aiSet = { fn:new Set(AI_PRE.fn), ai:new Set(AI_PRE.ai) }
+const dropIdx = { fn:-1, ai:-1, loc:-1 }
+const $ = id => document.getElementById(id)
+
+// ── SEARCH ──
+function scoreMatch(q, item) {
+  const ql = q.toLowerCase().trim(), il = item.toLowerCase()
+  if (!ql) return 0
+  if (il === ql) return 100
+  if (il.startsWith(ql)) return 90
+  const qw = ql.split(/\s+/), iw = il.split(/[\s&,\/\-]+/)
+  if (qw.length > 1) {
+    let pos = 0
+    if (qw.every(qword => { const idx = iw.slice(pos).findIndex(iword => iword.startsWith(qword)); if(idx>=0){pos+=idx+1;return true}return false })) return 80
+  }
+  if (iw.some(w => w.startsWith(ql))) return 70
+  const acronym = iw.map(w=>w[0]).join('')
+  if (acronym.startsWith(ql)) return 60
+  if (acronym.includes(ql)) return 40
+  if (il.includes(ql)) return 30
+  let ci = 0
+  for (const ch of ql) { ci = il.indexOf(ch,ci); if(ci===-1)return 0; ci++ }
+  return 10
+}
+
+function search(id, q) {
+  const alias = ALIASES[q.toLowerCase().trim()]
+  const aliasBoost = alias && DATA[id].includes(alias) && !state[id].includes(alias) ? [alias] : []
+  const scored = DATA[id].filter(item => !state[id].includes(item))
+    .map(item => ({item, score: scoreMatch(q, item)}))
+    .filter(x => x.score > 0).sort((a,b) => b.score - a.score).map(x => x.item)
+  return [...new Set([...aliasBoost, ...scored])].slice(0, 12)
+}
+
+// ── CHIPS ──
+function renderChips(id) {
+  const body = $(id+'-body'), inp = $(id+'-inp')
+  body.querySelectorAll('.chip').forEach(c => c.remove())
+  state[id].forEach((val, i) => {
+    const isAI = aiSet[id]?.has(val)
+    const c = document.createElement('span')
+    c.className = 'chip ' + (isAI ? 'chip-ai' : 'chip-user')
+    c.innerHTML = `${val}<span class="chip-rm" onmousedown="rmChip(event,'${id}',${i})">&#215;</span>`
+    body.insertBefore(c, inp)
+  })
+  updateCount(id); updateFieldState(id); updateBtn()
+}
+
+function updateFieldState(id) {
+  if (!LIMITS[id]) return
+  const full = state[id].length >= LIMITS[id]
+  $(id+'-field').classList.toggle('full', full)
+  const inp = $(id+'-inp')
+  inp.disabled = full
+  const ph = {fn:'Add a role\u2026', ai:'Add another industry or domain\u2026', loc:'Search for a city, country, or region\u2026'}
+  inp.placeholder = full ? '' : ph[id]
+  if (full) $(id+'-drop').classList.remove('open')
+}
+
+function updateCount(id) {
+  if (!LIMITS[id]) return
+  const n = state[id].length, lim = LIMITS[id], el = $(id+'-count')
+  if (n >= lim) { el.textContent = ''; el.classList.remove('has') }
+  else { el.textContent = `Choose up to ${lim}`; el.classList.toggle('has', n > 0) }
+}
+
+function updateBtn() {
+  $('start-btn').disabled = state.fn.length === 0
+}
+
+function rmChip(e, id, i) {
+  e.preventDefault(); e.stopPropagation()
+  const val = state[id][i]; state[id].splice(i, 1)
+  aiSet[id]?.delete(val); renderChips(id)
+}
+
+function focusInp(id) { $(id+'-inp').focus(); renderDrop(id, '') }
+
+// ── DROPDOWN ──
+function renderDrop(id, q) {
+  if (LIMITS[id] && state[id].length >= LIMITS[id]) return
+  const drop = $(id+'-drop'); dropIdx[id] = -1
+  let items = [], html = ''
+  if (!q.trim()) {
+    items = (POPULAR[id]||[]).filter(p => !state[id].includes(p)).slice(0, 8)
+    if (items.length) { html += `<div class="drop-head">Popular</div>`; items.forEach(p => { html += `<div class="ditem">${p}</div>` }) }
+  } else {
+    items = search(id, q)
+    items.forEach(p => { html += `<div class="ditem">${p}</div>` })
+    const exact = items.some(i => i.toLowerCase() === q.toLowerCase().trim()) || state[id].some(s => s.toLowerCase() === q.toLowerCase().trim())
+    if (!exact && q.trim().length > 1) { html += `<div class="ditem" style="color:var(--accent);font-style:italic">Add "${q.trim()}"</div>`; items.push('__custom__') }
+  }
+  if (!html) { drop.classList.remove('open'); return }
+  drop.innerHTML = html
+  drop.querySelectorAll('.ditem').forEach((el, i) => {
+    el.addEventListener('mousedown', e => { e.preventDefault(); items[i]==='__custom__' ? addItem(id, q.trim()) : addItem(id, items[i]) })
+  })
+  drop.classList.add('open')
+}
+
+function onFocus(id) { renderDrop(id, $(id+'-inp').value.trim()) }
+function onSearch(id) { renderDrop(id, $(id+'-inp').value.trim()) }
+
+function onKey(e, id) {
+  const items = $(id+'-drop').querySelectorAll('.ditem')
+  if (e.key==='ArrowDown'){e.preventDefault();dropIdx[id]=Math.min(dropIdx[id]+1,items.length-1);items.forEach((el,i)=>el.classList.toggle('hi',i===dropIdx[id]))}
+  else if (e.key==='ArrowUp'){e.preventDefault();dropIdx[id]=Math.max(dropIdx[id]-1,0);items.forEach((el,i)=>el.classList.toggle('hi',i===dropIdx[id]))}
+  else if (e.key==='Enter'){e.preventDefault();if(dropIdx[id]>=0&&items[dropIdx[id]])items[dropIdx[id]].dispatchEvent(new MouseEvent('mousedown'));else{const v=$(id+'-inp').value.trim();if(v)addItem(id,v)}}
+  else if (e.key==='Escape') $(id+'-drop').classList.remove('open')
+  else if (e.key==='Backspace'&&!$(id+'-inp').value&&state[id].length>0){const val=state[id].pop();aiSet[id]?.delete(val);renderChips(id)}
+}
+
+document.querySelectorAll('.field-inp').forEach(inp => {
+  const id = inp.id.replace('-inp','')
+  inp.addEventListener('blur', () => setTimeout(() => $(id+'-drop').classList.remove('open'), 150))
+})
+
+function addItem(id, val) {
+  if (!val) return
+  if (LIMITS[id] && state[id].length >= LIMITS[id]) return
+  if (!state[id].includes(val)) state[id].push(val)
+  $(id+'-inp').value = ''; $(id+'-drop').classList.remove('open'); dropIdx[id] = -1
+  renderChips(id)
+  if (!LIMITS[id] || state[id].length < LIMITS[id]) setTimeout(() => focusInp(id), 30)
+}
+
+// ── WORK STYLE ──
+function toggleWs(btn) {
+  const label = btn.textContent.trim()
+  if (state.ws.has(label)) { if(state.ws.size===1)return; state.ws.delete(label); btn.classList.remove('on') }
+  else { state.ws.add(label); btn.classList.add('on') }
+  updateBtn()
+}
+
+// ── TRANSITION + SUCCESS ──
+function goSuccess() {
+  $('cta-bar').style.display = 'none'
+  $('v-prefs').classList.remove('on')
+  $('v-transition').classList.add('on')
+  window.scrollTo({top:0,behavior:'instant'})
+
+  // fill summary
+  $('sum-roles').innerHTML = state.fn.map(r=>`<li>${r}</li>`).join('') || '<li>Not specified</li>'
+  $('sum-areas').innerHTML = state.ai.map(a=>`<li>${a}</li>`).join('') || '<li>Not specified</li>'
+  $('sum-ws').innerHTML = [...state.ws].map(w=>`<li>${w}</li>`).join('')
+  $('sum-loc').innerHTML = state.loc.length ? state.loc.map(l=>`<li>${l}</li>`).join('') : '<li>Open to any location</li>'
+
+  runTransition()
+}
+
+async function runTransition() {
+  const delay = ms => new Promise(r => setTimeout(r, ms))
+  const steps = ['tr1','tr2','tr3','tr4']
+  for (let i = 0; i < steps.length; i++) {
+    await delay(i===0 ? 350 : 700)
+    $(steps[i]).classList.add('show')
+  }
+  await delay(800)
+  $('v-transition').classList.remove('on')
+  $('v-success').classList.add('on')
+  window.scrollTo({top:0,behavior:'instant'})
+}
+
+function editPrefs() {
+  $('v-success').classList.remove('on')
+  $('v-prefs').classList.add('on')
+  $('cta-bar').style.display = 'block'
+}
+
+// ── INIT ──
+async function init() {
+  const delay = ms => new Promise(r => setTimeout(r, ms))
+  updateCount('fn'); updateCount('ai'); updateBtn()
+
+  const az = $('analyzing')
+  az.style.display = 'block'
+  await delay(250)
+  $('ar1').classList.add('show'); await delay(180)
+  $('ar2').classList.add('show'); await delay(180)
+  $('ar3').classList.add('show'); await delay(360)
+  az.style.transition = 'opacity .28s'
+  az.style.opacity = '0'
+  await delay(300)
+  az.style.display = 'none'
+
+  const allItems = [...state.fn.map(v=>({id:'fn',val:v})), ...state.ai.map(v=>({id:'ai',val:v}))]
+  for (let i = 0; i < allItems.length; i++) {
+    await delay(i===0 ? 60 : 100)
+    const {id, val} = allItems[i]
+    const body=$(id+'-body'), inp=$(id+'-inp'), isAI=aiSet[id]?.has(val)
+    const c = document.createElement('span')
+    c.className = 'chip ' + (isAI ? 'chip-ai' : 'chip-user')
+    c.innerHTML = `${val}<span class="chip-rm" onmousedown="rmChip(event,'${id}',${state[id].indexOf(val)})">&#215;</span>`
+    body.insertBefore(c, inp)
+    updateCount(id); updateFieldState(id)
+  }
+  updateBtn()
+}
+
+init()
+</script>
+</body>
+</html>

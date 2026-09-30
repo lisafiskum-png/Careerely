@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<title>Careerely</title>
+<meta name="description" content="Upload your resume once. We find the jobs, tailor your resume, and write your cover letter. Automatically." />
+<meta name="theme-color" content="#FAFAFA" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#F8F8F8;--fg:#111111;--sec:#6B7280;--mut:#9CA3AF;--faint:#D1D5DB;
+    --accent:#5B21B6;--surface:#FFFFFF;--border:#EBEBEB;--border2:#E0E0E0;
+    --ease:cubic-bezier(0.16,1,0.3,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--fg);overflow-x:hidden;
+    font-family:"Inter",system-ui,-apple-system,sans-serif;
+    font-feature-settings:"ss01","ss03","cv01","cv11";
+    -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+    text-rendering:optimizeLegibility;letter-spacing:-0.011em;line-height:1.6}
+  ::selection{background:var(--accent);color:#fff}
+  a{text-decoration:none;color:inherit}
+  button{font-family:inherit;cursor:pointer;border:none}
+  input{font-family:inherit}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  @media(min-width:640px){.wrap{padding:0 40px}}
+  @media(min-width:1024px){.wrap{padding:0 64px}}
+  nav{position:fixed;top:0;left:0;right:0;z-index:50;transition:all .7s var(--ease);background:transparent}
+  nav.scrolled{background:rgba(250,250,250,.8);backdrop-filter:blur(40px);box-shadow:0 1px 0 0 rgba(0,0,0,.04)}
+  .nav-in{height:72px;display:flex;align-items:center;justify-content:space-between}
+  .logo{font-size:20px;font-weight:600;letter-spacing:-.04em;color:var(--fg)}
+  .logo .ely{color:var(--accent)}
+  .nav-links{display:none;align-items:center;gap:36px}
+  @media(min-width:768px){.nav-links{display:flex}}
+  .nav-links a{font-size:13px;font-weight:500;color:var(--mut);transition:color .3s}
+  .nav-links a:hover{color:var(--fg)}
+  .nav-cta{font-size:13px;font-weight:500;color:var(--fg);background:transparent;
+    border:1px solid var(--border2);padding:8px 16px;border-radius:9999px;transition:border-color .3s}
+  .nav-cta:hover{border-color:var(--fg)}
+  section{padding:160px 0}
+  h2{letter-spacing:-.035em;line-height:1.12;color:var(--fg);font-size:clamp(32px,4.5vw,52px);font-weight:600}
+  .reveal{opacity:0;transform:translateY(60px);transition:opacity .55s cubic-bezier(0.16,1,0.3,1),transform .55s cubic-bezier(0.16,1,0.3,1)}
+  .reveal.in{opacity:1;transform:none}
+  /* Stagger siblings that share a parent */
+  .steps .step.reveal.in:nth-child(1){transition-delay:.0s}
+  .steps .step.reveal.in:nth-child(2){transition-delay:.12s}
+  .steps .step.reveal.in:nth-child(3){transition-delay:.24s}
+  .plans .reveal.in:nth-child(1){transition-delay:.0s}
+  .plans .reveal.in:nth-child(2){transition-delay:.14s}
+  .plans .reveal.in:nth-child(3){transition-delay:.28s}
+  .hero{padding:180px 0 160px;min-height:100vh;display:flex;align-items:center}
+  .hero-box{max-width:720px}
+  h1{font-size:clamp(40px,6vw,72px);line-height:1.08;letter-spacing:-.04em;color:var(--fg);font-weight:600}
+  .hero p.lead{font-size:18px;color:var(--sec);line-height:1.7;margin-top:28px;max-width:520px}
+  .joinrow{margin-top:48px;display:flex;flex-direction:column;gap:12px;max-width:440px}
+  @media(min-width:640px){.joinrow{flex-direction:row}}
+  .inp{flex:1;height:48px;padding:0 16px;border-radius:9999px;background:#fff;
+    border:1px solid var(--border2);color:var(--fg);font-size:14px;outline:none;transition:border-color .3s}
+  .inp::placeholder{color:var(--faint)}
+  .inp:focus{border-color:var(--accent)}
+  .btn-dark{height:48px;padding:0 28px;border-radius:9999px;background:var(--fg);color:#fff;
+    font-size:14px;font-weight:500;white-space:nowrap;transition:all .2s}
+  .btn-dark:hover{background:#1F1F1F}
+  .btn-dark:active{transform:scale(.97)}
+  .eyebrow{font-size:14px;font-weight:500;color:var(--mut);text-transform:uppercase;letter-spacing:.15em;margin-bottom:16px}
+  .how-h2{max-width:480px}
+  .steps{margin-top:80px;display:grid;grid-template-columns:1fr;gap:64px}
+  @media(min-width:768px){.steps{grid-template-columns:repeat(3,1fr);gap:48px}}
+  .step .num{font-size:48px;font-weight:600;color:var(--fg);line-height:1;letter-spacing:-.04em}
+  .step h3{font-size:18px;font-weight:600;letter-spacing:-.02em;margin:20px 0 12px;color:var(--fg)}
+  .step p{font-size:15px;color:var(--sec);line-height:1.7}
+  .price-sub{font-size:17px;color:var(--sec);margin-top:16px;max-width:400px;line-height:1.6}
+  .plans{margin-top:64px;display:grid;grid-template-columns:1fr;gap:16px}
+  @media(min-width:768px){.plans{grid-template-columns:repeat(3,1fr)}}
+  .plan{border-radius:12px;padding:32px;display:flex;flex-direction:column}
+  @media(min-width:768px){.plan{padding:36px}}
+  .plan.std{background:#fff;border:1px solid var(--border)}
+  .plan.hi{background:var(--fg);color:#fff;box-shadow:0 24px 48px -12px rgba(0,0,0,.12)}
+  .plan h3{font-size:15px;font-weight:600;letter-spacing:-.01em}
+  .plan.std h3{color:var(--fg)}
+  .plan.hi h3{color:#fff}
+  .plan .pdesc{font-size:13px;color:var(--mut);margin-top:4px}
+  .pprice{margin:24px 0 20px}
+  .pprice .amt{font-size:40px;font-weight:600;letter-spacing:-.04em}
+  .plan.std .pprice .amt{color:var(--fg)}
+  .plan.hi .pprice .amt{color:#fff}
+  .pprice .per{font-size:14px;margin-left:4px}
+  .plan.std .pprice .per{color:var(--mut)}
+  .plan.hi .pprice .per{color:var(--sec)}
+  .pvol{font-size:14px;line-height:1.9;margin-bottom:28px;flex:1}
+  .plan.std .pvol{color:var(--sec)}
+  .plan.hi .pvol{color:var(--faint)}
+  .pbtn{width:100%;height:44px;border-radius:9999px;font-size:13px;font-weight:500;transition:all .2s}
+  .pbtn:active{transform:scale(.97)}
+  .plan.std .pbtn{background:var(--fg);color:#fff}
+  .plan.std .pbtn:hover{background:#1F1F1F}
+  .plan.hi .pbtn{background:#fff;color:var(--fg)}
+  .plan.hi .pbtn:hover{background:#F9FAFB}
+  .faq-wrap{max-width:640px;margin:0 auto}
+  .faq-wrap h2{margin-bottom:48px}
+  .faq-item{border-bottom:1px solid var(--border)}
+  .faq-q{width:100%;display:flex;align-items:center;justify-content:space-between;
+    padding:24px 0;text-align:left;background:none}
+  .faq-q span.q{font-size:16px;font-weight:500;color:var(--fg);padding-right:32px}
+  .faq-q span.tog{font-size:20px;color:var(--mut);transition:transform .3s var(--ease);flex-shrink:0;line-height:1}
+  .faq-item.open .faq-q span.tog{transform:rotate(45deg)}
+  .faq-a{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s var(--ease),opacity .3s var(--ease);opacity:0}
+  .faq-item.open .faq-a{grid-template-rows:1fr;opacity:1}
+  .faq-a-inner{overflow:hidden}
+  .faq-a p{font-size:15px;color:var(--sec);line-height:1.8;padding:0 48px 24px 0}
+  footer{border-top:1px solid var(--border);padding:64px 0}
+  .foot-cta{display:flex;flex-direction:column;gap:40px}
+  @media(min-width:768px){.foot-cta{flex-direction:row;align-items:flex-end;justify-content:space-between}}
+  .foot-cta h2{font-size:28px;letter-spacing:-.03em;color:var(--fg)}
+  .foot-cta p.sub{font-size:15px;color:var(--mut);margin-top:8px}
+  .foot-form{display:flex;flex-direction:column;gap:12px;max-width:380px;width:100%}
+  @media(min-width:640px){.foot-form{flex-direction:row}}
+  .foot-form .inp{height:44px}
+  .foot-form .btn-dark{height:44px;padding:0 24px;font-size:13px}
+  .foot-bottom{margin-top:64px;padding-top:32px;border-top:1px solid var(--border);
+    display:flex;flex-direction:column;align-items:center;gap:16px}
+  @media(min-width:640px){.foot-bottom{flex-direction:row;justify-content:space-between}}
+  .foot-bottom .logo{font-size:14px;letter-spacing:-.03em}
+  .foot-social{display:flex;align-items:center;gap:24px}
+  .foot-social a{font-size:12px;color:var(--mut);transition:color .3s}
+  .foot-social a:hover{color:var(--fg)}
+  .foot-copy{font-size:12px;color:var(--faint)}
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <div class="wrap nav-in">
+    <a href="/" class="logo">Career<span class="ely">ely</span></a>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#pricing">Pricing</a>
+    </div>
+    <a href="#" class="nav-cta">Get Started</a>
+  </div>
+</nav>
+
+<section class="hero" style="position:relative;overflow:hidden">
+  <div style="position:absolute;top:-120px;right:-60px;width:600px;height:600px;background:radial-gradient(ellipse at center,rgba(139,92,246,.12) 0%,transparent 65%);filter:blur(48px);pointer-events:none;z-index:0;border-radius:50%"></div>
+  <div style="position:absolute;bottom:-80px;left:-100px;width:400px;height:400px;background:radial-gradient(ellipse at center,rgba(91,33,182,.07) 0%,transparent 65%);filter:blur(40px);pointer-events:none;z-index:0;border-radius:50%"></div>
+  <div class="wrap" style="position:relative;z-index:1">
+    <div class="hero-box reveal in">
+      <h1>Career growth,<br />powered by AI</h1>
+      <p class="lead">Careerely helps ambitious professionals discover opportunities, tailor applications, and land roles at leading tech companies.</p>
+      <div class="joinrow">
+        <input class="inp" type="email" placeholder="Email address" aria-label="Email address" />
+        <button class="btn-dark">Get Started</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SCROLL-DRIVEN PRODUCT DEMO ── -->
+<section id="demo" style="padding:0;background:#fff;overflow:hidden">
+
+  <!-- Intro line above the demo window -->
+  <div class="wrap reveal" style="padding-top:120px;padding-bottom:48px;text-align:center">
+    <p style="font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin-bottom:16px">Live product demo</p>
+    <h2 style="max-width:600px;margin:0 auto">This is what Careerely does while you sleep.</h2>
+  </div>
+
+  <!-- The demo window — starts scaled down, grows as you scroll -->
+  <div id="demo-stage" style="
+    padding:0 24px 120px;
+    position:relative;
+  ">
+    <div id="demo-win" style="
+      max-width:1100px;
+      margin:0 auto;
+      border-radius:16px;
+      overflow:hidden;
+      box-shadow:0 32px 80px rgba(0,0,0,.14),0 2px 4px rgba(0,0,0,.06);
+      border:1px solid #E0E0E0;
+      transform:scale(0.88) translateY(40px);
+      opacity:0;
+      transition:transform .8s cubic-bezier(0.16,1,0.3,1), opacity .7s ease;
+      background:#F8F8F8;
+    ">
+
+      <!-- Browser chrome -->
+      <div style="height:40px;background:#ECECEC;border-bottom:1px solid #D8D8D8;display:flex;align-items:center;padding:0 16px;gap:8px;flex-shrink:0">
+        <div style="width:12px;height:12px;border-radius:50%;background:#FF5F57"></div>
+        <div style="width:12px;height:12px;border-radius:50%;background:#FEBC2E"></div>
+        <div style="width:12px;height:12px;border-radius:50%;background:#28C840"></div>
+        <div style="flex:1;height:26px;background:#fff;border-radius:6px;margin:0 16px;display:flex;align-items:center;padding:0 12px">
+          <span style="font-size:11.5px;color:#999">careerely.ai/dashboard</span>
+        </div>
+      </div>
+
+      <!-- App nav -->
+      <div style="height:52px;background:#fff;border-bottom:1px solid #E8EAED;display:flex;align-items:center;padding:0 24px;gap:14px">
+        <div style="display:flex;align-items:center;gap:7px">
+          <div style="width:26px;height:26px;border-radius:7px;background:#5B21B6;display:flex;align-items:center;justify-content:center">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="m12 3 1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3Z"/></svg>
+          </div>
+          <span style="font-size:14px;font-weight:600;letter-spacing:-.04em">Career<span style="color:#5B21B6">ely</span></span>
+        </div>
+        <div style="width:1px;height:16px;background:#E8EAED"></div>
+        <!-- Scanning indicator -->
+        <div style="display:flex;align-items:center;gap:6px;flex:1">
+          <div id="demo-dot" style="width:6px;height:6px;border-radius:50%;background:#059669;flex-shrink:0"></div>
+          <span id="demo-nav-status" style="font-size:12px;color:#9CA3AF">Scanning the market...</span>
+        </div>
+        <div style="display:flex;gap:2px">
+          <div style="padding:5px 13px;font-size:12.5px;color:#5B21B6;font-weight:560;border-bottom:2px solid #5B21B6">Dashboard</div>
+          <div style="padding:5px 13px;font-size:12.5px;color:#9CA3AF">Opportunities</div>
+          <div style="padding:5px 13px;font-size:12.5px;color:#9CA3AF">Applications</div>
+        </div>
+        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#7C3AED,#4C1D95);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:600">LF</div>
+      </div>
+
+      <!-- App body -->
+      <div style="background:#F7F8FA;min-height:480px;padding:32px;display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start">
+
+        <!-- LEFT COL -->
+        <div>
+          <!-- Greeting + headline -->
+          <div id="demo-greeting" style="margin-bottom:28px;opacity:0;transform:translateY(12px);transition:all .5s cubic-bezier(0.16,1,0.3,1)">
+            <div style="font-size:11.5px;color:#9CA3AF;margin-bottom:6px" id="demo-time-label">Good morning, Lisa.</div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#5B21B6;margin-bottom:4px">My pick</div>
+            <div style="font-size:28px;font-weight:700;letter-spacing:-.04em;color:#0A0A0A;line-height:1.1">I'd start here.</div>
+          </div>
+
+          <!-- Stats row -->
+          <div id="demo-stats" style="display:flex;gap:8px;margin-bottom:20px;opacity:0;transform:translateY(12px);transition:all .5s cubic-bezier(0.16,1,0.3,1)">
+            <div style="font-size:13px;color:#6B7280">
+              <span style="font-weight:700;color:#0A0A0A" id="demo-count">0</span> reviewed
+            </div>
+            <span style="color:#D1D5DB">·</span>
+            <div style="font-size:13px;color:#6B7280">
+              <span style="font-weight:700;color:#0A0A0A" id="demo-shortlisted" style="opacity:0">0</span> shortlisted
+            </div>
+            <span style="color:#D1D5DB">·</span>
+            <div style="font-size:13px;color:#6B7280">
+              <span style="font-weight:700;color:#0A0A0A" id="demo-ready">0</span> applications ready
+            </div>
+          </div>
+
+          <!-- Pick card -->
+          <div id="demo-pick" style="background:#fff;border:1px solid #E8EAED;border-radius:14px;overflow:hidden;opacity:0;transform:translateY(16px);transition:all .6s cubic-bezier(0.16,1,0.3,1);box-shadow:0 2px 12px rgba(0,0,0,.06)">
+            <div style="display:grid;grid-template-columns:1fr 220px">
+              <div style="padding:22px 24px;border-right:1px solid #F1F3F5">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+                  <div style="width:44px;height:44px;border-radius:11px;background:#6C47FF;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff">S</div>
+                  <div>
+                    <div style="font-size:14.5px;font-weight:620;letter-spacing:-.02em;color:#0A0A0A;line-height:1.2">Business Development Lead</div>
+                    <div style="font-size:12px;color:#9CA3AF;margin-top:2px">Stripe · Dublin · Hybrid</div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <span style="font-size:11px;font-weight:600;color:#5B21B6;background:rgba(91,33,182,.07);border-radius:5px;padding:3px 9px">95% match</span>
+                  <span id="demo-chip1" style="font-size:11px;font-weight:500;color:#059669;background:rgba(5,150,105,.07);border-radius:5px;padding:3px 9px;opacity:0;transition:opacity .4s">✓ AML compliance required</span>
+                  <span id="demo-chip2" style="font-size:11px;font-weight:500;color:#059669;background:rgba(5,150,105,.07);border-radius:5px;padding:3px 9px;opacity:0;transition:opacity .4s">✓ Enterprise BD experience</span>
+                </div>
+              </div>
+              <div style="padding:22px 18px;display:flex;flex-direction:column;justify-content:space-between">
+                <div style="font-size:12.5px;color:#4B5563;line-height:1.65;flex:1;margin-bottom:14px">Your AML background directly addresses a stated requirement, while your commercial experience supports the BD scope.</div>
+                <div id="demo-prep" style="opacity:0;transition:opacity .5s">
+                  <div style="font-size:11.5px;color:#059669;font-weight:560;display:flex;align-items:center;gap:4px;margin-bottom:5px">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Resume tailored
+                  </div>
+                  <div style="font-size:11.5px;color:#059669;font-weight:560;display:flex;align-items:center;gap:4px;margin-bottom:14px">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Cover letter drafted
+                  </div>
+                  <button style="width:100%;height:36px;border-radius:999px;background:#0A0A0A;color:#fff;font-size:12px;font-weight:560;border:none;cursor:pointer">Review & apply →</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Shortlist rows -->
+          <div id="demo-shortlist" style="background:#fff;border:1px solid #E8EAED;border-radius:12px;overflow:hidden;margin-top:10px;opacity:0;transform:translateY(12px);transition:all .6s cubic-bezier(0.16,1,0.3,1)">
+            <div style="padding:12px 18px;border-bottom:1px solid #F1F3F5;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:12.5px;font-weight:600;color:#0A0A0A">Your shortlist</span>
+              <span style="font-size:11.5px;color:#9CA3AF">View all (6)</span>
+            </div>
+            <div style="padding:10px 18px;border-bottom:1px solid #F9FAFB;display:flex;align-items:center;gap:10px">
+              <div style="width:28px;height:28px;border-radius:7px;background:#96BF48;flex-shrink:0"></div>
+              <div style="flex:1;font-size:12px;color:#374151;font-weight:500">Partnerships Manager <span style="color:#9CA3AF;font-weight:400">· Shopify</span></div>
+              <span style="font-size:12px;font-weight:700;color:#5B21B6">92%</span>
+            </div>
+            <div style="padding:10px 18px;display:flex;align-items:center;gap:10px">
+              <div style="width:28px;height:28px;border-radius:7px;background:#1C1C1C;flex-shrink:0"></div>
+              <div style="flex:1;font-size:12px;color:#374151;font-weight:500">Alliance Manager <span style="color:#9CA3AF;font-weight:400">· Ramp</span></div>
+              <span style="font-size:12px;font-weight:700;color:#5B21B6">90%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT COL -->
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <!-- Apps ready -->
+          <div id="demo-apps-card" style="background:#fff;border:1px solid #E8EAED;border-radius:12px;overflow:hidden;opacity:0;transform:translateY(12px);transition:all .6s cubic-bezier(0.16,1,0.3,1)">
+            <div style="padding:12px 16px;border-bottom:1px solid #F1F3F5;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:12px;font-weight:600;color:#0A0A0A">Applications ready</span>
+              <span style="font-size:10px;font-weight:700;background:#5B21B6;color:#fff;border-radius:4px;padding:2px 7px">2 READY</span>
+            </div>
+            <div style="padding:10px 16px;border-bottom:1px solid #F9FAFB;display:flex;align-items:flex-start;gap:8px">
+              <div style="width:28px;height:28px;border-radius:7px;background:#29B5E8;flex-shrink:0"></div>
+              <div>
+                <div style="font-size:12px;font-weight:550;color:#111">Senior Partnerships Manager</div>
+                <div style="font-size:11px;color:#9CA3AF">Snowflake</div>
+                <div id="demo-ready-tag1" style="display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:500;color:#059669;background:rgba(5,150,105,.07);border-radius:4px;padding:2px 7px;margin-top:4px;opacity:0;transition:opacity .4s">
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Ready
+                </div>
+              </div>
+            </div>
+            <div style="padding:10px 16px;display:flex;align-items:flex-start;gap:8px">
+              <div style="width:28px;height:28px;border-radius:7px;background:#FF3621;flex-shrink:0"></div>
+              <div>
+                <div style="font-size:12px;font-weight:550;color:#111">Strategic Account Executive</div>
+                <div style="font-size:11px;color:#9CA3AF">Databricks</div>
+                <div id="demo-ready-tag2" style="display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:500;color:#059669;background:rgba(5,150,105,.07);border-radius:4px;padding:2px 7px;margin-top:4px;opacity:0;transition:opacity .4s">
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Ready
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Activity -->
+          <div id="demo-activity" style="background:#fff;border:1px solid #E8EAED;border-radius:12px;padding:14px 16px;opacity:0;transform:translateY(12px);transition:all .6s cubic-bezier(0.16,1,0.3,1)">
+            <div style="font-size:12px;font-weight:600;color:#0A0A0A;margin-bottom:12px">Careerely worked while you were away</div>
+            <div id="demo-act1" style="display:flex;gap:8px;padding:4px 0;opacity:0;transition:opacity .35s">
+              <div style="width:20px;height:20px;border-radius:5px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </div>
+              <div style="font-size:11.5px;color:#6B7280">Reviewed <strong style="color:#111">2,143</strong> new postings</div>
+            </div>
+            <div id="demo-act2" style="display:flex;gap:8px;padding:4px 0;opacity:0;transition:opacity .35s">
+              <div style="width:20px;height:20px;border-radius:5px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><path d="m12 3 1.9 5.8a2 2 0 0 0 1.3 1.3L21 12"/></svg>
+              </div>
+              <div style="font-size:11.5px;color:#6B7280">Shortlisted <strong style="color:#111">6</strong> opportunities</div>
+            </div>
+            <div id="demo-act3" style="display:flex;gap:8px;padding:4px 0;opacity:0;transition:opacity .35s">
+              <div style="width:20px;height:20px;border-radius:5px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/></svg>
+              </div>
+              <div style="font-size:11.5px;color:#6B7280">Prepared <strong style="color:#111">2</strong> applications</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function() {
+  const win = document.getElementById('demo-win');
+  if (!win) return;
+
+  let played = false;
+
+  function countUp(el, target, ms) {
+    const start = performance.now();
+    (function frame(now) {
+      const p = Math.min((now - start) / ms, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(ease * target).toLocaleString();
+      if (p < 1) requestAnimationFrame(frame);
+    })(performance.now());
+  }
+
+  function show(el, delay) {
+    setTimeout(() => {
+      if (el) { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; }
+    }, delay);
+  }
+
+  function fadeIn(el, delay) {
+    setTimeout(() => { if (el) el.style.opacity = '1'; }, delay);
+  }
+
+  function playSequence() {
+    if (played) return;
+    played = true;
+
+    // 1. Window scales in
+    win.style.transform = 'scale(1) translateY(0)';
+    win.style.opacity = '1';
+
+    // 2. Greeting
+    setTimeout(() => {
+      const h = new Date().getHours();
+      const label = h >= 5 && h < 12 ? 'Good morning, Lisa.'
+                  : h >= 12 && h < 18 ? 'Good afternoon, Lisa.'
+                  : 'Good evening, Lisa.';
+      document.getElementById('demo-time-label').textContent = label;
+      show(document.getElementById('demo-greeting'), 0);
+    }, 600);
+
+    // 3. Stats counter
+    setTimeout(() => {
+      show(document.getElementById('demo-stats'), 0);
+      countUp(document.getElementById('demo-count'), 2143, 1800);
+      setTimeout(() => countUp(document.getElementById('demo-shortlisted'), 6, 600), 1800);
+      setTimeout(() => countUp(document.getElementById('demo-ready'), 2, 500), 2400);
+    }, 900);
+
+    // 4. Pick card appears
+    setTimeout(() => { show(document.getElementById('demo-pick'), 0); }, 1600);
+
+    // 5. Evidence chips
+    setTimeout(() => { fadeIn(document.getElementById('demo-chip1'), 0); }, 2400);
+    setTimeout(() => { fadeIn(document.getElementById('demo-chip2'), 0); }, 2900);
+
+    // 6. Prep status
+    setTimeout(() => { fadeIn(document.getElementById('demo-prep'), 0); }, 3400);
+
+    // 7. Shortlist
+    setTimeout(() => { show(document.getElementById('demo-shortlist'), 0); }, 2000);
+
+    // 8. Right col
+    setTimeout(() => { show(document.getElementById('demo-apps-card'), 0); }, 2200);
+    setTimeout(() => { fadeIn(document.getElementById('demo-ready-tag1'), 0); }, 3600);
+    setTimeout(() => { fadeIn(document.getElementById('demo-ready-tag2'), 0); }, 4000);
+
+    // 9. Activity
+    setTimeout(() => { show(document.getElementById('demo-activity'), 0); }, 2600);
+    setTimeout(() => { fadeIn(document.getElementById('demo-act1'), 0); }, 3000);
+    setTimeout(() => { fadeIn(document.getElementById('demo-act2'), 0); }, 3400);
+    setTimeout(() => { fadeIn(document.getElementById('demo-act3'), 0); }, 3800);
+  }
+
+  // Trigger when demo window enters viewport
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { playSequence(); obs.disconnect(); }
+    });
+  }, {threshold: 0.05});
+  obs.observe(win);
+})();
+</script>
+
+<section id="how">
+  <div class="wrap">
+    <div class="reveal">
+      <p class="eyebrow">How it works</p>
+      <h2 class="how-h2">Three steps</h2>
+    </div>
+    <div class="steps">
+      <div class="step reveal">
+        <span class="num">1</span>
+        <h3>Upload your resume</h3>
+        <p>Upload your resume once and tell us what roles you're targeting.</p>
+      </div>
+      <div class="step reveal">
+        <span class="num">2</span>
+        <h3>We find your opportunities</h3>
+        <p>Careerely continuously searches for relevant roles based on your skills, experience, and preferences.</p>
+      </div>
+      <div class="step reveal">
+        <span class="num">3</span>
+        <h3>Review tailored applications</h3>
+        <p>For every shortlisted role, Careerely tailors your resume and generates a personalized cover letter based on the job description. You review everything before applying.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="reveal">
+      <h2 style="max-width:560px;margin-bottom:64px">Not another job board.</h2>
+    </div>
+    <div id="why-grid-v2" style="display:grid;grid-template-columns:1fr;gap:2px">
+      <div class="reveal why-row">
+        <div class="why-n">5,000+</div>
+        <div class="why-text">
+          <div class="why-title">Roles reviewed every night</div>
+          <div class="why-body">Careerely scans thousands of live listings while you sleep. You only see the ones that actually fit.</div>
+        </div>
+      </div>
+      <div class="reveal why-row">
+        <div class="why-n">3 min</div>
+        <div class="why-text">
+          <div class="why-title">From shortlist to application</div>
+          <div class="why-body">Your CV and cover letter are already tailored. Read Careerely's reasoning, then apply.</div>
+        </div>
+      </div>
+      <div class="reveal why-row">
+        <div class="why-n">100%</div>
+        <div class="why-text">
+          <div class="why-title">Transparent reasoning</div>
+          <div class="why-body">Every shortlisted role comes with an explanation. Which requirements you meet, what was changed, and what couldn't be confirmed.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<style>
+  .why-row{display:flex;align-items:flex-start;gap:48px;padding:40px 0;border-bottom:1px solid var(--border)}
+  .why-row:first-child{border-top:1px solid var(--border)}
+  .why-n{font-size:clamp(36px,4vw,52px);font-weight:700;letter-spacing:-.05em;color:var(--accent);min-width:160px;flex-shrink:0;line-height:1}
+  .why-title{font-size:18px;font-weight:600;letter-spacing:-.02em;color:var(--fg);margin-bottom:10px}
+  .why-body{font-size:15px;color:var(--sec);line-height:1.75;max-width:520px}
+  @media(max-width:640px){.why-row{flex-direction:column;gap:16px}.why-n{min-width:unset}}
+</style>
+
+
+<section id="pricing">
+  <div class="wrap">
+    <div class="reveal">
+      <h2>Pricing</h2>
+    </div>
+    <div class="plans" id="plans"></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-cta">
+      <div>
+        <h2>Ready to start?</h2>
+        <p class="sub">Upload your resume and let us do the rest</p>
+      </div>
+      <div class="foot-form">
+        <input class="inp" type="email" placeholder="Email address" aria-label="Email address" />
+        <button class="btn-dark">Get Started</button>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span class="logo">Career<span class="ely">ely</span></span>
+      <div class="foot-social">
+        <a href="#">Twitter</a><a href="#">LinkedIn</a><a href="#">Instagram</a><a href="#">FAQ</a>
+      </div>
+      <span class="foot-copy">© 2025 Careerely</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Nav scroll
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('scrolled', window.scrollY > 10);
+}, {passive: true});
+
+// Render plans HTML first
+const PLANS = [
+  {name:'Basic', price:'29', desc:'For a focused search', hi:false, popular:false,
+   vol:'1 active search<br/><strong>10</strong> applications prepared monthly'},
+  {name:'Pro', price:'49', desc:'For an active job search', hi:true, popular:true,
+   vol:'5 active searches<br/><strong>50</strong> applications prepared monthly'},
+  {name:'Max', price:'79', desc:'For an intensive search', hi:false, popular:false,
+   vol:'Unlimited searches<br/><strong>200</strong> applications prepared monthly'}
+];
+document.getElementById('plans').innerHTML = PLANS.map(p =>
+  `<div class="reveal" style="display:flex;flex-direction:column">
+    ${p.popular ? '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);margin-bottom:8px;padding-left:4px">Most Popular</div>' : '<div style="height:23px"></div>'}
+    <div class="plan ${p.hi ? 'hi' : 'std'}" style="flex:1">
+      <h3>${p.name}</h3>
+      <p class="pdesc">${p.desc}</p>
+      <div class="pprice"><span class="amt">$${p.price}</span><span class="per">/mo</span></div>
+      <p class="pvol">${p.vol}</p>
+      <button class="pbtn">Get Started</button>
+    </div>
+  </div>`).join('');
+
+// Scroll reveal — runs after plans are injected
+(function() {
+  // Collect all .reveal elements that should animate in on scroll
+  // Hero has .reveal.in already so it's excluded automatically
+  const allReveals = Array.from(document.querySelectorAll('.reveal:not(.in)'));
+
+  // Group step elements for staggering
+  const stepEls = Array.from(document.querySelectorAll('.step.reveal'));
+  const planEls = Array.from(document.querySelectorAll('#plans .reveal'));
+  const whyEls  = Array.from(document.querySelectorAll('#why-grid-v2 .reveal'));
+
+  // Everything else
+  const soloEls = allReveals.filter(el =>
+    !stepEls.includes(el) &&
+    !planEls.includes(el) &&
+    !whyEls.includes(el)
+  );
+
+  // Trigger a group with stagger
+  function staggerIn(els, delay) {
+    els.forEach((el, i) => {
+      setTimeout(() => el.classList.add('in'), i * delay);
+    });
+  }
+
+  // Simple observer — no rootMargin, just threshold
+  function observe(el, onVisible) {
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          onVisible();
+          obs.disconnect();
+        }
+      });
+    }, {threshold: 0.01});
+    obs.observe(el);
+  }
+
+  // Solo elements — each triggers itself
+  soloEls.forEach(el => observe(el, () => el.classList.add('in')));
+
+  // Steps — observe the container, stagger children
+  const stepsContainer = document.querySelector('.steps');
+  if (stepsContainer && stepEls.length) {
+    observe(stepsContainer, () => staggerIn(stepEls, 140));
+  }
+
+  // Plans — observe the container, stagger children
+  const plansContainer = document.getElementById('plans');
+  if (plansContainer && planEls.length) {
+    observe(plansContainer, () => staggerIn(planEls, 160));
+  }
+
+  // Why grid — observe the container, stagger children
+  const whyContainer = document.getElementById('why-grid-v2');
+  if (whyContainer && whyEls.length) {
+    observe(whyContainer, () => staggerIn(whyEls, 120));
+  }
+})();
+</script>
+</body>
+</html>

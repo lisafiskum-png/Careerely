@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Searches — Careerely</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F7F8FA;--sf:#fff;--text:#0A0A0A;--text2:#3A3A3A;
+  --muted:#6B7280;--muted2:#9CA3AF;--muted3:#D1D5DB;
+  --bd:#E8EAED;--bd2:#F1F3F5;
+  --pu:#5B21B6;--pu-s:rgba(91,33,182,.07);--pu-m:rgba(91,33,182,.14);
+  --gn:#059669;--gn-s:rgba(5,150,105,.08);
+  --am:#B45309;--am-s:rgba(180,83,9,.07);
+  --ease:cubic-bezier(0.16,1,0.3,1);
+}
+html,body{height:100%;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+body{font-family:'Inter',system-ui,sans-serif;font-feature-settings:"ss01","cv01","cv11";letter-spacing:-.012em;font-size:14px;line-height:1.5}
+button{font-family:inherit;cursor:pointer;border:none;background:none;letter-spacing:inherit}
+@keyframes breathe{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes dropIn{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── NAV ── */
+.nav{height:52px;background:rgba(247,248,250,.96);backdrop-filter:blur(20px);border-bottom:1px solid var(--bd);display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:50}
+.nav-brand{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.nav-logo{width:28px;height:28px;background:var(--pu);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700}
+.nav-wm{font-size:15px;font-weight:600;letter-spacing:-.04em}
+.nav-wm em{color:var(--pu);font-style:normal}
+.nav-div{width:1px;height:16px;background:var(--bd);flex-shrink:0;margin:0 2px}
+.nav-status{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--gn);flex-shrink:0;animation:breathe 2.4s ease-in-out infinite}
+.stext{font-size:12px;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-tabs{display:flex;align-items:center;flex-shrink:0}
+.ntab{padding:6px 14px;font-size:13px;font-weight:450;color:var(--muted);cursor:pointer;position:relative;transition:color .12s;white-space:nowrap}
+.ntab:hover{color:var(--text)}
+.ntab.on{color:var(--pu);font-weight:560}
+.ntab.on::after{content:'';position:absolute;bottom:-16px;left:14px;right:14px;height:2px;background:var(--pu);border-radius:999px}
+.nbadge{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;border-radius:999px;background:var(--pu);color:#fff;font-size:10px;font-weight:700;margin-left:4px;vertical-align:middle;padding:0 4px}
+.nav-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.nav-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted2);cursor:pointer;transition:all .12s}
+.nav-icon:hover{background:var(--bd2);color:var(--muted)}
+.nav-av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#7C3AED,#4C1D95);color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+
+/* ── PAGE ── */
+.page{max-width:760px;margin:0 auto;padding:0 24px 80px}
+
+/* ── HEADER ── */
+.page-header{padding:36px 0 28px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.page-title{font-size:26px;font-weight:650;letter-spacing:-.04em;color:var(--text);line-height:1.1}
+.page-subtitle{font-size:13px;color:var(--muted);margin-top:5px}
+.btn-create{height:36px;padding:0 16px;border-radius:999px;background:var(--text);color:#fff;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;transition:all .16s;flex-shrink:0;margin-top:4px}
+.btn-create:hover{background:#1a1a1a}
+
+/* ── PLAN USAGE ── */
+.plan-bar{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:12px}
+.plan-bar-left{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.plan-bar-label{font-size:13px;font-weight:500;color:var(--text)}
+.usage-pips{display:flex;gap:4px}
+.pip{width:20px;height:4px;border-radius:999px;background:var(--bd2)}
+.pip.on{background:var(--pu)}
+.plan-bar-right{font-size:12px;color:var(--muted2);white-space:nowrap}
+
+/* ── SEARCH CARDS ── */
+.search-list{display:flex;flex-direction:column;gap:10px}
+.search-card{background:var(--sf);border-radius:14px;border:1px solid var(--bd);box-shadow:0 1px 3px rgba(0,0,0,.04);animation:fadeUp .3s var(--ease) both;transition:box-shadow .16s}
+.search-card:hover{box-shadow:0 2px 10px rgba(0,0,0,.07)}
+.search-card.paused{opacity:.65}
+.sc-main{padding:20px 22px 16px;display:flex;align-items:flex-start;gap:14px}
+.sc-icon{width:38px;height:38px;border-radius:10px;background:var(--pu-s);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--pu)}
+.sc-body{flex:1;min-width:0}
+.sc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px}
+.sc-name{font-size:15px;font-weight:620;letter-spacing:-.022em;color:var(--text);line-height:1.2}
+.sc-origin{font-size:10.5px;font-weight:500;color:var(--muted2);background:var(--bd2);border-radius:999px;padding:2px 7px;flex-shrink:0;margin-top:2px}
+.sc-params{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+.sc-chip{font-size:11.5px;color:var(--text2);background:var(--bd2);border-radius:999px;padding:3px 9px}
+.sc-chip-pu{background:var(--pu-s);color:var(--pu)}
+.sc-stats{display:flex;align-items:center;gap:0;border-top:1px solid var(--bd2);margin:0 -22px;padding:12px 22px 0}
+.sc-stat{display:flex;flex-direction:column;gap:2px;flex:1}
+.sc-stat+.sc-stat{border-left:1px solid var(--bd2);padding-left:16px;margin-left:0}
+.sc-stat-n{font-size:18px;font-weight:650;letter-spacing:-.04em;color:var(--text);line-height:1}
+.sc-stat-n.active-color{color:var(--gn)}
+.sc-stat-l{font-size:11px;color:var(--muted2)}
+.sc-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;flex-direction:column;align-items:flex-end}
+.sc-status{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500}
+.sc-status.active{color:var(--gn)}
+.sc-status.paused{color:var(--muted2)}
+.sc-status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.sc-status.active .sc-status-dot{background:var(--gn);animation:breathe 2.4s ease-in-out infinite}
+.sc-status.paused .sc-status-dot{background:var(--muted3)}
+.sc-menu-btn{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--muted2);transition:all .12s;margin-top:2px;position:relative}
+.sc-menu-btn:hover{background:var(--bd2);color:var(--text)}
+.sc-dropdown{position:absolute;top:calc(100% + 4px);right:0;background:var(--sf);border:1px solid var(--bd);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.1);min-width:160px;overflow:hidden;z-index:20;display:none;animation:dropIn .15s var(--ease)}
+.sc-dropdown.open{display:block}
+.sd-item{padding:9px 14px;font-size:13px;color:var(--text2);cursor:pointer;transition:background .1s;display:flex;align-items:center;gap:8px}
+.sd-item:hover{background:var(--bd2)}
+.sd-item.danger{color:#DC2626}
+.sd-sep{height:1px;background:var(--bd2);margin:2px 0}
+
+/* ── EMPTY STATE ── */
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:64px 24px}
+.empty-icon{width:48px;height:48px;border-radius:14px;background:var(--bd2);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;color:var(--muted2)}
+.empty-title{font-size:16px;font-weight:600;letter-spacing:-.022em;color:var(--text);margin-bottom:8px}
+.empty-desc{font-size:13px;color:var(--muted);max-width:320px;line-height:1.6;margin-bottom:20px}
+.btn-empty{height:38px;padding:0 20px;border-radius:999px;background:var(--text);color:#fff;font-size:13px;font-weight:500;transition:background .15s}
+.btn-empty:hover{background:#1a1a1a}
+
+/* ── CREATE / EDIT MODAL ── */
+.modal-wrap{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.25);padding:24px}
+.modal-wrap.open{display:flex}
+.modal{background:var(--sf);border-radius:18px;box-shadow:0 8px 48px rgba(0,0,0,.15);width:100%;max-width:520px;animation:dropIn .2s var(--ease);overflow:hidden}
+.modal-hd{padding:24px 26px 18px;border-bottom:1px solid var(--bd2)}
+.modal-title{font-size:17px;font-weight:640;letter-spacing:-.028em;color:var(--text);margin-bottom:4px}
+.modal-origin{font-size:12px;color:var(--muted2)}
+.modal-body{padding:20px 26px}
+.field-group{margin-bottom:18px}
+.field-label{font-size:12px;font-weight:500;color:var(--muted);margin-bottom:6px;display:block}
+.field{width:100%;height:38px;border:1px solid var(--bd);border-radius:8px;padding:0 12px;font-size:13px;color:var(--text);background:var(--sf);transition:border-color .14s;font-family:inherit;letter-spacing:inherit}
+.field:focus{outline:none;border-color:var(--pu)}
+.chip-picker{display:flex;flex-wrap:wrap;gap:6px}
+.pick-chip{font-size:12px;font-weight:450;color:var(--text2);background:var(--bd2);border-radius:999px;padding:5px 12px;cursor:pointer;transition:all .14s;border:1.5px solid transparent;user-select:none}
+.pick-chip:hover{border-color:var(--muted3)}
+.pick-chip.on{background:var(--pu-s);color:var(--pu);border-color:var(--pu-m)}
+.add-custom-row{display:flex;align-items:center;gap:6px;margin-top:7px}
+.add-custom-input{flex:1;height:30px;border:1px solid var(--bd);border-radius:8px;padding:0 10px;font-size:12.5px;color:var(--text);font-family:inherit;letter-spacing:inherit;background:var(--sf);transition:border-color .14s}
+.add-custom-input:focus{outline:none;border-color:var(--pu)}
+.add-custom-btn{height:30px;padding:0 12px;border-radius:999px;background:var(--bd2);color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;border:none;transition:all .14s;white-space:nowrap}
+.add-custom-btn:hover{background:var(--bd);color:var(--text)}
+.modal-ft{padding:16px 26px;border-top:1px solid var(--bd2);display:flex;justify-content:flex-end;gap:8px}
+.btn-cancel{height:38px;padding:0 18px;border-radius:999px;background:none;color:var(--muted);border:1px solid var(--bd);font-size:13px;cursor:pointer;transition:all .15s}
+.btn-cancel:hover{border-color:var(--text);color:var(--text)}
+.btn-save{height:38px;padding:0 20px;border-radius:999px;background:var(--text);color:#fff;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s}
+.btn-save:hover{background:#1a1a1a}
+
+/* ── CONFIRM DELETE ── */
+.confirm-wrap{position:fixed;inset:0;z-index:110;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.25)}
+.confirm-wrap.open{display:flex}
+.confirm-box{background:var(--sf);border-radius:14px;padding:24px;max-width:360px;width:calc(100% - 48px);box-shadow:0 8px 40px rgba(0,0,0,.14);animation:dropIn .18s var(--ease)}
+.confirm-title{font-size:15px;font-weight:620;letter-spacing:-.022em;color:var(--text);margin-bottom:8px}
+.confirm-desc{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:20px}
+.confirm-actions{display:flex;gap:8px;justify-content:flex-end}
+.btn-delete{height:36px;padding:0 16px;border-radius:999px;background:#DC2626;color:#fff;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:background .15s}
+.btn-delete:hover{background:#b91c1c}
+
+/* ── LIMIT BANNER ── */
+.limit-banner{background:var(--am-s);border:1px solid rgba(180,83,9,.15);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;display:none}
+.limit-banner.show{display:flex}
+.lb-text{font-size:13px;color:var(--am)}
+.lb-cta{font-size:12.5px;font-weight:600;color:var(--am);cursor:pointer;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="nav-logo">C</div>
+    <span class="nav-wm">Career<em>ely</em></span>
+  </div>
+  <div class="nav-div"></div>
+  <div class="nav-status">
+    <div class="sdot"></div>
+    <span class="stext" id="nav-status-text">Scanning the market...</span>
+  </div>
+  <div class="nav-div"></div>
+  <div class="nav-tabs">
+    <div class="ntab">Dashboard</div>
+    <div class="ntab on">Searches</div>
+    <div class="ntab">Opportunities <span class="nbadge">6</span></div>
+    <div class="ntab">Applications <span class="nbadge">2</span></div>
+  </div>
+  <div class="nav-right">
+    <div class="nav-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    </div>
+    <div class="nav-av">LF</div>
+  </div>
+</nav>
+
+<!-- PAGE -->
+<div class="page">
+
+  <div class="page-header">
+    <div>
+      <div class="page-title">Searches</div>
+      <div class="page-subtitle">What Careerely is hunting for on your behalf.</div>
+    </div>
+    <button class="btn-create" onclick="openCreate()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New search
+    </button>
+  </div>
+
+  <!-- PLAN USAGE -->
+  <div class="plan-bar" id="plan-bar">
+    <div class="plan-bar-left">
+      <span class="plan-bar-label" id="plan-usage-label">1 of 5 active</span>
+      <div class="usage-pips" id="usage-pips"></div>
+      <span>active searches · Pro plan</span>
+    </div>
+    <div class="plan-bar-right"><a href="#" style="color:var(--pu);text-decoration:none;font-weight:500">Manage plan →</a></div>
+  </div>
+
+  <!-- LIMIT BANNER -->
+  <div class="limit-banner" id="limit-banner">
+    <span class="lb-text">You've reached your active search limit. Pause a search to activate another, or upgrade your plan.</span>
+    <span class="lb-cta">Upgrade →</span>
+  </div>
+
+  <!-- ALL PAUSED BANNER -->
+  <div id="all-paused-banner" style="display:none;background:var(--am-s);border:1px solid rgba(180,83,9,.15);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--am)">Careerely isn't currently searching. Resume a search below to start scanning the market again.</div>
+
+  <!-- SEARCH LIST -->
+  <div class="search-list" id="search-list"></div>
+
+  <!-- EMPTY STATE -->
+  <div class="empty" id="empty-state" style="display:none">
+    <div class="empty-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </div>
+    <div class="empty-title">No searches yet</div>
+    <div class="empty-desc">Careerely isn't searching the market right now. Create a search to tell Careerely what to look for.</div>
+    <button class="btn-empty" onclick="openCreate()">Create search</button>
+  </div>
+
+</div>
+
+<!-- CREATE / EDIT MODAL -->
+<div class="modal-wrap" id="modal-wrap" onclick="handleModalBackdrop(event)">
+  <div class="modal" id="modal">
+    <div class="modal-hd">
+      <div class="modal-title" id="modal-title">New search</div>
+      <div class="modal-origin" id="modal-origin">Pre-filled from your Career Profile. Changes here apply to this search only.</div>
+    </div>
+    <div class="modal-body">
+      <div class="field-group">
+        <label class="field-label">Search name</label>
+        <input class="field" id="f-name" type="text" placeholder="e.g. Fintech Business Development"/>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Target roles</label>
+        <div class="chip-picker" id="f-roles">
+          <div class="pick-chip on" data-val="Business Development">Business Development</div>
+          <div class="pick-chip on" data-val="Account Executive">Account Executive</div>
+          <div class="pick-chip on" data-val="Partnerships Manager">Partnerships Manager</div>
+          <div class="pick-chip" data-val="Sales Manager">Sales Manager</div>
+          <div class="pick-chip" data-val="GTM Lead">GTM Lead</div>
+        </div>
+        <div class="add-custom-row"><input class="add-custom-input" id="add-roles-input" placeholder="Add a role…" onkeydown="addCustomOnEnter(event,\'f-roles\',\'add-roles-input\')"/><button class="add-custom-btn" onclick="addCustomChip(\'f-roles\',\'add-roles-input\')">Add</button></div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Industries</label>
+        <div class="chip-picker" id="f-industries">
+          <div class="pick-chip on" data-val="Fintech">Fintech</div>
+          <div class="pick-chip on" data-val="SaaS">SaaS</div>
+          <div class="pick-chip on" data-val="Crypto / Web3">Crypto / Web3</div>
+          <div class="pick-chip" data-val="AI / ML">AI / ML</div>
+          <div class="pick-chip" data-val="Payments">Payments</div>
+        </div>
+        <div class="add-custom-row"><input class="add-custom-input" id="add-industries-input" placeholder="Add an industry…" onkeydown="addCustomOnEnter(event,\'f-industries\',\'add-industries-input\')"/><button class="add-custom-btn" onclick="addCustomChip(\'f-industries\',\'add-industries-input\')">Add</button></div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Locations</label>
+        <div class="chip-picker" id="f-locations">
+          <div class="pick-chip on" data-val="UK">UK</div>
+          <div class="pick-chip on" data-val="Ireland">Ireland</div>
+          <div class="pick-chip" data-val="Spain">Spain</div>
+          <div class="pick-chip" data-val="Norway">Norway</div>
+          <div class="pick-chip on" data-val="Remote (worldwide)">Remote (worldwide)</div>
+        </div>
+        <div class="add-custom-row"><input class="add-custom-input" id="add-locations-input" placeholder="Add a location…" onkeydown="addCustomOnEnter(event,'f-locations','add-locations-input')"/><button class="add-custom-btn" onclick="addCustomChip('f-locations','add-locations-input')">Add</button></div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Work style</label>
+        <div class="chip-picker" id="f-workstyle">
+          <div class="pick-chip on" data-val="Remote">Remote</div>
+          <div class="pick-chip on" data-val="Hybrid">Hybrid</div>
+          <div class="pick-chip" data-val="On-site">On-site</div>
+        </div>
+      </div>
+      <div class="field-group" style="margin-top:18px;margin-bottom:0"><label class="field-label">Minimum compensation <span style="color:var(--muted2);font-weight:400">(optional)</span></label><input class="field" id="f-salary" type="text" placeholder="e.g. £70,000 · Leave blank to use your Career Profile preference"/></div>
+    </div>
+    <div id="modal-limit-msg" style="display:none;background:var(--am-s);border-top:1px solid rgba(180,83,9,.12);padding:10px 26px;font-size:12.5px;color:var(--am);justify-content:space-between;align-items:center;gap:12px"><span>You've reached 5 active searches. This will be saved as paused.</span><button style="font-size:12px;font-weight:600;color:var(--am);background:none;border:none;cursor:pointer;white-space:nowrap" onclick="saveAsPaused()">Save as paused →</button></div>
+    <div class="modal-ft">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" id="modal-save-btn" onclick="handleSaveBtn()">Start search</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DELETE -->
+<div class="confirm-wrap" id="confirm-wrap">
+  <div class="confirm-box">
+    <div class="confirm-title" id="confirm-title">Delete this search?</div>
+    <div class="confirm-desc">Careerely will stop scanning for these opportunities. Your shortlisted opportunities won't be affected.</div>
+    <div class="confirm-actions">
+      <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="btn-delete" onclick="confirmDelete()">Delete search</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATA ──
+// status: 'active' | 'paused'
+const PLAN_LIMIT = 5  // Pro plan
+
+const searches = [
+  {
+    id: 'search-1',
+    name: 'Fintech Business Development',
+    roles: ['Business Development', 'Partnerships Manager', 'BD Lead'],
+    industries: ['Fintech', 'Payments'],
+    locations: ['UK', 'Ireland'],
+    workStyle: ['Remote', 'Hybrid'],
+    status: 'active',
+    origin: 'from-profile',
+    lastScan: '3 min ago',
+    stats: { reviewed: 1842, shortlisted: 4 },
+  },
+  {
+    id: 'search-2',
+    name: 'SaaS Account Executive',
+    roles: ['Account Executive', 'Enterprise AE'],
+    industries: ['SaaS', 'AI / ML'],
+    locations: ['UK'],
+    workStyle: ['Remote'],
+    status: 'paused',
+    origin: null,
+    lastScan: '2 days ago',
+    stats: { reviewed: 301, shortlisted: 2 },
+  },
+]
+
+let editingId = null
+let deletingId = null
+let pendingSaveAsPaused = null
+
+function saveAsPaused() {
+  if (!pendingSaveAsPaused) return
+  const d = pendingSaveAsPaused
+  searches.push({
+    id: 'search-' + Date.now(),
+    name: d.name, roles: d.roles, industries: d.industries,
+    locations: d.locations, workStyle: d.workStyle, salary: d.salary || '',
+    status: 'paused', origin: null, lastScan: 'never',
+    stats: { reviewed: 0, shortlisted: 0 },
+  })
+  pendingSaveAsPaused = null
+  closeModal()
+  renderAll()
+}
+
+// ── RENDER ──
+function renderAll() {
+  renderSearches()
+  renderPlanBar()
+}
+
+function renderSearches() {
+  const list = document.getElementById('search-list')
+  const empty = document.getElementById('empty-state')
+
+  if (searches.length === 0) {
+    list.innerHTML = ''
+    empty.style.display = 'flex'
+    return
+  }
+  empty.style.display = 'none'
+
+  const activeCount2 = searches.filter(s => s.status === 'active').length
+  const pb = document.getElementById('all-paused-banner')
+  if (pb) pb.style.display = activeCount2 === 0 ? 'block' : 'none'
+
+  // Active first, paused below
+  const sorted = [...searches].sort((a,b) => {
+    if (a.status === b.status) return 0
+    return a.status === 'active' ? -1 : 1
+  })
+
+  list.innerHTML = sorted.map((s, i) => {
+    const isActive = s.status === 'active'
+    const paramChips = [
+      ...s.roles.slice(0,2).map(r => `<span class="sc-chip sc-chip-pu">${r}</span>`),
+      ...s.industries.map(x => `<span class="sc-chip">${x}</span>`),
+      ...s.locations.map(x => `<span class="sc-chip">${x}</span>`),
+      ...s.workStyle.map(x => `<span class="sc-chip">${x}</span>`),
+      ...(s.salary ? [`<span class="sc-chip">${s.salary}+</span>`] : []),
+    ].join('')
+
+    return `
+    <div class="search-card${isActive ? '' : ' paused'}" id="${s.id}" style="animation-delay:${i * 0.05}s">
+      <div class="sc-main">
+        <div class="sc-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <div class="sc-body">
+          <div class="sc-top">
+            <div>
+              <div class="sc-name">${s.name}</div>
+              ${s.origin === 'from-profile' ? '<div style="font-size:11px;color:var(--muted2);margin-top:2px">Created from your preferences</div>' : ''}
+            </div>
+            <div class="sc-actions">
+              <div class="sc-status ${isActive ? 'active' : 'paused'}">
+                <div class="sc-status-dot"></div>
+                ${isActive ? 'Active' : 'Paused'}
+              </div>
+              <div class="sc-menu-btn" onclick="toggleMenu('${s.id}', event)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                <div class="sc-dropdown" id="menu-${s.id}">
+                  <div class="sd-item" onclick="editSearch('${s.id}')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edit search
+                  </div>
+                  <div class="sd-item" onclick="toggleStatus('${s.id}')">
+                    ${isActive
+                      ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause search`
+                      : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Resume search`
+                    }
+                  </div>
+                  <div class="sd-sep"></div>
+                  <div class="sd-item danger" onclick="promptDelete('${s.id}')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                    Delete search
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="sc-params">${paramChips}</div>
+          <div class="sc-stats">
+            <div class="sc-stat">
+              <div class="sc-stat-n">${s.stats.reviewed.toLocaleString()}</div>
+              <div class="sc-stat-l">reviewed · last 7 days</div>
+            </div>
+            <div class="sc-stat" style="padding-left:16px;margin-left:16px">
+              <div class="sc-stat-n">${s.stats.shortlisted}</div>
+              <div class="sc-stat-l">shortlisted · last 7 days</div>
+            </div>
+            <div class="sc-stat" style="padding-left:16px;margin-left:16px">
+              <div class="sc-stat-n" style="font-size:13px;font-weight:500;color:var(--muted2);padding-top:3px">${isActive ? 'Last scan ' + s.lastScan : 'Paused'}</div>
+              <div class="sc-stat-l">${isActive ? 'scanning continuously' : 'not scanning'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`
+  }).join('')
+}
+
+function renderPlanBar() {
+  const activeCount = searches.filter(s => s.status === 'active').length
+  document.getElementById('plan-usage-label').textContent = `${activeCount} of ${PLAN_LIMIT} active`
+
+  const pips = document.getElementById('usage-pips')
+  pips.innerHTML = Array.from({length: PLAN_LIMIT}, (_,i) =>
+    `<div class="pip${i < activeCount ? ' on' : ''}"></div>`
+  ).join('')
+
+  // Limit banner
+  const banner = document.getElementById('limit-banner')
+  banner.classList.toggle('show', activeCount >= PLAN_LIMIT)
+}
+
+// ── MENUS ──
+function toggleMenu(id, e) {
+  e.stopPropagation()
+  const menu = document.getElementById('menu-' + id)
+  if (!menu) return
+  const isOpen = menu.classList.contains('open')
+  closeAllMenus()
+  if (!isOpen) menu.classList.add('open')
+}
+
+function closeAllMenus() {
+  document.querySelectorAll('.sc-dropdown').forEach(m => m.classList.remove('open'))
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.sc-menu-btn')) closeAllMenus()
+})
+
+// ── TOGGLE STATUS ──
+function toggleStatus(id) {
+  const s = searches.find(x => x.id === id)
+  if (!s) return
+  closeAllMenus()
+
+  if (s.status === 'paused') {
+    // Check active limit
+    const activeCount = searches.filter(x => x.status === 'active').length
+    if (activeCount >= PLAN_LIMIT) {
+      document.getElementById('limit-banner').classList.add('show')
+      return
+    }
+  }
+  s.status = s.status === 'active' ? 'paused' : 'active'
+  renderAll()
+}
+
+// ── DELETE ──
+function promptDelete(id) {
+  closeAllMenus()
+  deletingId = id
+  const s = searches.find(x => x.id === id)
+  document.getElementById('confirm-title').textContent = `Delete "${s ? s.name : 'this search'}"?`
+  document.getElementById('confirm-wrap').classList.add('open')
+}
+
+function confirmDelete() {
+  const idx = searches.findIndex(x => x.id === deletingId)
+  if (idx !== -1) searches.splice(idx, 1)
+  deletingId = null
+  closeConfirm()
+  renderAll()
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-wrap').classList.remove('open')
+  deletingId = null
+}
+
+// ── CREATE / EDIT ──
+function openCreate() {
+  editingId = null
+  document.getElementById('modal-title').textContent = 'New search'
+  document.getElementById('modal-origin').textContent = 'Pre-filled from your Career Profile. Changes here apply to this search only.'
+  document.getElementById('modal-save-btn').textContent = 'Start search'
+  document.getElementById('f-name').value = ''
+  const sf = document.getElementById('f-salary'); if(sf) sf.value = ''
+  const lm = document.getElementById('modal-limit-msg'); if(lm) lm.style.display='none'
+  document.getElementById('modal-save-btn').textContent = 'Start search'
+  // Reset chips to profile defaults
+  resetChips('f-roles', ['Business Development', 'Account Executive', 'Partnerships Manager'])
+  resetChips('f-industries', ['Fintech', 'SaaS', 'Crypto / Web3'])
+  resetChips('f-locations', ['UK', 'Ireland', 'Remote (worldwide)'])
+  resetChips('f-workstyle', ['Remote', 'Hybrid'])
+  document.getElementById('modal-wrap').classList.add('open')
+}
+
+function editSearch(id) {
+  closeAllMenus()
+  const s = searches.find(x => x.id === id)
+  if (!s) return
+  editingId = id
+  document.getElementById('modal-title').textContent = 'Edit search'
+  document.getElementById('modal-origin').textContent = 'Changes apply to this search only and will not affect your Career Profile.'
+  document.getElementById('modal-save-btn').textContent = 'Save changes'
+  document.getElementById('f-name').value = s.name
+  resetChips('f-roles', s.roles)
+  resetChips('f-industries', s.industries)
+  resetChips('f-locations', s.locations)
+  resetChips('f-workstyle', s.workStyle)
+  const salField = document.getElementById('f-salary'); if(salField) salField.value = s.salary || ''
+  const limMsg = document.getElementById('modal-limit-msg'); if(limMsg) limMsg.style.display='none'
+  document.getElementById('modal-save-btn').textContent = 'Save changes'
+  document.getElementById('modal-wrap').classList.add('open')
+}
+
+function resetChips(containerId, selected) {
+  document.querySelectorAll(`#${containerId} .pick-chip`).forEach(chip => {
+    chip.classList.toggle('on', selected.includes(chip.dataset.val))
+  })
+}
+
+function handleSaveBtn() {
+  if (pendingSaveAsPaused) { saveAsPaused(); return }
+  saveSearch()
+}
+
+function saveSearch() {
+  const name = document.getElementById('f-name').value.trim()
+  if (!name) { document.getElementById('f-name').focus(); return }
+
+  const getSelected = id => [...document.querySelectorAll(`#${id} .pick-chip.on`)].map(c => c.dataset.val)
+  const roles = getSelected('f-roles')
+  const industries = getSelected('f-industries')
+  const locations = getSelected('f-locations')
+  const workStyle = getSelected('f-workstyle')
+  const salary = (document.getElementById('f-salary') || {}).value || ''
+
+  if (editingId) {
+    const s = searches.find(x => x.id === editingId)
+    if (s) { s.name = name; s.roles = roles; s.industries = industries; s.locations = locations; s.workStyle = workStyle; s.salary = salary }
+  } else {
+    const activeCount = searches.filter(x => x.status === 'active').length
+    if (activeCount >= PLAN_LIMIT) {
+      const lm = document.getElementById('modal-limit-msg')
+      if (lm) lm.style.display = 'flex'
+      document.getElementById('modal-save-btn').textContent = 'Save as paused'
+      pendingSaveAsPaused = { name, roles, industries, locations, workStyle, salary }
+      return
+    }
+    searches.push({
+      id: 'search-' + Date.now(),
+      name, roles, industries, locations, workStyle, salary,
+      status: 'active',
+      origin: null,
+      lastScan: 'just now',
+      stats: { reviewed: 0, shortlisted: 0 },
+    })
+  }
+
+  pendingSaveAsPaused = null
+  closeModal()
+  renderAll()
+}
+
+function closeModal() {
+  document.getElementById('modal-wrap').classList.remove('open')
+  editingId = null
+}
+
+function handleModalBackdrop(e) {
+  if (e.target === document.getElementById('modal-wrap')) closeModal()
+}
+
+// Add custom chip
+function addCustomChip(pickerId, inputId) {
+  const input = document.getElementById(inputId)
+  if (!input) return
+  const val = input.value.trim()
+  if (!val) return
+  const picker = document.getElementById(pickerId)
+  const existing = [...picker.querySelectorAll('.pick-chip')].find(ch => ch.dataset.val.toLowerCase() === val.toLowerCase())
+  if (existing) { existing.classList.add('on'); input.value = ''; return }
+  const chip = document.createElement('div')
+  chip.className = 'pick-chip on'
+  chip.dataset.val = val
+  chip.textContent = val
+  picker.appendChild(chip)
+  input.value = ''
+}
+
+function addCustomOnEnter(e, pickerId, inputId) {
+  if (e.key === 'Enter') { e.preventDefault(); addCustomChip(pickerId, inputId) }
+}
+
+// Chip toggle
+document.querySelectorAll('.chip-picker').forEach(picker => {
+  picker.addEventListener('click', e => {
+    const chip = e.target.closest('.pick-chip')
+    if (chip) chip.classList.toggle('on')
+  })
+})
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeConfirm() }
+})
+
+document.addEventListener('DOMContentLoaded', renderAll)
+</script>
+</body>
+</html>
