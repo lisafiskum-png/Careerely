@@ -1,0 +1,44 @@
+{
+ "apiVersion": "1",
+ "jobs": [
+  {
+   "id": "ab-1",
+   "title": "Account Executive, EMEA",
+   "jobUrl": "https://jobs.ashbyhq.com/cohere/ab-1",
+   "location": "London, UK",
+   "isRemote": false,
+   "workplaceType": "Hybrid",
+   "isListed": true,
+   "publishedAt": "2026-09-29T00:00:00Z",
+   "descriptionPlain": "Sell Cohere's models to enterprises.\nAbout you\n\u2022 You have closed six-figure enterprise deals\n\u2022 You understand regulated industries",
+   "compensation": {
+    "summaryComponents": [
+     {
+      "compensationType": "Salary",
+      "interval": "1 YEAR",
+      "currencyCode": "GBP",
+      "minValue": 90000,
+      "maxValue": 120000
+     }
+    ]
+   }
+  },
+  {
+   "id": "ab-3",
+   "title": "Account Manager, SMB",
+   "jobUrl": "https://jobs.ashbyhq.com/cohere/ab-3",
+   "location": "London, UK",
+   "workplaceType": "Hybrid",
+   "isListed": true,
+   "publishedAt": "2026-09-20T00:00:00Z",
+   "descriptionPlain": "Manage small business accounts.\nRequirements\n\u2022 Experience managing a book of small business accounts"
+  },
+  {
+   "id": "ab-2",
+   "title": "Hidden role",
+   "jobUrl": "https://jobs.ashbyhq.com/cohere/ab-2",
+   "isListed": false,
+   "descriptionPlain": "x"
+  }
+ ]
+}
