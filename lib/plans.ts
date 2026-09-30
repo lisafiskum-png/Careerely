@@ -1,117 +1,109 @@
-export type BillingPeriod = 'monthly' | 'annual'
-export type PlanId = 'standard' | 'pro' | 'premium'
+// Plans and entitlements (Master Brief → Pricing, locked).
+//
+// Unit of value: applications prepared. Every plan sees all shortlisted
+// opportunities and gets the same nightly auto-preparation; plans differ only
+// in active searches and monthly preparations.
+//
+// The database mirrors these limits in public.plan_limits() — a test keeps the
+// two in sync. The database is the enforcement point; this module is for the
+// server and UI.
 
-export type BillingOption = {
-  label: string
-  priceLabel: string
-  discountLabel?: string
+export const PLAN_IDS = ['basic', 'pro', 'max'] as const
+export type PlanId = (typeof PLAN_IDS)[number]
+
+export type PlanLimits = {
+  /** null = unlimited */
+  activeSearches: number | null
+  monthlyPreparations: number
 }
 
-type PricingPlan = {
+export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
+  basic: { activeSearches: 1, monthlyPreparations: 10 },
+  pro: { activeSearches: 5, monthlyPreparations: 50 },
+  max: { activeSearches: null, monthlyPreparations: 200 },
+}
+
+export type Plan = {
   id: PlanId
-  title: string
-  tagline: string
-  monthly: number
-  annual: number
-  description: string
+  name: string
+  monthlyPriceUsd: number
   features: string[]
-  badge: string
-  highlight?: boolean
+  featured?: boolean
 }
 
-export const planOrder: PlanId[] = ['standard', 'pro', 'premium']
-export const planRank: Record<PlanId, number> = {
-  standard: 0,
-  pro: 1,
-  premium: 2,
-}
-
-export function isPlanAtLeast(current: PlanId, required: PlanId) {
-  if (process.env.NEXT_PUBLIC_DEV_BYPASS === 'true') return true
-  return planRank[current] >= planRank[required]
-}
-
-export const defaultPlan: PlanId = 'standard'
-
-export const pricingPlans: PricingPlan[] = [
+export const PLANS: Plan[] = [
   {
-    id: 'standard',
-    title: 'Standard',
-    tagline: 'For casual job seekers testing the market.',
-    monthly: 29,
-    annual: 23,
-    description: 'All the essentials to build strong, tailored applications without the noise.',
-    features: [
-      '10 cover letters per month',
-      'Voice matching from your application',
-      'Application dashboard',
-      'PDF cover letter downloads',
-      'CV review (upload and improve)',
-      'Basic ATS score',
-    ],
-    badge: 'Standard',
+    id: 'basic',
+    name: 'Basic',
+    monthlyPriceUsd: 29,
+    features: ['1 active search', '10 applications prepared/mo', 'Top 2 nightly auto-prep'],
   },
   {
     id: 'pro',
-    title: 'Pro',
-    tagline: 'For active job seekers ready to move fast.',
-    monthly: 49,
-    annual: 39,
-    description: 'Unlimited cover letters, smarter job discovery, and AI-powered application support.',
-    features: [
-      'Unlimited cover letters',
-      'Voice matching from your application',
-      'Real-time job board scraping',
-      'One-click apply',
-      'Quality scoring and ranking',
-      'Application dashboard',
-      'PDF cover letter downloads',
-      'CV builder from scratch + review',
-      'Full ATS optimisation + keywords',
-      'AI Career Assistant (10 chats/day)',
-      'Daily email digest',
-    ],
-    badge: 'Pro',
-    highlight: true,
+    name: 'Pro',
+    monthlyPriceUsd: 49,
+    features: ['5 active searches', '50 applications prepared/mo', 'Top 2 nightly auto-prep'],
+    featured: true,
   },
   {
-    id: 'premium',
-    title: 'Premium',
-    tagline: 'For maximum results. Every advantage unlocked.',
-    monthly: 79,
-    annual: 63,
-    description: 'The full career growth suite with custom analytics, prep, outreach, and unlimited AI support.',
-    features: [
-      'Everything in Pro',
-      'ATS optimisation per job',
-      'AI Career Assistant (unlimited)',
-      'Interview prep generator',
-      'Follow-up email drafts',
-      'Recruiter outreach drafts',
-      'Dream company monitoring',
-      'Priority generation speed',
-      'Salary intelligence and benchmarks',
-      'Application analytics and insights',
-      'Weekly job market report',
-    ],
-    badge: 'Premium',
+    id: 'max',
+    name: 'Max',
+    monthlyPriceUsd: 79,
+    features: ['Unlimited searches', '200 applications prepared/mo', 'Top 2 nightly auto-prep'],
   },
 ]
 
-export const billingOptions: Record<BillingPeriod, BillingOption> = {
-  monthly: {
-    label: 'Monthly',
-    priceLabel: 'per month',
-  },
-  annual: {
-    label: 'Annual',
-    priceLabel: 'per month, billed annually',
-    discountLabel: 'Save 20%',
-  },
+/** Nightly automatic preparation: the top N opportunities, same on every plan. */
+export const NIGHTLY_AUTO_PREP = 2
+
+export function isPlanId(value: unknown): value is PlanId {
+  return typeof value === 'string' && (PLAN_IDS as readonly string[]).includes(value)
 }
 
-export const planBadgeStyles = {
-  Standard: { background: 'rgba(34,197,94,0.1)', color: '#22c55e' },
-  Pro: { background: 'rgba(167,139,250,0.1)', color: '#a78bfa' },
-  Premium: { background: 'rgba(236,72,153,0.1)', color: '#ec4899' },
+// Stripe subscription statuses that grant full access while the paid period
+// lasts. past_due keeps access while Stripe retries the payment. canceled keeps
+// access until the end of the period that was already paid for.
+const ACCESS_STATUSES = new Set(['active', 'trialing', 'past_due', 'canceled'])
+
+export type SubscriptionState = {
+  plan: PlanId | null
+  status: string
+  current_period_end: string | null
+}
+
+export type AccessState =
+  | { kind: 'active'; plan: PlanId }
+  | { kind: 'read_only'; reason: 'no_subscription' | 'ended' | 'payment_required' }
+
+/**
+ * Same rule as public.has_active_access() in the database. Without an active
+ * subscription the account is read-only: existing applications and documents
+ * stay available, but Careerely stops searching and preparing.
+ */
+export function getAccessState(sub: SubscriptionState | null, now: Date = new Date()): AccessState {
+  if (!sub || !sub.plan) return { kind: 'read_only', reason: 'no_subscription' }
+  if (!ACCESS_STATUSES.has(sub.status)) return { kind: 'read_only', reason: 'payment_required' }
+  if (!sub.current_period_end || new Date(sub.current_period_end) <= now) {
+    return { kind: 'read_only', reason: 'ended' }
+  }
+  return { kind: 'active', plan: sub.plan }
+}
+
+/**
+ * How many more application packages can be prepared this billing period.
+ * Automatic nightly preparation counts toward the limit; once it is reached,
+ * Careerely keeps finding and ranking opportunities but stops preparing.
+ */
+export function remainingPreparations(plan: PlanId, usedThisPeriod: number): number {
+  return Math.max(0, PLAN_LIMITS[plan].monthlyPreparations - usedThisPeriod)
+}
+
+/** How many opportunities tonight's automatic preparation may prepare. */
+export function nightlyPreparationBudget(plan: PlanId, usedThisPeriod: number): number {
+  return Math.min(NIGHTLY_AUTO_PREP, remainingPreparations(plan, usedThisPeriod))
+}
+
+export function canActivateSearch(plan: PlanId, activeSearches: number): boolean {
+  const limit = PLAN_LIMITS[plan].activeSearches
+  return limit === null || activeSearches < limit
 }
