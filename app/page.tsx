@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { motion, useInView } from 'framer-motion'
 import { useRouter } from 'next/navigation'
+import { PLANS } from '../lib/plans'
 
 function Section({ children, className = '', id }: { children: React.ReactNode; className?: string; id?: string }) {
   const ref = useRef(null)
@@ -54,7 +55,7 @@ export default function Home() {
           </div>
 
           <button
-            onClick={() => router.push('/auth')}
+            onClick={() => router.push('/auth?mode=signup')}
             className="bg-[#0A0A0A] text-white text-[14px] font-medium px-5 py-2.5 rounded-md hover:bg-[#1a1a1a] active:scale-[0.97] transition-all duration-200"
           >
             Join Waitlist
@@ -90,11 +91,11 @@ export default function Home() {
                 placeholder="your@email.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && router.push('/auth')}
+                onKeyDown={e => e.key === 'Enter' && router.push('/auth?mode=signup')}
                 className="flex-1 px-4 py-3.5 rounded-md bg-white border border-zinc-200 text-[#0A0A0A] text-[15px] placeholder:text-zinc-400 focus:outline-none focus:border-[#6D28D9] focus:ring-1 focus:ring-[#6D28D9]/20 transition-all"
               />
               <button
-                onClick={() => router.push('/auth')}
+                onClick={() => router.push('/auth?mode=signup')}
                 className="bg-[#0A0A0A] text-white text-[15px] font-medium px-7 py-3.5 rounded-md hover:bg-[#1a1a1a] active:scale-[0.97] transition-all duration-200 whitespace-nowrap"
               >
                 Join Waitlist
@@ -107,25 +108,6 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
-
-      {/* ── SOCIAL PROOF BAR ── */}
-      <Section className="pb-24 px-6 md:px-12">
-        <div className="max-w-[1200px] mx-auto">
-          <div className="flex flex-wrap items-center gap-8 md:gap-16 py-8 border-t border-b border-zinc-200/80">
-            {[
-              { num: '2,847',  label: 'On the waitlist' },
-              { num: '94%',    label: 'Interview rate' },
-              { num: '<2 min', label: 'Per application' },
-              { num: '10x',    label: 'Faster than manual' },
-            ].map((stat, i) => (
-              <div key={i}>
-                <div className="text-[28px] md:text-[32px] font-semibold text-[#0A0A0A] tracking-[-0.02em]">{stat.num}</div>
-                <div className="text-[13px] text-zinc-400 mt-1">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Section>
 
       {/* ── HOW IT WORKS ── */}
       <Section id="how" className="py-32 px-6 md:px-12">
@@ -241,26 +223,10 @@ export default function Home() {
           </h2>
 
           <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                name: 'Standard', price: '29', id: 'standard',
-                desc: 'For casual job seekers testing the market.',
-                features: ['10 cover letters/month', 'Voice matching', 'Job scraping (25 matches/week)', 'Application dashboard', 'PDF download', 'CV review', 'Basic ATS score'],
-                highlighted: false,
-              },
-              {
-                name: 'Pro', price: '49', id: 'pro',
-                desc: 'For active job seekers ready to move fast.',
-                features: ['Unlimited cover letters', 'Real-time job scraping (unlimited)', 'One-click apply', 'Full ATS optimization', 'CV builder from scratch', 'AI career assistant (10/day)', 'Daily email digest'],
-                highlighted: true,
-              },
-              {
-                name: 'Premium', price: '79', id: 'premium',
-                desc: 'Every advantage unlocked.',
-                features: ['Everything in Pro', 'Unlimited AI assistant', 'Interview prep generator', 'Follow-up email drafts', 'Recruiter outreach drafts', 'Dream company monitoring', 'Salary intelligence', 'Weekly market report'],
-                highlighted: false,
-              },
-            ].map((plan, i) => (
+            {PLANS.map(p => ({
+              name: p.name, price: String(p.monthlyPriceUsd), id: p.id,
+              features: p.features, highlighted: Boolean(p.featured),
+            })).map((plan, i) => (
               <div
                 key={i}
                 className={`rounded-xl p-8 md:p-10 transition-all duration-300 ${
@@ -278,9 +244,6 @@ export default function Home() {
                 <h3 className={`text-[20px] font-semibold tracking-[-0.01em] mb-2 ${plan.highlighted ? 'text-white' : 'text-[#0A0A0A]'}`}>
                   {plan.name}
                 </h3>
-                <p className={`text-[14px] mb-6 ${plan.highlighted ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                  {plan.desc}
-                </p>
 
                 <div className="mb-8">
                   <span className={`text-[48px] font-semibold tracking-[-0.03em] ${plan.highlighted ? 'text-white' : 'text-[#0A0A0A]'}`}>
@@ -290,7 +253,7 @@ export default function Home() {
                 </div>
 
                 <button
-                  onClick={() => router.push(`/auth?plan=${plan.id}&billing=monthly`)}
+                  onClick={() => router.push('/auth?mode=signup')}
                   className={`w-full py-3 rounded-md text-[14px] font-medium mb-8 transition-all duration-200 active:scale-[0.97] ${
                     plan.highlighted
                       ? 'bg-white text-[#0A0A0A] hover:bg-zinc-100'
@@ -357,11 +320,11 @@ export default function Home() {
               placeholder="your@email.com"
               value={ctaEmail}
               onChange={e => setCtaEmail(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && router.push('/auth')}
+              onKeyDown={e => e.key === 'Enter' && router.push('/auth?mode=signup')}
               className="flex-1 px-4 py-3.5 rounded-md bg-white/10 border border-white/20 text-white text-[15px] placeholder:text-zinc-500 focus:outline-none focus:border-[#6D28D9] transition-all"
             />
             <button
-              onClick={() => router.push('/auth')}
+              onClick={() => router.push('/auth?mode=signup')}
               className="bg-white text-[#0A0A0A] text-[15px] font-medium px-7 py-3.5 rounded-md hover:bg-zinc-100 active:scale-[0.97] transition-all duration-200 whitespace-nowrap"
             >
               Join Waitlist

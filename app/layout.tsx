@@ -2,15 +2,17 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 
+// Master Brief → Typography: Inter, all weights, optical sizing.
 const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  axes: ["opsz"],
   variable: "--font-inter",
 })
 
 export const metadata: Metadata = {
-  title: "Careerely — Applications That Sound Like You",
-  description: "Your voice. Every application. Careerely learns how you write and applies to jobs that match — automatically.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://careerely.ai"),
+  title: "Careerely — Stop searching for jobs",
+  description: "Careerely is an AI career agent. It finds and ranks opportunities for you, then prepares a tailored resume and cover letter for the best ones.",
 }
 
 export default function RootLayout({
@@ -20,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={inter.variable}>
-      <body style={{ fontFamily: '"Inter", system-ui, -apple-system, sans-serif', background: '#FAFAFA' }}>
+      <body>
         {children}
       </body>
     </html>

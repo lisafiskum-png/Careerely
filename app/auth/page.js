@@ -1,59 +1,54 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { createClient } from '../../lib/supabase/client'
+import { useRouter, useSearchParams } from 'next/navigation'
 
-const validPlans = ['standard', 'pro', 'premium']
+// Step 1 (account creation) is redesigned in Phase B. This page only signs
+// users in and up. Profiles are created by a database trigger on signup, and
+// checkout is started from inside the app, never from here.
 
-export default function Auth() {
-  const [selectedPlan, setSelectedPlan] = useState(null)
-  const [selectedBilling, setSelectedBilling] = useState('monthly')
+function safeNext(value) {
+  return value && value.startsWith('/') && !value.startsWith('//') ? value : '/dashboard'
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense>
+      <Auth />
+    </Suspense>
+  )
+}
+
+function Auth() {
+  const searchParams = useSearchParams()
+  const next = safeNext(searchParams.get('next'))
+  const [supabase] = useState(() => createClient())
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [isSignUp, setIsSignUp] = useState(false)
+  const [isSignUp, setIsSignUp] = useState(searchParams.get('mode') === 'signup')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const router = useRouter()
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const params = new URLSearchParams(window.location.search)
-    const plan = params.get('plan')
-    const billing = params.get('billing')
-    if (validPlans.includes(plan)) setSelectedPlan(plan)
-    if (billing === 'annual') setSelectedBilling('annual')
-  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setNotice('')
     if (isSignUp) {
-      const { data, error } = await supabase.auth.signUp({ email, password })
-      if (error) {
-        setError(error.message)
-      } else {
-        const userId = data.user?.id
-        if (userId) {
-          await supabase.from('profiles').upsert({ id: userId, email, plan: 'standard' })
-        }
-        if (userId && selectedPlan && selectedPlan !== 'standard') {
-          try {
-            const res = await fetch('/api/stripe-checkout', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ plan: selectedPlan, billing: selectedBilling, userId, email }),
-            })
-            const json = await res.json()
-            if (json.url) { window.location.href = json.url; return }
-          } catch {}
-        }
-        router.push('/dashboard')
-      }
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: `${window.location.origin}${next}` },
+      })
+      if (error) setError(error.message)
+      else if (!data.session) setNotice('Check your email to confirm your account, then sign in.')
+      else { router.push(next); router.refresh(); return }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setError(error.message)
-      else router.push('/dashboard')
+      else { router.push(next); router.refresh(); return }
     }
     setLoading(false)
   }
@@ -96,15 +91,8 @@ export default function Auth() {
               {isSignUp ? 'Create your account' : 'Welcome back'}
             </h1>
             <p style={{ color: '#9898ad', fontSize: 14 }}>
-              {isSignUp ? '7-day free trial. No credit card required.' : 'Sign in to your Careerely account.'}
+              {isSignUp ? 'Create your account to get started.' : 'Sign in to your Careerely account.'}
             </p>
-            {isSignUp && selectedPlan && (
-              <p style={{ color: '#a78bfa', fontSize: 13, marginTop: 8 }}>
-                You're signing up for the <strong>{selectedPlan.charAt(0).toUpperCase() + selectedPlan.slice(1)}</strong> plan
-                {selectedPlan !== 'standard' ? ` (${selectedBilling})` : ''}.
-                {selectedPlan !== 'standard' ? " You'll be taken to checkout after creating your account." : ''}
-              </p>
-            )}
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -137,6 +125,12 @@ export default function Auth() {
               </div>
             )}
 
+            {notice && (
+              <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 8, padding: '10px 14px' }}>
+                <p style={{ color: '#22c55e', fontSize: 13 }}>{notice}</p>
+              </div>
+            )}
+
             <button type="submit" className="auth-btn" disabled={loading}>
               {loading ? 'Loading...' : isSignUp ? 'Create Account' : 'Sign In'}
             </button>
@@ -147,10 +141,10 @@ export default function Auth() {
           <p style={{ color: '#9898ad', fontSize: 13, textAlign: 'center' }}>
             {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
             <span
-              onClick={() => { setIsSignUp(!isSignUp); setError('') }}
+              onClick={() => { setIsSignUp(!isSignUp); setError(''); setNotice('') }}
               style={{ color: '#a78bfa', cursor: 'pointer', fontWeight: 600 }}
             >
-              {isSignUp ? 'Sign in' : 'Sign up free'}
+              {isSignUp ? 'Sign in' : 'Create an account'}
             </span>
           </p>
         </div>
