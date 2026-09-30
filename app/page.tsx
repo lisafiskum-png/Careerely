@@ -103,25 +103,27 @@ export default function Home() {
           </Reveal>
           <RevealGroup className={s.whyGrid} stagger={120}>
             <div className={s.whyRow}>
-              <div className={s.whyN}>5,000+</div>
+              <div className={s.whyN}>Nightly</div>
               <div>
-                <div className={s.whyTitle}>Roles reviewed every night</div>
+                <div className={s.whyTitle}>Roles reviewed while you sleep</div>
                 <div className={s.whyBody}>
-                  Careerely scans thousands of live listings while you sleep. You only see the ones that actually fit.
+                  Every night, Careerely checks new listings against your experience and goals. You only see the ones that actually fit.
                 </div>
               </div>
             </div>
             <div className={s.whyRow}>
-              <div className={s.whyN}>3 min</div>
+              <div className={s.whyN}>Ready</div>
               <div>
-                <div className={s.whyTitle}>From shortlist to application</div>
-                <div className={s.whyBody}>Your CV and cover letter are already tailored. Read Careerely&apos;s reasoning, then apply.</div>
+                <div className={s.whyTitle}>Applications prepared for you</div>
+                <div className={s.whyBody}>
+                  For your strongest opportunities, your resume and cover letter are already tailored. Read Careerely&apos;s reasoning, review, then apply.
+                </div>
               </div>
             </div>
             <div className={s.whyRow}>
-              <div className={s.whyN}>100%</div>
+              <div className={s.whyN}>Explained</div>
               <div>
-                <div className={s.whyTitle}>Transparent reasoning</div>
+                <div className={s.whyTitle}>Reasoning you can check</div>
                 <div className={s.whyBody}>
                   Every shortlisted role comes with an explanation. Which requirements you meet, what was changed, and what couldn&apos;t be
                   confirmed.

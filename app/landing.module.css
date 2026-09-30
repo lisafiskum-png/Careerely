@@ -195,7 +195,7 @@
 .whyGrid { display: grid; grid-template-columns: 1fr; gap: 2px; }
 .whyRow { display: flex; align-items: flex-start; gap: 48px; padding: 40px 0; border-bottom: 1px solid var(--border); }
 .whyRow:first-child { border-top: 1px solid var(--border); }
-.whyN { font-size: clamp(36px, 4vw, 52px); font-weight: 700; letter-spacing: -0.05em; color: var(--accent); min-width: 160px; flex-shrink: 0; line-height: 1; }
+.whyN { font-size: clamp(36px, 4vw, 52px); font-weight: 700; letter-spacing: -0.05em; color: var(--accent); min-width: 260px; flex-shrink: 0; line-height: 1; } /* sized for word labels instead of numbers */
 .whyTitle { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; color: var(--fg); margin-bottom: 10px; }
 .whyBody { font-size: 15px; color: var(--sec); line-height: 1.75; max-width: 520px; }
 @media (max-width: 640px) { .whyRow { flex-direction: column; gap: 16px; } .whyN { min-width: unset; } }

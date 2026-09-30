@@ -8,6 +8,13 @@ test.describe('landing page', () => {
     await expect(page.getByRole('heading', { name: 'Three steps' })).toBeAttached()
     await expect(page.getByRole('heading', { name: 'Not another job board.' })).toBeAttached()
 
+    // No invented metrics; locked vocabulary in the demo.
+    const body = await page.locator('body').innerText()
+    for (const claim of ['5,000+', '3 min', '100%', 'while you were away', 'Review & apply']) expect(body).not.toContain(claim)
+    await expect(page.getByText('Roles reviewed while you sleep')).toBeAttached()
+    await expect(page.getByText('Recent activity')).toBeAttached()
+    await expect(page.getByText('Review application')).toBeAttached()
+
     // Demo plays when scrolled into view: count-up reaches the reference value.
     await page.locator('#demo').scrollIntoViewIfNeeded()
     await expect(page.getByText('2,143', { exact: true }).first()).toBeVisible({ timeout: 10_000 })

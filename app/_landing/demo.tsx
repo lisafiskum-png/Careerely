@@ -175,7 +175,7 @@ export function ProductDemo() {
                       Cover letter drafted
                     </div>
                     <div className={s.prepBtn} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      Review &amp; apply →
+                      Review application
                     </div>
                   </div>
                 </div>
@@ -235,7 +235,7 @@ export function ProductDemo() {
             </div>
 
             <div className={`${s.card} ${s.activity} ${pop('activity', true)}`}>
-              <div className={s.activityTitle}>Careerely worked while you were away</div>
+              <div className={s.activityTitle}>Recent activity</div>
               <div className={`${s.act} ${fade('act1', s.fadeQuick)}`}>
                 <div className={s.actIcon}>
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" aria-hidden>
