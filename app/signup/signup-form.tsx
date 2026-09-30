@@ -9,10 +9,10 @@ import { CheckIcon, ProgressDots } from '../../components/onboarding/shell'
 import s from '../../components/onboarding/onboarding.module.css'
 
 // Step 1 — Account creation (design/onboarding-step1-step2-final.html, LOCKED).
-export function SignupForm({ selectedPlan }: { selectedPlan: PlanId | null }) {
+export function SignupForm({ selectedPlan, initialEmail = '' }: { selectedPlan: PlanId | null; initialEmail?: string }) {
   const router = useRouter()
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(initialEmail)
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [agreed, setAgreed] = useState(false)
