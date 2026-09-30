@@ -99,7 +99,10 @@ below 60. Two outcomes are not rejections and are kept on
   not low. It is evaluated again once the resume, the search or the posting
   changes.
 
-Scheduling: Vercel Cron calls `/api/engine/tick` every 5 minutes (`vercel.json`).
+Scheduling: Vercel Cron calls `/api/engine/tick` (`vercel.json`). While the
+project is on Vercel Hobby, which only allows daily crons, the schedule is
+`0 2 * * *` (once a day, 02:00 UTC, matching `ENGINE_NIGHTLY_HOUR_UTC`). On
+Vercel Pro, set it back to `*/5 * * * *` so the queue is worked every 5 minutes.
 Each tick queues the nightly run when due and works through `engine_tasks`
 for up to 4 minutes. Finishing onboarding queues the user's first scan
 immediately. `npm test` includes an end-to-end engine run against the local
