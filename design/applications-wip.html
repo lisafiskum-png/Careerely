@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Applications — Careerely</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F7F8FA;--sf:#fff;--text:#0A0A0A;--text2:#3A3A3A;
+  --muted:#6B7280;--muted2:#9CA3AF;--muted3:#D1D5DB;
+  --bd:#E8EAED;--bd2:#F1F3F5;
+  --pu:#5B21B6;--pu-s:rgba(91,33,182,.07);--pu-m:rgba(91,33,182,.13);
+  --gn:#059669;--gn-s:rgba(5,150,105,.08);
+  --am:#B45309;--am-s:rgba(180,83,9,.07);
+  --red:#DC2626;--red-s:rgba(220,38,38,.06);
+  --ease:cubic-bezier(0.16,1,0.3,1);
+}
+html,body{height:100%;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+body{font-family:'Inter',system-ui,sans-serif;font-feature-settings:"ss01","cv01","cv11";letter-spacing:-.012em;font-size:14px;line-height:1.5}
+button{font-family:inherit;cursor:pointer;border:none;background:none;letter-spacing:inherit}
+img{display:block}
+@keyframes breathe{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes dropIn{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+
+/* ── NAV ── */
+.nav{height:52px;background:rgba(247,248,250,.96);backdrop-filter:blur(20px);border-bottom:1px solid var(--bd);display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:50}
+.nav-brand{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.nav-logo{width:28px;height:28px;background:var(--pu);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700}
+.nav-wm{font-size:15px;font-weight:600;letter-spacing:-.04em}
+.nav-wm em{color:var(--pu);font-style:normal}
+.nav-div{width:1px;height:16px;background:var(--bd);flex-shrink:0;margin:0 2px}
+.nav-status{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--gn);flex-shrink:0;animation:breathe 2.4s ease-in-out infinite}
+.stext{font-size:12px;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-tabs{display:flex;align-items:center;flex-shrink:0}
+.ntab{padding:6px 14px;font-size:13px;font-weight:450;color:var(--muted);cursor:pointer;position:relative;transition:color .12s;white-space:nowrap}
+.ntab:hover{color:var(--text)}
+.ntab.on{color:var(--pu);font-weight:560}
+.ntab.on::after{content:'';position:absolute;bottom:-16px;left:14px;right:14px;height:2px;background:var(--pu);border-radius:999px}
+.nbadge{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;border-radius:999px;background:var(--pu);color:#fff;font-size:10px;font-weight:700;margin-left:4px;vertical-align:middle;padding:0 4px}
+.nav-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.nav-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted2);cursor:pointer;transition:all .12s}
+.nav-icon:hover{background:var(--bd2);color:var(--muted)}
+.nav-av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#7C3AED,#4C1D95);color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+
+/* ── PAGE ── */
+.page{max-width:760px;margin:0 auto;padding:0 24px 80px}
+
+/* ── HEADER ── */
+.page-header{padding:36px 0 28px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+.page-title{font-size:26px;font-weight:650;letter-spacing:-.04em;color:var(--text);line-height:1.1}
+.page-subtitle{font-size:13px;color:var(--muted);margin-top:5px}
+.header-stats{display:flex;align-items:center;gap:16px;padding-bottom:4px;flex-shrink:0}
+.hstat{text-align:right}
+.hstat-n{font-size:20px;font-weight:660;letter-spacing:-.04em;color:var(--text);line-height:1}
+.hstat-l{font-size:11px;color:var(--muted2);margin-top:2px}
+
+/* ── SECTION LABEL ── */
+.section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.section-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--muted3)}
+.section-count{font-size:12px;color:var(--muted2)}
+
+/* ── READY CARDS ── */
+.ready-list{display:flex;flex-direction:column;gap:8px;margin-bottom:32px}
+.ready-card{background:var(--sf);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.04);overflow:hidden;animation:fadeUp .3s var(--ease) both;cursor:pointer;transition:box-shadow .18s}
+.ready-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.07),0 12px 32px rgba(0,0,0,.07)}
+.ready-inner{display:grid;grid-template-columns:1fr 200px}
+.ready-left{padding:18px 20px;border-right:1px solid var(--bd2)}
+.ready-top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.app-logo{width:38px;height:38px;border-radius:10px;overflow:hidden;background:var(--bd2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.app-logo img{width:38px;height:38px;object-fit:contain;border-radius:10px}
+.ready-info{}
+.ready-role{font-size:14.5px;font-weight:600;letter-spacing:-.022em;color:var(--text);line-height:1.2;margin-bottom:3px}
+.ready-co{font-size:12.5px;color:var(--muted)}
+.ready-chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:11px;font-weight:500;border-radius:999px;padding:3px 9px;display:inline-flex;align-items:center;gap:4px}
+.chip-gn{color:var(--gn);background:var(--gn-s)}
+.chip-pu{color:var(--pu);background:var(--pu-s)}
+.chip-gray{color:var(--muted);background:var(--bd2)}
+.ready-right{padding:18px 18px;display:flex;flex-direction:column;justify-content:space-between;background:rgba(250,250,252,.5)}
+.ready-prep{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.prep-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gn);font-weight:500}
+.prep-item svg{flex-shrink:0}
+.btn-continue{height:34px;padding:0 16px;border-radius:999px;background:var(--text);color:#fff;font-size:12.5px;font-weight:500;transition:all .16s;cursor:pointer;border:none;display:flex;align-items:center;gap:5px;width:100%;justify-content:center}
+.btn-continue:hover{background:#1a1a1a}
+
+/* ── APPLIED LIST ── */
+.applied-list{display:flex;flex-direction:column;gap:6px}
+.applied-row.closed{opacity:.6}
+.applied-row{background:var(--sf);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);animation:fadeUp .3s var(--ease) both;cursor:pointer;transition:background .12s;position:relative}
+.applied-row:hover{background:rgba(255,255,255,.9)}
+.app-logo-sm{width:34px;height:34px;border-radius:8px;overflow:hidden;background:var(--bd2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.app-logo-sm img{width:34px;height:34px;object-fit:contain;border-radius:8px}
+.applied-body{flex:1;min-width:0}
+.applied-role{font-size:13.5px;font-weight:560;color:var(--text);letter-spacing:-.018em;margin-bottom:2px}
+.applied-meta{font-size:12px;color:var(--muted2)}
+.applied-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+.status-pill{font-size:11px;font-weight:600;border-radius:999px;padding:3px 10px;white-space:nowrap}
+.status-applied{color:var(--pu);background:var(--pu-s)}
+.status-interview{color:var(--gn);background:var(--gn-s)}
+.status-offer{color:#047857;background:rgba(4,120,87,.08);font-weight:700}
+.status-declined{color:var(--muted2);background:var(--bd2)}
+.status-withdrawn{color:var(--muted2);background:var(--bd2)}
+.applied-date{font-size:11px;color:var(--muted3)}
+
+/* Status update dropdown */
+.status-btn{height:24px;padding:0 10px;border-radius:999px;background:none;border:1px solid var(--bd);font-size:11px;color:var(--muted);cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:4px;white-space:nowrap}
+.status-btn:hover{border-color:var(--text);color:var(--text)}
+.status-dropdown{position:absolute;right:16px;top:calc(100% - 4px);background:var(--sf);border:1px solid var(--bd);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.1);overflow:hidden;min-width:160px;z-index:20;display:none;animation:dropIn .16s var(--ease)}
+.status-dropdown.open{display:block}
+.sd-item{padding:9px 14px;font-size:13px;color:var(--text2);cursor:pointer;transition:background .1s;display:flex;align-items:center;gap:8px}
+.sd-item:hover{background:var(--bd2)}
+.sd-item.danger{color:var(--red)}
+.sd-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+/* ── CONFIRM MODAL ── */
+.modal-wrap{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.2)}
+.modal-wrap.open{display:flex}
+.modal{background:var(--sf);border-radius:16px;box-shadow:0 8px 48px rgba(0,0,0,.15);padding:28px;width:360px;animation:dropIn .2s var(--ease)}
+.modal-title{font-size:16px;font-weight:640;letter-spacing:-.025em;color:var(--text);margin-bottom:8px}
+.modal-desc{font-size:13.5px;color:var(--muted);line-height:1.55;margin-bottom:22px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end}
+.btn-modal-primary{height:38px;padding:0 20px;border-radius:999px;background:var(--text);color:#fff;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:background .15s}
+.btn-modal-primary:hover{background:#1a1a1a}
+.btn-modal-ghost{height:38px;padding:0 16px;border-radius:999px;background:none;color:var(--muted);border:1px solid var(--bd);font-size:13px;cursor:pointer;transition:all .15s}
+.btn-modal-ghost:hover{border-color:var(--text);color:var(--text)}
+
+/* ── PANEL ── */
+.panel-wrap{position:fixed;inset:0;z-index:100;pointer-events:none}
+.panel-bg{position:absolute;inset:0;background:rgba(0,0,0,0);transition:background .28s;pointer-events:none}
+.panel-wrap.open .panel-bg{background:rgba(0,0,0,.18);pointer-events:auto}
+.panel{position:absolute;right:0;top:0;bottom:0;width:560px;background:var(--sf);border-left:1px solid var(--bd);transform:translateX(100%);transition:transform .32s var(--ease);display:flex;flex-direction:column;pointer-events:auto;box-shadow:-16px 0 48px rgba(0,0,0,.08)}
+.panel-wrap.open .panel{transform:none}
+.p-hd{flex-shrink:0;border-bottom:1px solid var(--bd)}
+.p-co-bar{display:flex;align-items:center;gap:12px;padding:20px 22px 14px;position:relative}
+.p-logo{width:42px;height:42px;border-radius:10px;overflow:hidden;background:var(--bd2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;color:#fff}
+.p-logo img{width:42px;height:42px;object-fit:contain;border-radius:10px}
+.p-info{flex:1;min-width:0}
+.p-role{font-size:15.5px;font-weight:600;letter-spacing:-.025em;line-height:1.2;margin-bottom:2px}
+.p-co-meta{font-size:12.5px;color:var(--muted)}
+.p-close{position:absolute;top:18px;right:18px;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--muted2);transition:all .12s;cursor:pointer;border:none;background:none}
+.p-close:hover{background:var(--bd2);color:var(--text)}
+.p-chips-row{display:flex;gap:6px;padding:0 22px 14px;flex-wrap:wrap}
+.pch{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;border-radius:999px;padding:3px 9px}
+.pch-g{background:var(--gn-s);color:var(--gn)}
+.pch-v{background:var(--pu-s);color:var(--pu)}
+.p-tabs{display:flex;border-top:1px solid var(--bd2)}
+.ptab{font-size:13px;font-weight:500;color:var(--muted2);padding:10px 14px 9px;border-bottom:2px solid transparent;cursor:pointer;transition:all .12s;margin-bottom:-1px}
+.ptab.on{color:var(--pu);border-bottom-color:var(--pu)}
+.ptab:not(.on):hover{color:var(--text2)}
+.p-body{flex:1;overflow-y:auto;padding:22px}
+.p-body::-webkit-scrollbar{width:0}
+.psec{margin-bottom:22px}
+.psec-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--muted2);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.match-rows{background:var(--bg);border:1px solid var(--bd);border-radius:10px;overflow:hidden}
+.match-row{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-bottom:1px solid var(--bd2)}
+.match-row:last-child{border-bottom:none}
+.mr-check{color:var(--gn);font-weight:700;font-size:14px;flex-shrink:0;margin-top:1px}
+.mr-skill{font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px}
+.mr-proof{font-size:12px;color:var(--muted2);line-height:1.4}
+.changes{display:flex;flex-direction:column;gap:8px}
+.change-item{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--text2);line-height:1.4}
+.ci-tag{font-size:10px;font-weight:600;border-radius:4px;padding:2px 6px;flex-shrink:0;margin-top:1px}
+.ci-pu{color:var(--pu);background:var(--pu-s)}
+.ci-gn{color:var(--gn);background:var(--gn-s)}
+.considered{display:flex;flex-direction:column;gap:8px}
+.con-item{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--text2);line-height:1.45}
+.con-icon{flex-shrink:0;color:var(--am)}
+.doc-text{font-size:13px;color:var(--muted);line-height:1.8}
+.doc-text p{margin-bottom:10px}.doc-text p:last-child{margin-bottom:0}
+.doc-text strong{color:var(--text2);font-weight:500}
+.doc-changed{background:rgba(5,150,105,.04);border-left:2px solid var(--gn);border-radius:0 8px 8px 0;padding:10px 14px;margin:8px 0}
+.doc-change-tag{font-size:10px;font-weight:600;color:var(--gn);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.pers-mark{background:var(--pu-s);border-radius:3px;padding:1px 3px;position:relative;cursor:default;color:var(--text2)}
+.pers-mark .pers-tip{display:none;position:absolute;bottom:calc(100%+4px);left:50%;transform:translateX(-50%);background:var(--text);color:#fff;font-size:11px;white-space:nowrap;padding:4px 8px;border-radius:5px;pointer-events:none;z-index:10}
+.pers-mark:hover .pers-tip{display:block}
+.p-ft{padding:14px 22px;border-top:1px solid var(--bd);display:flex;gap:8px;flex-shrink:0;align-items:center;position:relative}
+.btn-pa{flex:1;height:42px;border-radius:999px;background:var(--text);color:#fff;font-size:13.5px;font-weight:500;transition:all .18s;cursor:pointer;border:none}
+.btn-pa:hover{background:#1a1a1a}
+.p-overflow-btn{width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid var(--bd);color:var(--muted2);cursor:pointer;transition:all .12s;flex-shrink:0}
+.p-overflow-btn:hover{border-color:var(--text);color:var(--text)}
+.p-overflow-menu{position:absolute;bottom:64px;right:22px;background:var(--sf);border:1px solid var(--bd);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.1);overflow:hidden;min-width:190px;z-index:10;display:none}
+.pom-item{padding:11px 16px;font-size:13px;color:var(--text2);cursor:pointer;transition:background .1s}
+.pom-item:hover{background:var(--bd2)}
+
+/* ── APPLIED TIMELINE IN PANEL ── */
+.timeline{display:flex;flex-direction:column;gap:0}
+.tl-item{display:flex;gap:14px;position:relative}
+.tl-item:not(:last-child)::before{content:'';position:absolute;left:11px;top:22px;bottom:-8px;width:1px;background:var(--bd2)}
+.tl-dot{width:22px;height:22px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.tl-dot-pu{background:var(--pu-s);color:var(--pu)}
+.tl-dot-gn{background:var(--gn-s);color:var(--gn)}
+.tl-dot-gray{background:var(--bd2);color:var(--muted2)}
+.tl-body{padding-bottom:18px}
+.tl-label{font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px}
+.tl-date{font-size:11.5px;color:var(--muted2)}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="nav-logo">C</div>
+    <span class="nav-wm">Career<em>ely</em></span>
+  </div>
+  <div class="nav-div"></div>
+  <div class="nav-status">
+    <div class="sdot"></div>
+    <span class="stext">Scanning the market...</span>
+  </div>
+  <div class="nav-div"></div>
+  <div class="nav-tabs">
+    <div class="ntab">Dashboard</div>
+    <div class="ntab">Opportunities <span class="nbadge">6</span></div>
+    <div class="ntab on">Applications <span class="nbadge" id="nav-badge">5</span></div>
+    <div class="ntab">Saved</div>
+  </div>
+  <div class="nav-right">
+    <div class="nav-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    </div>
+    <div class="nav-av">LF</div>
+  </div>
+</nav>
+
+<!-- PAGE -->
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="page-header">
+    <div>
+      <div class="page-title">Applications</div>
+      <div class="page-subtitle">What Careerely has prepared, and what you've applied to.</div>
+    </div>
+    <div class="header-stats">
+      <div class="hstat">
+        <div class="hstat-n" id="stat-ready">—</div>
+        <div class="hstat-l">ready</div>
+      </div>
+      <div style="width:1px;height:28px;background:var(--bd2)"></div>
+      <div class="hstat">
+        <div class="hstat-n" id="stat-applied">—</div>
+        <div class="hstat-l">applied</div>
+      </div>
+      <div style="width:1px;height:28px;background:var(--bd2)"></div>
+      <div class="hstat">
+        <div class="hstat-n" id="stat-interview" style="color:var(--gn)">—</div>
+        <div class="hstat-l">interview</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- READY TO APPLY -->
+  <div class="section-hd">
+    <span class="section-lbl">Ready to apply</span>
+    <span class="section-count" id="ready-count">2 applications</span>
+  </div>
+
+  <div class="ready-list" id="ready-list"></div>
+
+  <!-- YOUR APPLICATIONS -->
+  <div class="section-hd" style="margin-top:8px">
+    <span class="section-lbl">Your applications</span>
+    <span class="section-count" id="applied-count">3 applied</span>
+  </div>
+
+  <div class="applied-list" id="applied-list"></div>
+
+</div>
+
+<!-- CONFIRM MODAL (did you apply?) -->
+<div class="modal-wrap" id="apply-modal">
+  <div class="modal">
+    <div class="modal-title">Did you apply?</div>
+    <div class="modal-desc">Let Careerely know so it can track your application. This won't affect your remaining applications this month.</div>
+    <div class="modal-actions">
+      <button class="btn-modal-ghost" onclick="closeModal()">Not yet</button>
+      <button class="btn-modal-primary" onclick="confirmApplied()">Yes, I applied</button>
+    </div>
+  </div>
+</div>
+
+<!-- PANEL -->
+<div class="panel-wrap" id="pw">
+  <div class="panel-bg" onclick="closePanel()"></div>
+  <div class="panel">
+    <div class="p-hd">
+      <div class="p-co-bar">
+        <div class="p-logo" id="p-logo-el"></div>
+        <div class="p-info">
+          <div class="p-role" id="p-role"></div>
+          <div class="p-co-meta" id="p-co-meta"></div>
+        </div>
+        <button class="p-close" onclick="closePanel()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="p-chips-row" id="p-chips-row"></div>
+      <div class="p-tabs">
+        <div class="ptab on" onclick="switchTab(this,'summary')">Summary</div>
+        <div class="ptab" onclick="switchTab(this,'resume')">Resume</div>
+        <div class="ptab" onclick="switchTab(this,'cover')">Cover letter</div>
+        <div class="ptab" onclick="switchTab(this,'role')">The role</div>
+      </div>
+    </div>
+    <div class="p-body" id="p-body"></div>
+    <div class="p-ft" id="p-ft"></div>
+  </div>
+</div>
+
+<script>
+// ── APPLICATION DATA ──
+// status: 'ready' | 'applied' | 'interview' | 'offer' | 'declined' | 'withdrawn'
+const apps = {
+  stripe: {
+    co:'Stripe', role:'Business Development Lead, Fintech',
+    meta:'Dublin, Ireland · Hybrid · $120k–$160k',
+    logo:'stripe.com', bg:'#6C47FF', letter:'S',
+    status:'ready', match:'95%', appliedDate:null,
+    why:[
+      {skill:'AML background is explicitly required',proof:'Your Handelsbanken experience directly addresses this requirement'},
+      {skill:'Enterprise sales experience matches the commercial scope',proof:'Your previous full-cycle BD experience supports this'},
+      {skill:'Compliance and commercial experience both emphasised',proof:'Your profile contains evidence for both areas the role requires'},
+    ],
+    changes:[
+      {tag:'Moved up',cls:'ci-gn',text:'AML experience repositioned higher in the resume'},
+      {tag:'Reworded',cls:'ci-pu',text:'Commercial experience aligned to terminology in the job description'},
+      {tag:'Emphasised',cls:'ci-pu',text:'Compliance skills made more prominent'},
+      {tag:'Cover letter',cls:'ci-pu',text:'Experience connected directly to stated role requirements'},
+    ],
+    considered:[
+      'Payments experience is not evidenced in your current profile',
+      'Role is Hybrid in Dublin — commute or relocation may be relevant',
+    ],
+    jd:'Stripe is hiring a BD Lead to drive new business across the fintech vertical, working with payments infrastructure clients and strategic partners.',
+    requirements:'AML or regulatory compliance experience · Full-cycle enterprise BD · Fintech or financial services background · Executive stakeholder management',
+    timeline:[{label:'Application prepared by Careerely',date:'10 Aug 2026',cls:'tl-dot-gray'}],
+  },
+  shopify: {
+    co:'Shopify', role:'Partnerships Manager',
+    meta:'Toronto, Canada · Hybrid · $100k–$130k',
+    logo:'shopify.com', bg:'#96BF48', letter:'S',
+    status:'ready', match:'92%', appliedDate:null,
+    why:[
+      {skill:'BD and partnerships experience directly relevant',proof:'Your history of full-cycle business development maps to this role'},
+      {skill:'SaaS background is clearly valued',proof:'Your experience with SaaS clients and workflows is relevant'},
+    ],
+    changes:[
+      {tag:'Reworded',cls:'ci-pu',text:'Partnerships language brought to the front'},
+      {tag:'Cover letter',cls:'ci-pu',text:"SaaS and BD focus framed for Shopify's ecosystem"},
+    ],
+    considered:[
+      'Toronto location — relocation or remote arrangement may be required',
+      'E-commerce vertical is adjacent but not your primary fintech focus',
+    ],
+    jd:"Shopify's partnerships team is looking for someone to build and scale relationships with ecosystem partners.",
+    requirements:'SaaS partnerships or BD experience · Partner ecosystem knowledge · Commercial track record',
+    timeline:[{label:'Application prepared by Careerely',date:'10 Aug 2026',cls:'tl-dot-gray'}],
+  },
+  revolut: {
+    co:'Revolut', role:'Partnerships Manager, Crypto',
+    meta:'London · Hybrid · £80k–£110k',
+    logo:'revolut.com', bg:'#0666EB', letter:'R',
+    status:'interview', match:'90%', appliedDate:'4 Aug 2026',
+    why:[
+      {skill:'Crypto and Web3 background evidenced in your profile',proof:"Your DeFi and digital assets experience is directly relevant to Revolut's crypto vertical"},
+      {skill:'Partnerships scope matches your BD history',proof:'Your outbound BD and account management experience aligns with the role'},
+    ],
+    changes:[
+      {tag:'Reworded',cls:'ci-pu',text:'Web3 and crypto experience brought to the front'},
+      {tag:'Cover letter',cls:'ci-pu',text:"Crypto background framed around Revolut's product direction"},
+    ],
+    considered:['London Hybrid — confirm commute or relocation feasibility'],
+    jd:"Revolut is building its crypto partnerships function, looking for someone to develop strategic relationships with exchanges, protocols, and institutional partners.",
+    requirements:'Crypto or digital assets background · BD or partnerships experience · Understanding of DeFi ecosystem · Strong stakeholder management',
+    timeline:[
+      {label:'Interview scheduled',date:'12 Aug 2026',cls:'tl-dot-gn'},
+      {label:'Applied',date:'4 Aug 2026',cls:'tl-dot-pu'},
+      {label:'Application prepared by Careerely',date:'3 Aug 2026',cls:'tl-dot-gray'},
+    ],
+  },
+  snowflake: {
+    co:'Snowflake', role:'Senior Partnerships Manager',
+    meta:'Remote · $130k–$160k',
+    logo:'snowflake.com', bg:'#29B5E8', letter:'S',
+    status:'applied', match:'88%', appliedDate:'1 Aug 2026',
+    why:[
+      {skill:'Enterprise partnerships experience is directly relevant',proof:'Your BD background maps to the seniority and scope of this role'},
+      {skill:'SaaS and cloud-adjacent experience is valued',proof:'Your history in SaaS-adjacent environments supports this'},
+    ],
+    changes:[
+      {tag:'Reworded',cls:'ci-pu',text:'Enterprise seniority language emphasised'},
+      {tag:'Cover letter',cls:'ci-pu',text:"Cloud data focus framed around Snowflake's ecosystem"},
+    ],
+    considered:[
+      'Data/cloud vertical is adjacent but not your primary focus',
+    ],
+    jd:'Snowflake is looking for a Senior Partnerships Manager to develop and grow its ecosystem of technology and channel partners in EMEA.',
+    requirements:'Enterprise partnerships or alliances experience · Cloud or data platform familiarity · Commercial track record · Executive relationship management',
+    timeline:[
+      {label:'Applied',date:'1 Aug 2026',cls:'tl-dot-pu'},
+      {label:'Application prepared by Careerely',date:'31 Jul 2026',cls:'tl-dot-gray'},
+    ],
+  },
+  databricks: {
+    co:'Databricks', role:'Strategic Account Executive',
+    meta:'Remote · $140k–$180k',
+    logo:'databricks.com', bg:'#FF3621', letter:'D',
+    status:'declined', match:'85%', appliedDate:'28 Jul 2026',
+    why:[
+      {skill:'Enterprise sales experience is relevant',proof:'Your full-cycle BD background maps to the commercial scope of this role'},
+    ],
+    changes:[
+      {tag:'Reworded',cls:'ci-pu',text:'Enterprise sales language aligned to role terminology'},
+    ],
+    considered:[
+      'Data engineering vertical differs from your primary fintech focus',
+      'High technical seniority expectations for this role',
+    ],
+    jd:'Databricks is hiring a Strategic Account Executive to drive new enterprise business across its data and AI platform.',
+    requirements:'Enterprise software sales experience · Data or cloud industry familiarity · Full-cycle closing experience · Executive relationship management',
+    timeline:[
+      {label:'Declined',date:'8 Aug 2026',cls:'tl-dot-gray'},
+      {label:'Applied',date:'28 Jul 2026',cls:'tl-dot-pu'},
+      {label:'Application prepared by Careerely',date:'27 Jul 2026',cls:'tl-dot-gray'},
+    ],
+  },
+}
+
+// ── LOGO LOADER ──
+function loadLogo(el, url, bg, letter, size) {
+  size = size || 38
+  el.style.background = bg
+  el.innerHTML = ''
+  const img = document.createElement('img')
+  img.src = 'https://logo.clearbit.com/' + url
+  img.style.cssText = 'width:100%;height:100%;object-fit:contain;border-radius:inherit'
+  img.onerror = () => {
+    el.innerHTML = ''
+    el.style.color = '#fff'
+    el.style.fontSize = Math.floor(size * 0.34) + 'px'
+    el.style.fontWeight = '700'
+    el.style.display = 'flex'
+    el.style.alignItems = 'center'
+    el.style.justifyContent = 'center'
+    el.textContent = letter
+  }
+  el.appendChild(img)
+}
+
+// ── RENDER ──
+function renderAll() {
+  renderReady()
+  renderApplied()
+  updateStats()
+}
+
+function renderReady() {
+  const list = document.getElementById('ready-list')
+  const ready = Object.entries(apps).filter(([,a]) => a.status === 'ready')
+
+  if (ready.length === 0) {
+    list.innerHTML = '<div style="padding:20px 0;font-size:13px;color:var(--muted2)">No applications ready to submit right now.</div>'
+    return
+  }
+
+  list.innerHTML = ready.map(([key, a]) => `
+    <div class="ready-card" id="ready-${key}" onclick="openPanel('${key}')">
+      <div class="ready-inner">
+        <div class="ready-left">
+          <div class="ready-top">
+            <div class="app-logo" id="logo-ready-${key}"></div>
+            <div class="ready-info">
+              <div class="ready-role">${a.role}</div>
+              <div class="ready-co">${a.co} &nbsp;·&nbsp; ${a.meta}</div>
+            </div>
+          </div>
+          <div class="ready-chips">
+            <span class="chip chip-pu">${a.match} match</span>
+            ${a.why.slice(0,2).map(w => `<span class="chip chip-gn">✓ ${w.skill.split(' ').slice(0,3).join(' ')}</span>`).join('')}
+          </div>
+        </div>
+        <div class="ready-right" onclick="event.stopPropagation()">
+          <div class="ready-prep">
+            <div class="prep-item"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Resume tailored</div>
+            <div class="prep-item"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Cover letter drafted</div>
+          </div>
+          <button class="btn-continue" onclick="event.stopPropagation();openPanel('${key}')">
+            Review &amp; apply
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>`).join('')
+
+  ready.forEach(([key, a]) => {
+    const el = document.getElementById('logo-ready-' + key)
+    if (el) loadLogo(el, a.logo, a.bg, a.letter, 38)
+  })
+}
+
+const statusLabels = {
+  applied:'Applied', interview:'Interview',
+  offer:'Offer', declined:'Declined', withdrawn:'Withdrawn'
+}
+const statusClasses = {
+  applied:'status-applied', interview:'status-interview',
+  offer:'status-offer', declined:'status-declined', withdrawn:'status-withdrawn'
+}
+
+function renderApplied() {
+  const list = document.getElementById('applied-list')
+  const submitted = Object.entries(apps).filter(([,a]) => a.status !== 'ready')
+
+  if (submitted.length === 0) {
+    list.innerHTML = '<div style="padding:20px 0;font-size:13px;color:var(--muted2)">No applications yet.</div>'
+    return
+  }
+
+  // Sort: active statuses first, closed (declined/withdrawn) last
+  const order = ['interview','offer','applied','declined','withdrawn']
+  submitted.sort(([,a],[,b]) => order.indexOf(a.status) - order.indexOf(b.status))
+
+  list.innerHTML = submitted.map(([key, a]) => {
+    const isClosed = a.status === 'declined' || a.status === 'withdrawn'
+    const label = statusLabels[a.status] || a.status
+    const cls = statusClasses[a.status] || 'status-applied'
+    const dateStr = a.appliedDate ? 'Applied ' + a.appliedDate : ''
+    return `
+    <div class="applied-row${isClosed ? ' closed' : ''}" id="row-${key}" onclick="openPanel('${key}')">
+      <div class="app-logo-sm" id="logo-applied-${key}"></div>
+      <div class="applied-body">
+        <div class="applied-role">${a.role}</div>
+        <div class="applied-meta">${a.co} &nbsp;·&nbsp; ${a.meta.split('·')[0].trim()}</div>
+      </div>
+      <div class="applied-right">
+        <span class="status-pill ${cls}">${label}</span>
+        <span class="applied-date">${dateStr}</span>
+        <button class="status-btn" onclick="event.stopPropagation();toggleStatusMenu('${key}')">
+          Update <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+      <div class="status-dropdown" id="menu-${key}">
+        <div class="sd-item" onclick="updateStatus('${key}','applied')"><span class="sd-dot" style="background:var(--pu)"></span>Applied</div>
+        <div class="sd-item" onclick="updateStatus('${key}','interview')"><span class="sd-dot" style="background:var(--gn)"></span>Interview</div>
+        <div class="sd-item" onclick="updateStatus('${key}','offer')"><span class="sd-dot" style="background:#047857"></span>Offer</div>
+        <div class="sd-item danger" onclick="updateStatus('${key}','declined')"><span class="sd-dot" style="background:var(--red-s);border:1.5px solid var(--red)"></span>Declined</div>
+        <div class="sd-item danger" onclick="updateStatus('${key}','withdrawn')"><span class="sd-dot" style="background:var(--bd2);border:1.5px solid var(--muted3)"></span>Withdrawn</div>
+      </div>
+    </div>`
+  }).join('')
+
+  submitted.forEach(([key, a]) => {
+    const el = document.getElementById('logo-applied-' + key)
+    if (el) loadLogo(el, a.logo, a.bg, a.letter, 34)
+  })
+}
+
+function updateStats() {
+  const all = Object.values(apps)
+  const ready = all.filter(a => a.status === 'ready').length
+  const submitted = all.filter(a => a.status !== 'ready').length
+  const interviews = all.filter(a => a.status === 'interview').length
+
+  document.getElementById('stat-ready').textContent = ready
+  document.getElementById('stat-applied').textContent = submitted
+  document.getElementById('stat-interview').textContent = interviews
+  document.getElementById('ready-count').textContent = ready + (ready === 1 ? ' application' : ' applications')
+  document.getElementById('applied-count').textContent = submitted + ' applied'
+  document.getElementById('nav-badge').textContent = ready
+}
+
+// ── STATUS UPDATE — appends timeline event ──
+function updateStatus(key, newStatus) {
+  const app = apps[key]
+  if (!app) return
+  const oldStatus = app.status
+  if (oldStatus === newStatus) { closeAllMenus(); return }
+
+  app.status = newStatus
+
+  // Append dated timeline event
+  const now = new Date()
+  const dateStr = now.toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'})
+  const tlLabel = statusLabels[newStatus] || newStatus
+  const tlCls = newStatus === 'interview' ? 'tl-dot-gn'
+              : newStatus === 'offer'     ? 'tl-dot-gn'
+              : 'tl-dot-gray'
+  app.timeline = [{label: tlLabel, date: dateStr, cls: tlCls}, ...app.timeline]
+
+  closeAllMenus()
+  renderApplied()
+  updateStats()
+
+  // If panel is open for this key, re-render it
+  if (currentKey === key) openPanel(key)
+}
+
+// ── APPLY FLOW ──
+// 1. User clicks "Continue to application →" → we open external link (simulated)
+// 2. Then ask "Did you apply?"
+let pendingApplyKey = null
+
+function triggerApplyFlow(key) {
+  pendingApplyKey = key
+  closePanel()
+  // Simulate opening external application page
+  // In production: window.open(app.applicationUrl, '_blank')
+  setTimeout(() => {
+    document.getElementById('apply-modal').classList.add('open')
+  }, 300) // small delay so panel close animation completes
+}
+
+function closeModal() {
+  document.getElementById('apply-modal').classList.remove('open')
+  pendingApplyKey = null
+}
+
+function confirmApplied() {
+  if (!pendingApplyKey) return
+  const key = pendingApplyKey
+  const app = apps[key]
+  const now = new Date()
+  const dateStr = now.toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'})
+  app.status = 'applied'
+  app.appliedDate = dateStr
+  app.timeline = [
+    {label:'Applied', date:dateStr, cls:'tl-dot-pu'},
+    ...app.timeline
+  ]
+  closeModal()
+  renderAll()
+}
+
+// ── PANEL ──
+let currentKey = null
+
+function openPanel(key) {
+  const o = apps[key]
+  if (!o) return
+  currentKey = key
+
+  const pLogoEl = document.getElementById('p-logo-el')
+  pLogoEl.style.width = '42px'
+  pLogoEl.style.height = '42px'
+  pLogoEl.style.borderRadius = '10px'
+  pLogoEl.style.overflow = 'hidden'
+  pLogoEl.style.flexShrink = '0'
+  loadLogo(pLogoEl, o.logo, o.bg, o.letter, 42)
+
+  document.getElementById('p-role').textContent = o.role
+  document.getElementById('p-co-meta').textContent = o.co + ' · ' + o.meta
+
+  const chipsRow = document.getElementById('p-chips-row')
+  if (o.status === 'ready') {
+    chipsRow.innerHTML = `
+      <span class="pch pch-g"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Resume tailored</span>
+      <span class="pch pch-g"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Cover letter drafted</span>`
+  } else {
+    const cls = statusClasses[o.status] || 'status-applied'
+    const lbl = statusLabels[o.status] || o.status
+    chipsRow.innerHTML = `<span class="pch" style="background:var(--bd2);color:var(--muted)">${lbl}${o.appliedDate ? ' · ' + o.appliedDate : ''}</span>`
+  }
+
+  document.querySelectorAll('.ptab').forEach(t => t.classList.remove('on'))
+  document.querySelector('.ptab').classList.add('on')
+  renderTab('summary', o)
+
+  const ft = document.getElementById('p-ft')
+  if (o.status === 'ready') {
+    ft.innerHTML = `
+      <button class="btn-pa" onclick="triggerApplyFlow('${key}')">Continue to application →</button>
+      <div class="p-overflow-btn" onclick="toggleOverflow()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></div>
+      <div class="p-overflow-menu" id="p-overflow-menu">
+        <div class="pom-item">Download resume PDF</div>
+        <div class="pom-item">Download cover letter PDF</div>
+      </div>`
+  } else {
+    const label = o.status === 'interview' ? 'Interview stage'
+                : o.status === 'offer'     ? 'Offer received'
+                : o.status === 'declined'  ? 'Declined'
+                : o.status === 'withdrawn' ? 'Withdrawn'
+                : 'Applied' + (o.appliedDate ? ' · ' + o.appliedDate : '')
+    ft.innerHTML = `
+      <button class="btn-pa" style="background:var(--bd2);color:var(--muted);cursor:default" disabled>${label}</button>
+      <div class="p-overflow-btn" onclick="toggleOverflow()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></div>
+      <div class="p-overflow-menu" id="p-overflow-menu">
+        <div class="pom-item">Download resume PDF</div>
+        <div class="pom-item">Download cover letter PDF</div>
+      </div>`
+  }
+
+  document.getElementById('pw').classList.add('open')
+  document.body.style.overflow = 'hidden'
+}
+
+function renderTab(tab, o) {
+  const body = document.getElementById('p-body')
+  if (tab === 'summary') {
+    body.innerHTML = `
+      <div class="psec">
+        <div class="psec-lbl">Why Careerely picked this</div>
+        <div class="match-rows">${o.why.map(w => `<div class="match-row"><span class="mr-check">✓</span><div><div class="mr-skill">${w.skill}</div><div class="mr-proof">${w.proof}</div></div></div>`).join('')}</div>
+      </div>
+      ${o.changes.length ? `<div class="psec"><div class="psec-lbl">What Careerely changed</div><div class="changes">${o.changes.map(ch => `<div class="change-item"><span class="ci-tag ${ch.cls}">${ch.tag}</span>${ch.text}</div>`).join('')}</div></div>` : ''}
+      <div class="psec">
+        <div class="psec-lbl">Things I considered</div>
+        <div class="considered">${o.considered.map(c => `<div class="con-item"><span class="con-icon">⚠</span>${c}</div>`).join('')}</div>
+      </div>
+      ${o.timeline && o.timeline.length > 1 ? `
+      <div class="psec">
+        <div class="psec-lbl">Timeline</div>
+        <div class="timeline">${o.timeline.map(t => `
+          <div class="tl-item">
+            <div class="tl-dot ${t.cls}"><svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg></div>
+            <div class="tl-body"><div class="tl-label">${t.label}</div><div class="tl-date">${t.date}</div></div>
+          </div>`).join('')}
+        </div>
+      </div>` : ''}`
+  } else if (tab === 'resume') {
+    body.innerHTML = `<div class="psec"><div class="psec-lbl" style="display:flex;align-items:center;justify-content:space-between">Tailored resume <button style="font-size:11px;color:var(--pu);font-weight:600;background:none;border:none;cursor:pointer">Download PDF</button></div><div class="doc-text"><p><strong>Lisa Fiskum</strong> · Business Development · Fintech & Compliance</p><p>Results-driven professional combining AML compliance expertise with full-cycle business development across fintech and SaaS.</p><div class="doc-changed"><div class="doc-change-tag">↑ Moved higher — AML explicitly required</div><p><strong>Handelsbanken — AML Officer</strong> · 2021–Present<br/>Led transaction monitoring across the enterprise portfolio. Managed compliance for enterprise clients.</p></div><div class="doc-changed"><div class="doc-change-tag">Emphasised for this role</div><p><strong>Key competencies</strong><br/>AML compliance · Outbound sales · Consultative BD · Fintech & SaaS · Enterprise partnerships</p></div></div></div>`
+  } else if (tab === 'cover') {
+    body.innerHTML = `<div class="psec"><div class="psec-lbl" style="display:flex;align-items:center;justify-content:space-between">Cover letter <button style="font-size:11px;color:var(--pu);font-weight:600;background:none;border:none;cursor:pointer">Download PDF</button></div><div class="doc-text"><p>Dear ${o.co} Hiring Team,</p><p>With experience in <span class="pers-mark">AML compliance at Handelsbanken<span class="pers-tip">From your work history</span></span> alongside a proven outbound sales track record, I bring a combination of regulatory expertise and commercial acumen directly relevant to <span class="pers-mark">the requirements outlined in this role<span class="pers-tip">From job description</span></span>.</p><p>I look forward to discussing how my background can contribute to <span class="pers-mark">${o.co}<span class="pers-tip">From job description</span></span>'s growth.</p><p>Lisa Fiskum</p></div></div>`
+  } else if (tab === 'role') {
+    body.innerHTML = `<div class="psec"><div class="psec-lbl">Role details</div><div class="doc-text"><p><strong>${o.role}</strong><br/>${o.co} · ${o.meta}</p><p><strong>About this role</strong><br/>${o.jd}</p><p><strong>Requirements</strong><br/>${o.requirements}</p></div></div>`
+  }
+}
+
+function switchTab(el, tab) {
+  document.querySelectorAll('.ptab').forEach(t => t.classList.remove('on'))
+  el.classList.add('on')
+  if (currentKey) renderTab(tab, apps[currentKey])
+}
+
+function closePanel() {
+  document.getElementById('pw').classList.remove('open')
+  document.body.style.overflow = ''
+}
+
+function toggleOverflow() {
+  const m = document.getElementById('p-overflow-menu')
+  if (m) m.style.display = m.style.display === 'block' ? 'none' : 'block'
+}
+
+function closeAllMenus() {
+  document.querySelectorAll('.status-dropdown').forEach(m => m.classList.remove('open'))
+}
+
+function toggleStatusMenu(key) {
+  const menu = document.getElementById('menu-' + key)
+  if (!menu) return
+  const isOpen = menu.classList.contains('open')
+  closeAllMenus()
+  if (!isOpen) menu.classList.add('open')
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.p-overflow-btn') && !e.target.closest('#p-overflow-menu')) {
+    const m = document.getElementById('p-overflow-menu')
+    if (m) m.style.display = 'none'
+  }
+  if (!e.target.closest('.status-btn') && !e.target.closest('.status-dropdown')) closeAllMenus()
+  if (e.target === document.getElementById('apply-modal')) closeModal()
+})
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closePanel(); closeModal() } })
+
+document.addEventListener('DOMContentLoaded', renderAll)
+
+</script>
+</body>
+</html>
