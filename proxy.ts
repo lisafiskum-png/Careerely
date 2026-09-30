@@ -5,7 +5,9 @@ import { createServerClient } from '@supabase/ssr'
 // keeps signed-out visitors out of the app. API routes do their own auth check
 // (lib/auth.ts), so they are excluded here.
 
-const PROTECTED_PREFIXES = ['/dashboard']
+const PROTECTED_PREFIXES = ['/dashboard', '/onboarding']
+// Signed-in users skip these and continue where they left off.
+const GUEST_ONLY = ['/signup', '/login']
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
@@ -37,12 +39,26 @@ export async function proxy(request: NextRequest) {
 
   if (!user && isProtected) {
     const signIn = request.nextUrl.clone()
-    signIn.pathname = '/auth'
+    signIn.pathname = '/login'
     signIn.search = `?next=${encodeURIComponent(pathname)}`
-    return NextResponse.redirect(signIn)
+    return redirectWithCookies(signIn, response)
+  }
+
+  if (user && GUEST_ONLY.includes(pathname)) {
+    const onboarding = request.nextUrl.clone()
+    onboarding.pathname = '/onboarding'
+    onboarding.search = ''
+    return redirectWithCookies(onboarding, response)
   }
 
   return response
+}
+
+// Keep any refreshed session cookies when redirecting.
+function redirectWithCookies(url: URL, from: NextResponse) {
+  const redirect = NextResponse.redirect(url)
+  for (const cookie of from.cookies.getAll()) redirect.cookies.set(cookie)
+  return redirect
 }
 
 export const config = {

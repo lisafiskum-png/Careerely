@@ -9,7 +9,7 @@ import { env } from '../../../lib/env'
 export async function POST(request) {
   try {
     const user = await requireUser()
-    const { plan } = await request.json().catch(() => ({}))
+    const { plan, flow } = await request.json().catch(() => ({}))
     if (!isPlanId(plan)) {
       return Response.json({ error: 'Invalid plan' }, { status: 400 })
     }
@@ -42,14 +42,25 @@ export async function POST(request) {
     }
 
     const appUrl = env.appUrl()
+    // Onboarding places checkout on "Find my matches" and returns to Step 3,
+    // which confirms the session and starts the first search.
+    const returnUrls =
+      flow === 'onboarding'
+        ? {
+            success_url: `${appUrl}/onboarding/3?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${appUrl}/onboarding/3?checkout=cancelled`,
+          }
+        : {
+            success_url: `${appUrl}/dashboard?checkout=success`,
+            cancel_url: `${appUrl}/dashboard?checkout=cancelled`,
+          }
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
       client_reference_id: user.id,
       line_items: [{ price: priceIdForPlan(plan), quantity: 1 }],
       subscription_data: { metadata: { user_id: user.id } },
-      success_url: `${appUrl}/dashboard?checkout=success`,
-      cancel_url: `${appUrl}/dashboard?checkout=cancelled`,
+      ...returnUrls,
     })
 
     return Response.json({ url: session.url })

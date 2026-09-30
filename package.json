@@ -8,28 +8,34 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.105.1",
-    "framer-motion": "^12.40.0",
     "jspdf": "^4.2.1",
+    "mammoth": "^1.13.0",
     "next": "16.2.4",
     "node-html-parser": "^7.1.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "resend": "^6.12.4",
     "server-only": "^0.0.1",
-    "stripe": "^22.2.0"
+    "stripe": "^22.2.0",
+    "unpdf": "^1.8.1",
+    "word-extractor": "^1.0.4",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22.20.4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/word-extractor": "^1.0.6",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",

@@ -28,6 +28,27 @@ Or paste the migration file into the Supabase SQL editor and run it once.
 The second migration adds `behavioral_signals`, which exists but stays empty in
 V1 (POST_LAUNCH.md: only explicit onboarding preferences are used at launch).
 
+## Auth settings (hosted project)
+
+Set these in the Supabase dashboard (Authentication). `config.toml` holds the
+same settings for the local stack.
+
+- **URL configuration:** Site URL `https://careerely.ai`; add
+  `https://careerely.ai/**` to Redirect URLs (plus preview URLs if needed).
+- **Email provider:** "Confirm email" on; minimum password length 8.
+- **Email templates:** use `templates/confirmation.html` for *Confirm signup*
+  and `templates/recovery.html` for *Reset password*. They link to
+  `/auth/confirm?token_hash=…`, which works on any device. (The default
+  templates also work, but only in the browser where the user signed up.)
+- **SMTP:** configure a real sender (e.g. Resend) before launch; Supabase's
+  built-in email is heavily rate limited.
+
+## Local stack
+
+```bash
+npx supabase start   # applies migrations, mail inbox at http://127.0.0.1:54324
+```
+
 ## Legacy data
 
 The migration never drops tables, columns or rows. From the prototype, the
