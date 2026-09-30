@@ -10,6 +10,9 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 // preparation decision (Stage 6) → packages (Stage 7). The Claude API is a
 // local mock that also returns untraceable evidence and one invented metric,
 // to prove the safeguards hold. Skipped when the local stack isn't running.
+//
+// Board "acme" adds eight goal-aligned roles so that more than the nightly cap
+// (10) pass the threshold, and one role whose evidence is all untraceable.
 
 const SUPABASE_URL = 'http://127.0.0.1:54321'
 const SERVICE_KEY =
@@ -39,6 +42,27 @@ const RESUME = {
 
 let packageCalls = 0
 
+const ACME = {
+  jobs: [
+    ...Array.from({ length: 8 }, (_, i) => ({
+      id: 9100 + i,
+      title: `Business Development Manager, Region ${i + 1}`,
+      absolute_url: `https://boards.greenhouse.io/acme/jobs/${9100 + i}`,
+      location: { name: 'London, UK (Hybrid)' },
+      first_published: '2026-09-01T10:00:00Z',
+      content: '&lt;ul&gt;&lt;li&gt;Experience with AML or financial compliance&lt;/li&gt;&lt;/ul&gt;',
+    })),
+    {
+      id: 9200,
+      title: 'Growth Associate',
+      absolute_url: 'https://boards.greenhouse.io/acme/jobs/9200',
+      location: { name: 'London, UK (Hybrid)' },
+      first_published: '2026-09-01T10:00:00Z',
+      content: '&lt;ul&gt;&lt;li&gt;Curiosity&lt;/li&gt;&lt;/ul&gt;',
+    },
+  ],
+}
+
 function evaluationFor(jobText: string) {
   const title = jobText.match(/^Title: (.*)$/m)?.[1] ?? ''
   const company = jobText.match(/^Company: (.*)$/m)?.[1] ?? ''
@@ -46,6 +70,24 @@ function evaluationFor(jobText: string) {
   const low = /SMB/.test(title)
   const partnerships = /Partnerships/.test(title)
   const s = (n: number) => (low ? 40 : partnerships ? 100 : n)
+  if (/Growth Associate/.test(title)) {
+    // Every quote is untraceable, so every dimension loses its evidence.
+    return {
+      evidence: [
+        { key: 'e1', signal_type: 'requirement_met', source_type: 'resume_text', source_text: 'Scaled growth experiments to 10 markets', claim: 'You ran growth experiments', outcome: 'confirmed', confidence: 0.9 },
+        { key: 'e2', signal_type: 'industry_experience', source_type: 'job_description', source_text: 'Ten years in consumer growth', claim: 'The posting asks for growth experience', outcome: 'confirmed', confidence: 0.8 },
+      ],
+      requirements: [],
+      dimensions: {
+        skills_match: { score: 20, evidence_keys: ['e1'] },
+        experience_level: { score: 20, evidence_keys: ['e1'] },
+        industry_fit: { score: 20, evidence_keys: ['e2'] },
+        role_category_fit: { score: 20, evidence_keys: ['e2'] },
+      },
+      goal: { matched_target_role: '', industry_match: false, evidence_keys: [] },
+      reasoning: { text: 'I can’t tell yet.', evidence_keys: [] },
+    }
+  }
   return {
     evidence: [
       { key: 'e1', signal_type: 'requirement_met', source_type: 'resume_text', source_text: 'Led due diligence on complex crypto cases', claim: 'Your resume shows complex due diligence work', outcome: 'confirmed', confidence: 0.9 },
@@ -131,7 +173,7 @@ describe.skipIf(!reachable)('Opportunity Engine (local Supabase)', () => {
 
     // Fresh engine state for the fixture postings.
     await admin.from('engine_tasks').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-    await admin.from('jobs').delete().in('company_slug', ['stripe', 'mercury', 'cohere'])
+    await admin.from('jobs').delete().in('company_slug', ['stripe', 'mercury', 'cohere', 'acme'])
 
     const make = async (email: string) => {
       const { data, error } = await admin.auth.admin.createUser({ email, password: 'correct-horse-1', email_confirm: true })
@@ -189,6 +231,9 @@ describe.skipIf(!reachable)('Opportunity Engine (local Supabase)', () => {
     await ingest.syncBoard(admin, { provider: 'ashby', slug: 'cohere', company: 'Cohere' }, fake('ashby'))
     const { count } = await admin.from('jobs').select('id', { count: 'exact', head: true }).in('company_slug', ['stripe', 'mercury', 'cohere']).eq('is_active', true)
     expect(count).toBe(6)
+
+    const acme = await ingest.syncBoard(admin, { provider: 'greenhouse', slug: 'acme', company: 'Acme' }, (async () => new Response(JSON.stringify(ACME))) as unknown as typeof fetch)
+    expect(acme.fetched).toBe(9)
   })
 
   it('runs Stages 1–7 for a paying user', async () => {
@@ -199,9 +244,10 @@ describe.skipIf(!reachable)('Opportunity Engine (local Supabase)', () => {
     }
 
     const { data: run } = await admin.from('search_runs').select('*').eq('search_id', searchId).single()
-    expect(run).toMatchObject({ status: 'succeeded', jobs_reviewed: 6, jobs_shortlisted: 3, jobs_prepared: 2 })
+    expect(run).toMatchObject({ status: 'succeeded', jobs_reviewed: 15, jobs_rejected: 3, jobs_shortlisted: 10, jobs_not_selected: 1, jobs_unevaluable: 1, jobs_prepared: 2 })
 
     // Stage 1 + Stage 3 rejections are logged with reasons, never silently dropped.
+    // Only real rejections: not the over-cap role, not the unevaluable one.
     const { data: rejections } = await admin.from('rejections').select('reason_code, stage, detail, jobs(title)').eq('search_id', searchId)
     const byTitle = Object.fromEntries((rejections ?? []).map(r => [(r.jobs as unknown as { title: string }).title, r]))
     expect(byTitle['Staff Software Engineer']).toMatchObject({ reason_code: 'failed_hard_filter', stage: 1 })
@@ -209,22 +255,42 @@ describe.skipIf(!reachable)('Opportunity Engine (local Supabase)', () => {
     expect(byTitle['Account Manager, SMB']).toMatchObject({ reason_code: 'score_below_threshold', stage: 3 })
     expect(rejections).toHaveLength(3)
 
-    // Stage 4: goal-aligned roles rank above the non-aligned role with a perfect score.
+    // Over the nightly cap: Partnerships Manager scored 100 (above the threshold)
+    // but is non-aligned, so it ranked 11th. Eligible, not rejected.
+    // Insufficient evidence: Growth Associate has no score and no rejection.
+    const { data: outcomes } = await admin
+      .from('candidate_evaluations')
+      .select('status, reason, evaluated_at, jobs(title)')
+      .eq('search_id', searchId)
+      .in('status', ['not_selected', 'unevaluable'])
+    const outcomeByTitle = Object.fromEntries((outcomes ?? []).map(o => [(o.jobs as unknown as { title: string }).title, o]))
+    expect(outcomes).toHaveLength(2)
+    expect(outcomeByTitle['Partnerships Manager'].status).toBe('not_selected')
+    expect(outcomeByTitle['Partnerships Manager'].reason).toMatch(/^Eligible: match score 100 meets the shortlist threshold of 60, but ranked 11 .*outside the top 10/)
+    expect(outcomeByTitle['Growth Associate'].status).toBe('unevaluable')
+    expect(outcomeByTitle['Growth Associate'].reason).toMatch(/^Not enough traceable evidence .*0 of the 2 .*Fit is unknown, not low\.$/)
+    expect(outcomeByTitle['Growth Associate'].reason).not.toMatch(/\bscore of\b|\bscored\b/)
+    expect(byTitle['Partnerships Manager']).toBeUndefined()
+    expect(byTitle['Growth Associate']).toBeUndefined()
+
+    // Stage 4: goal-aligned roles fill the shortlist; within them, industry match, then score, then recency.
     const { data: opps } = await admin
       .from('opportunities')
       .select('id, rank, is_my_pick, state, match_score, goal_aligned, industry_match, primary_evidence_ids, reasoning, reasoning_evidence_ids, requirement_evaluations, preparation_decision, jobs(title)')
       .eq('user_id', userId)
       .order('rank')
     const titles = (opps ?? []).map(o => (o.jobs as unknown as { title: string }).title)
-    expect(titles).toEqual(['Business Development Lead, Payments', 'Account Executive, EMEA', 'Partnerships Manager'])
-    expect(opps!.map(o => o.goal_aligned)).toEqual([true, true, false])
-    expect(opps![2].match_score).toBeGreaterThan(opps![0].match_score)
+    expect(titles).toHaveLength(10)
+    expect(titles.slice(0, 2)).toEqual(['Business Development Lead, Payments', 'Account Executive, EMEA'])
+    expect(titles).not.toContain('Partnerships Manager')
+    expect(titles).not.toContain('Growth Associate')
+    expect(opps!.every(o => o.goal_aligned)).toBe(true)
     expect(opps![0].is_my_pick).toBe(true)
     expect(opps!.filter(o => o.is_my_pick)).toHaveLength(1)
 
-    // Stages 6–7: top 2 prepared and Ready; the third stays Shortlisted with a recorded decision.
-    expect(opps!.map(o => o.state)).toEqual(['ready', 'ready', 'shortlisted'])
-    expect(opps![2].preparation_decision).toMatchObject({ selectedForPreparation: false, reason: 'score_insufficient' })
+    // Stages 6–7: top 2 prepared and Ready; the rest stay Shortlisted with a recorded decision.
+    expect(opps!.map(o => o.state)).toEqual(['ready', 'ready', ...Array(8).fill('shortlisted')])
+    for (const o of opps!.slice(2)) expect(o.preparation_decision).toMatchObject({ selectedForPreparation: false })
     expect(opps![0].preparation_decision).toMatchObject({ selectedForPreparation: true, selectionRank: 1, reason: 'top_ranked_auto' })
 
     // Stage 5: every stored claim traces to a verified quote; the fabricated one was never stored.
@@ -258,6 +324,40 @@ describe.skipIf(!reachable)('Opportunity Engine (local Supabase)', () => {
     expect(apps!.map(a => a.status)).toEqual(['ready_to_apply', 'ready_to_apply'])
     const { data: used } = await admin.rpc('preparations_used', { uid: userId })
     expect(used).toBe(2)
+  })
+
+  it('lets an over-cap role compete again and skips an unevaluable role until its inputs change', async () => {
+    const { count: before } = await admin.from('rejections').select('id', { count: 'exact', head: true }).eq('search_id', searchId)
+    await admin.from('engine_tasks').insert({ kind: 'scan_search', user_id: userId, search_id: searchId, payload: { phase: 'start', trigger: 'nightly', day: 'second-scan' } })
+    for (let i = 0; i < 30; i++) {
+      const r = await engine.runWorker(admin, { budgetMs: 20_000 })
+      if (!r.processed && !r.failed) break
+    }
+
+    const { data: runs } = await admin.from('search_runs').select('*').eq('search_id', searchId).order('started_at')
+    // Only Partnerships Manager is looked at again: rejected and shortlisted roles
+    // are done, and Growth Associate's resume, search and posting haven't changed.
+    expect(runs![1]).toMatchObject({ status: 'succeeded', jobs_reviewed: 1, jobs_shortlisted: 1, jobs_not_selected: 0, jobs_unevaluable: 0 })
+
+    const { data: opp } = await admin.from('opportunities').select('match_score, goal_aligned, jobs!inner(title)').eq('user_id', userId).eq('jobs.title', 'Partnerships Manager').single()
+    expect(opp).toMatchObject({ match_score: 100, goal_aligned: false })
+
+    const { data: remaining } = await admin.from('candidate_evaluations').select('status, jobs(title)').eq('search_id', searchId)
+    expect(remaining!.map(r => [(r.jobs as unknown as { title: string }).title, r.status])).toEqual([['Growth Associate', 'unevaluable']])
+    const { count: after } = await admin.from('rejections').select('id', { count: 'exact', head: true }).eq('search_id', searchId)
+    expect(after).toBe(before)
+
+    // Once the search changes, the unevaluable role is evaluated again.
+    await admin.from('searches').update({ industries: ['Fintech', 'Payments'] }).eq('id', searchId)
+    await admin.from('engine_tasks').insert({ kind: 'scan_search', user_id: userId, search_id: searchId, payload: { phase: 'start', trigger: 'nightly', day: 'third-scan' } })
+    for (let i = 0; i < 30; i++) {
+      const r = await engine.runWorker(admin, { budgetMs: 20_000 })
+      if (!r.processed && !r.failed) break
+    }
+    const { data: third } = await admin.from('search_runs').select('*').eq('search_id', searchId).order('started_at')
+    expect(third![2]).toMatchObject({ status: 'succeeded', jobs_reviewed: 1, jobs_rejected: 0, jobs_shortlisted: 0, jobs_unevaluable: 1 })
+    const { data: latest } = await admin.from('candidate_evaluations').select('run_id, status').eq('search_id', searchId)
+    expect(latest).toEqual([{ run_id: third![2].id, status: 'unevaluable' }])
   })
 
   it('does not search or prepare for accounts without an active subscription', async () => {

@@ -88,6 +88,17 @@ Implements `OPPORTUNITY_ENGINE_SCHEMA.ts`. Code in `lib/engine/`:
 | 6 Preparation | `prepare.ts` | Top 2 per nightly run, within the plan's monthly allowance (reserved atomically in the database) |
 | 7 Package | `prepare.ts` | Tailored resume changes + segmented cover letter, fact-checked, regenerated once if a check fails |
 
+Every evaluated posting ends in one of four outcomes. **Shortlisted** becomes
+an opportunity. **Rejected** gets a `rejections` row: failed Stage 1, or scored
+below 60. Two outcomes are not rejections and are kept on
+`candidate_evaluations` with a reason:
+
+- `not_selected`: scored ≥ 60 but fell outside the run's top 10. It competes
+  again in the next scan.
+- `unevaluable`: too little traceable evidence to score. Its fit is unknown,
+  not low. It is evaluated again once the resume, the search or the posting
+  changes.
+
 Scheduling: Vercel Cron calls `/api/engine/tick` every 5 minutes (`vercel.json`).
 Each tick queues the nightly run when due and works through `engine_tasks`
 for up to 4 minutes. Finishing onboarding queues the user's first scan
