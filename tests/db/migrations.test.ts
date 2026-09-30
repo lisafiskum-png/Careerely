@@ -223,6 +223,14 @@ describe('foundation migration', () => {
     expect(rows).toEqual([{ used: 2 }])
   })
 
+  it('keeps behavioral signals service-written only (not populated in V1)', async () => {
+    await expect(
+      asUser(ALICE, () =>
+        db.query(`insert into public.behavioral_signals (user_id, kind) values ($1, 'opened')`, [ALICE]),
+      ),
+    ).rejects.toThrow(/permission denied/)
+  })
+
   it('removes user data when the auth user is deleted', async () => {
     await db.query('delete from auth.users where id = $1', [ALICE])
     for (const table of ['profiles', 'subscriptions', 'searches', 'opportunities', 'application_packages']) {

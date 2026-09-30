@@ -25,6 +25,9 @@ Or paste the migration file into the Supabase SQL editor and run it once.
 - Enforces the active-search limit per plan in the database.
 - Creates private storage buckets `resumes` and `documents`, one folder per user.
 
+The second migration adds `behavioral_signals`, which exists but stays empty in
+V1 (POST_LAUNCH.md: only explicit onboarding preferences are used at launch).
+
 ## Legacy data
 
 The migration never drops tables, columns or rows. From the prototype, the
