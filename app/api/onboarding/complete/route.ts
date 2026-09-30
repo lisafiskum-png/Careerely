@@ -1,3 +1,4 @@
+import { after } from 'next/server'
 import { z } from 'zod'
 import { requireUser, unauthorizedResponse, UnauthorizedError } from '../../../../lib/auth'
 import { createClient } from '../../../../lib/supabase/server'
@@ -5,6 +6,7 @@ import { createAdminClient } from '../../../../lib/supabase/admin'
 import { getStripe } from '../../../../lib/stripe'
 import { syncCheckoutSession } from '../../../../lib/billing-sync'
 import { getAccessState, type SubscriptionState } from '../../../../lib/plans'
+import { enqueueFirstScan, runWorker } from '../../../../lib/engine/queue'
 import {
   cleanChips,
   firstSearchName,
@@ -35,6 +37,8 @@ const Body = z.object({
 //    else happens. The first search must not start before payment.
 // 4. With one: creates the first search from the career profile (or updates it
 //    if the user edited their preferences) and completes onboarding.
+export const maxDuration = 300
+
 export async function POST(request: Request) {
   try {
     const user = await requireUser()
@@ -116,16 +120,30 @@ export async function POST(request: Request) {
       .eq('user_id', user.id)
       .eq('created_from_profile', true)
       .limit(1)
+    let searchId: string
     if (existing?.length) {
       const { error } = await admin.from('searches').update(searchFields).eq('id', existing[0].id)
       if (error) throw error
+      searchId = existing[0].id
     } else {
-      // Phase C: the Opportunity Engine picks up active searches and runs the first scan.
-      const { error } = await admin
+      const { data: created, error } = await admin
         .from('searches')
         .insert({ ...searchFields, user_id: user.id, status: 'active', created_from_profile: true })
+        .select('id')
+        .single()
       if (error) throw error
+      searchId = created.id
     }
+
+    // Start the first scan now instead of waiting for tonight's run.
+    await enqueueFirstScan(admin, user.id, searchId)
+    after(async () => {
+      try {
+        await runWorker(createAdminClient(), { budgetMs: 240_000 })
+      } catch (err) {
+        console.error('first scan kickoff failed', err)
+      }
+    })
 
     const { error: completeError } = await admin
       .from('profiles')

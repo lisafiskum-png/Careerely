@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Locked product schema (reference only; its types are intentionally not exported).
+    "OPPORTUNITY_ENGINE_SCHEMA.ts",
   ]),
 ]);
 

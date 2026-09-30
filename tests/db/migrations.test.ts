@@ -261,6 +261,86 @@ describe('foundation migration', () => {
     ).rejects.toThrow(/permission denied/)
   })
 
+  it('stores evidence as confirmed / inferred / unknown only, never agent-confirmed', async () => {
+    const job = await db.query<{ id: string }>(
+      `insert into public.jobs (source, source_job_id, url, title) values ('ashby', 'ev1', 'https://e', 'Role') returning id`,
+    )
+    const opp = await db.query<{ id: string }>(
+      `insert into public.opportunities (user_id, job_id) values ($1, $2) returning id`,
+      [ALICE, job.rows[0].id],
+    )
+    const insert = (outcome: string, sourceType: string) =>
+      db.query(
+        `insert into public.evidence (user_id, opportunity_id, job_id, signal_type, source_type, source_text, claim, outcome, confidence)
+         values ($1, $2, $3, 'requirement_met', $4, 'quote', 'claim', $5, 0.8)`,
+        [ALICE, opp.rows[0].id, job.rows[0].id, sourceType, outcome],
+      )
+    await insert('confirmed', 'resume_text')
+    await insert('inferred', 'agent_inference')
+    await insert('unknown', 'job_description')
+    await expect(insert('negative', 'resume_text')).rejects.toThrow(/invalid input value for enum/)
+    await expect(insert('confirmed', 'agent_inference')).rejects.toThrow(/evidence_inference_not_confirmed/)
+  })
+
+  it('claims queue tasks once, with a lease', async () => {
+    await db.query(`insert into public.engine_tasks (kind, dedupe_key) values ('sync_source', 'sync:a'), ('sync_source', 'sync:b')`)
+    await expect(
+      db.query(`insert into public.engine_tasks (kind, dedupe_key) values ('sync_source', 'sync:a')`),
+    ).rejects.toThrow(/duplicate key/)
+    const first = await db.query<{ dedupe_key: string; attempts: number }>(`select * from public.claim_engine_tasks(1, 60)`)
+    const second = await db.query<{ dedupe_key: string }>(`select * from public.claim_engine_tasks(5, 60)`)
+    expect(first.rows).toHaveLength(1)
+    expect(first.rows[0].attempts).toBe(1)
+    expect(second.rows.map(r => r.dedupe_key)).not.toContain(first.rows[0].dedupe_key)
+    const third = await db.query(`select * from public.claim_engine_tasks(5, 60)`)
+    expect(third.rows).toHaveLength(0)
+    await expect(
+      asUser(ALICE, () => db.query('select * from public.engine_tasks')),
+    ).rejects.toThrow(/permission denied/)
+  })
+
+  it('reserves preparations within the plan allowance, in rank order', async () => {
+    await setSubscription(ALICE, 'basic', 'active', '20 days')
+    const { rows: used } = await db.query<{ used: number }>('select public.preparations_used($1) as used', [ALICE])
+    const opps: string[] = []
+    for (let i = 0; i < 12; i++) {
+      const job = await db.query<{ id: string }>(
+        `insert into public.jobs (source, source_job_id, url, title) values ('lever', $1, 'https://q', 'Q') returning id`,
+        [`quota-${i}`],
+      )
+      const opp = await db.query<{ id: string }>(
+        `insert into public.opportunities (user_id, job_id) values ($1, $2) returning id`,
+        [ALICE, job.rows[0].id],
+      )
+      opps.push(opp.rows[0].id)
+    }
+    const r1 = await db.query<{ ids: string[] }>('select public.reserve_preparations($1, $2, 2) as ids', [ALICE, opps])
+    expect(r1.rows[0].ids).toEqual(opps.slice(0, 2))
+    const { rows: states } = await db.query<{ state: string }>('select state from public.opportunities where id = $1', [opps[0]])
+    expect(states[0].state).toBe('preparing')
+    // Basic allows 10 per period: whatever was already used plus these never exceeds it.
+    const r2 = await db.query<{ ids: string[] }>('select public.reserve_preparations($1, $2, 50) as ids', [ALICE, opps])
+    expect(used[0].used + 2 + r2.rows[0].ids.length).toBe(10)
+    const r3 = await db.query<{ ids: string[] }>('select public.reserve_preparations($1, $2, 2) as ids', [ALICE, opps])
+    expect(r3.rows[0].ids).toEqual([])
+    // No subscription → nothing reserved.
+    const r4 = await db.query<{ ids: string[] }>('select public.reserve_preparations($1, $2, 2) as ids', [BOB, opps])
+    expect(r4.rows[0].ids).toEqual([])
+  })
+
+  it('only accepts the schema\'s rejection reasons', async () => {
+    const job = await db.query<{ id: string }>(
+      `insert into public.jobs (source, source_job_id, url, title) values ('ashby', 'rej1', 'https://r', 'R') returning id`,
+    )
+    await db.query(
+      `insert into public.rejections (user_id, job_id, stage, reason_code, detail) values ($1, $2, 1, 'failed_hard_filter', 'x')`,
+      [ALICE, job.rows[0].id],
+    )
+    await expect(
+      db.query(`insert into public.rejections (user_id, job_id, stage, reason_code) values ($1, $2, 1, 'bad_fit')`, [ALICE, job.rows[0].id]),
+    ).rejects.toThrow(/rejections_reason_code_check/)
+  })
+
   it('removes user data when the auth user is deleted', async () => {
     await db.query('delete from auth.users where id = $1', [ALICE])
     for (const table of ['profiles', 'subscriptions', 'searches', 'opportunities', 'application_packages', 'career_profiles']) {

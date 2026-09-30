@@ -214,6 +214,9 @@ test.describe.serial('onboarding', () => {
     const { data: searches } = await admin.from('searches').select('*').eq('user_id', userId)
     expect(searches).toHaveLength(1)
     expect(searches![0]).toMatchObject({ status: 'active', created_from_profile: true, locations: ['Oslo, Norway'] })
+    // Phase C: the first Opportunity Engine scan is queued immediately.
+    const { data: tasks } = await admin.from('engine_tasks').select('kind, dedupe_key').eq('search_id', searches![0].id)
+    expect(tasks).toContainEqual({ kind: 'scan_search', dedupe_key: `scan:${searches![0].id}:first` })
     const { data: profile } = await admin.from('profiles').select('onboarding_completed_at').eq('id', userId).single()
     expect(profile!.onboarding_completed_at).not.toBeNull()
 
@@ -253,5 +256,6 @@ test.describe.serial('onboarding', () => {
     expect((await request.post('/api/resume/confirm', { data: {} })).status()).toBe(401)
     expect((await request.post('/api/onboarding/complete', { data: {} })).status()).toBe(401)
     expect((await request.post('/api/stripe-checkout', { data: { plan: 'pro' } })).status()).toBe(401)
+    expect((await request.get('/api/engine/tick')).status()).toBe(401)
   })
 })

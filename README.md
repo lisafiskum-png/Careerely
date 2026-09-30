@@ -43,6 +43,7 @@ Apply the database schema before first use; see [`supabase/README.md`](supabase/
 - `lib/supabase/`: browser, server (user session) and admin (service role) clients
 - `lib/plans.ts`: plans, limits and access rules (mirrored in the database)
 - `lib/billing.ts`, `lib/stripe.ts`: Stripe subscription sync
+- `lib/engine/`: Opportunity Engine (see below)
 - `supabase/migrations/`: database schema and row level security
 - `tests/`: Vitest suites
 
@@ -71,6 +72,27 @@ subscription row is written, Stripe redirects back).
 - `/onboarding/3`: preferences; "Find my matches" calls
   `/api/onboarding/complete`, which asks for checkout when there is no active
   subscription and creates the first search once there is
+
+## Opportunity Engine (Phase C)
+
+Implements `OPPORTUNITY_ENGINE_SCHEMA.ts`. Code in `lib/engine/`:
+
+| Stage | Where | What |
+|---|---|---|
+| Sources | `companies.ts`, `sources.ts`, `ingest.ts` | Greenhouse, Lever and Ashby company boards only; postings no longer listed become inactive |
+| 1 Hard filter | `filter.ts` | Deterministic: expired, duplicate, location, compensation floor, role category. Unknown never rejects |
+| 2 Relevance | `evaluate.ts`, `verify.ts` | Claude evaluates requirements; only verbatim-quoted evidence is kept |
+| 3 Scoring | `scoring.ts` | Weighted dimensions; dimensions without evidence are left out; shortlist at ≥ 60, max 10 per search per night |
+| 4 Ranking | `scoring.ts`, `scan.ts` | Goal-aligned (matches a Step 3 target role) always above non-aligned; then industry, score, recency; rank 1 = My Pick |
+| 5 Evidence | `scan.ts` | Evidence records stored; every claim points to them |
+| 6 Preparation | `prepare.ts` | Top 2 per nightly run, within the plan's monthly allowance (reserved atomically in the database) |
+| 7 Package | `prepare.ts` | Tailored resume changes + segmented cover letter, fact-checked, regenerated once if a check fails |
+
+Scheduling: Vercel Cron calls `/api/engine/tick` every 5 minutes (`vercel.json`).
+Each tick queues the nightly run when due and works through `engine_tasks`
+for up to 4 minutes. Finishing onboarding queues the user's first scan
+immediately. `npm test` includes an end-to-end engine run against the local
+Supabase stack when it's running.
 
 ## Stripe webhook
 
