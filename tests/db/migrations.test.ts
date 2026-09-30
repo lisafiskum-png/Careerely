@@ -67,6 +67,36 @@ describe('foundation migration', () => {
     ])
   })
 
+  it('records terms acceptance and a valid pre-selected plan from signup metadata', async () => {
+    const carol = '33333333-3333-3333-3333-333333333333'
+    const dave = '44444444-4444-4444-4444-444444444444'
+    await db.query(`insert into auth.users (id, email, raw_user_meta_data) values
+      ($1, 'carol@example.com', '{"terms_accepted":"true","selected_plan":"pro"}'),
+      ($2, 'dave@example.com', '{"selected_plan":"premium"}')`, [carol, dave])
+    const { rows } = await db.query<{ email: string; accepted: boolean; selected_plan: string | null }>(
+      `select email, terms_accepted_at is not null as accepted, selected_plan::text
+       from public.profiles where id in ($1, $2) order by email`, [carol, dave])
+    expect(rows).toEqual([
+      { email: 'carol@example.com', accepted: true, selected_plan: 'pro' },
+      { email: 'dave@example.com', accepted: false, selected_plan: null },
+    ])
+    await db.query('delete from auth.users where id in ($1, $2)', [carol, dave])
+  })
+
+  it('keeps resume suggestions and usage events server-written only', async () => {
+    await asUser(ALICE, () =>
+      db.query(`insert into public.career_profiles (user_id, target_roles) values ($1, '{Sales}')`, [ALICE]),
+    )
+    await expect(
+      asUser(ALICE, () =>
+        db.query(`update public.career_profiles set suggestions = '{"roles":["CEO"]}' where user_id = $1`, [ALICE]),
+      ),
+    ).rejects.toThrow(/permission denied/)
+    await expect(
+      asUser(ALICE, () => db.query(`insert into public.usage_events (user_id, kind) values ($1, 'x')`, [ALICE])),
+    ).rejects.toThrow(/permission denied/)
+  })
+
   it('removes legacy policies so users only see their own profile', async () => {
     const rows = await asUser(ALICE, () => db.query('select id from public.profiles'))
     expect(rows.rows).toEqual([{ id: ALICE }])
@@ -233,7 +263,7 @@ describe('foundation migration', () => {
 
   it('removes user data when the auth user is deleted', async () => {
     await db.query('delete from auth.users where id = $1', [ALICE])
-    for (const table of ['profiles', 'subscriptions', 'searches', 'opportunities', 'application_packages']) {
+    for (const table of ['profiles', 'subscriptions', 'searches', 'opportunities', 'application_packages', 'career_profiles']) {
       const col = table === 'profiles' ? 'id' : 'user_id'
       const { rows } = await db.query(`select count(*)::int as n from public.${table} where ${col} = $1`, [ALICE])
       expect(rows, table).toEqual([{ n: 0 }])

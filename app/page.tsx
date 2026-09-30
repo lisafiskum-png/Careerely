@@ -55,7 +55,7 @@ export default function Home() {
           </div>
 
           <button
-            onClick={() => router.push('/auth?mode=signup')}
+            onClick={() => router.push('/signup')}
             className="bg-[#0A0A0A] text-white text-[14px] font-medium px-5 py-2.5 rounded-md hover:bg-[#1a1a1a] active:scale-[0.97] transition-all duration-200"
           >
             Join Waitlist
@@ -91,11 +91,11 @@ export default function Home() {
                 placeholder="your@email.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && router.push('/auth?mode=signup')}
+                onKeyDown={e => e.key === 'Enter' && router.push('/signup')}
                 className="flex-1 px-4 py-3.5 rounded-md bg-white border border-zinc-200 text-[#0A0A0A] text-[15px] placeholder:text-zinc-400 focus:outline-none focus:border-[#6D28D9] focus:ring-1 focus:ring-[#6D28D9]/20 transition-all"
               />
               <button
-                onClick={() => router.push('/auth?mode=signup')}
+                onClick={() => router.push('/signup')}
                 className="bg-[#0A0A0A] text-white text-[15px] font-medium px-7 py-3.5 rounded-md hover:bg-[#1a1a1a] active:scale-[0.97] transition-all duration-200 whitespace-nowrap"
               >
                 Join Waitlist
@@ -253,7 +253,7 @@ export default function Home() {
                 </div>
 
                 <button
-                  onClick={() => router.push('/auth?mode=signup')}
+                  onClick={() => router.push('/signup')}
                   className={`w-full py-3 rounded-md text-[14px] font-medium mb-8 transition-all duration-200 active:scale-[0.97] ${
                     plan.highlighted
                       ? 'bg-white text-[#0A0A0A] hover:bg-zinc-100'
@@ -320,11 +320,11 @@ export default function Home() {
               placeholder="your@email.com"
               value={ctaEmail}
               onChange={e => setCtaEmail(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && router.push('/auth?mode=signup')}
+              onKeyDown={e => e.key === 'Enter' && router.push('/signup')}
               className="flex-1 px-4 py-3.5 rounded-md bg-white/10 border border-white/20 text-white text-[15px] placeholder:text-zinc-500 focus:outline-none focus:border-[#6D28D9] transition-all"
             />
             <button
-              onClick={() => router.push('/auth?mode=signup')}
+              onClick={() => router.push('/signup')}
               className="bg-white text-[#0A0A0A] text-[15px] font-medium px-7 py-3.5 rounded-md hover:bg-zinc-100 active:scale-[0.97] transition-all duration-200 whitespace-nowrap"
             >
               Join Waitlist

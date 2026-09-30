@@ -1,13 +1,17 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getUser } from '../../lib/auth'
+import { createClient } from '../../lib/supabase/server'
+import { getOnboardingPath } from '../../lib/onboarding-server'
 import { SignOutButton } from './_components/sign-out-button'
 
 // App shell (Master Brief → Visual design: sticky left sidebar, 220px).
 // Phase D adds Opportunities, Applications and Searches to the navigation.
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser()
-  if (!user) redirect('/auth?next=/dashboard')
+  if (!user) redirect('/login?next=/dashboard')
+  const path = await getOnboardingPath(await createClient(), user.id)
+  if (path !== '/dashboard') redirect(path)
 
   return (
     <div className="min-h-screen bg-app text-ink md:grid md:grid-cols-[var(--sidebar-width)_1fr]">

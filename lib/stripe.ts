@@ -6,8 +6,17 @@ import type { PlanId } from './plans'
 let client: Stripe | null = null
 
 // Created lazily so a missing key fails the request, not the build.
+// STRIPE_API_BASE points the SDK at stripe-mock in local end-to-end tests only.
 export function getStripe(): Stripe {
-  client ??= new Stripe(env.stripeSecretKey())
+  if (!client) {
+    const base = process.env.STRIPE_API_BASE ? new URL(process.env.STRIPE_API_BASE) : null
+    client = new Stripe(
+      env.stripeSecretKey(),
+      base
+        ? { host: base.hostname, port: Number(base.port), protocol: base.protocol.replace(':', '') as 'http' | 'https' }
+        : undefined,
+    )
+  }
   return client
 }
 

@@ -1,7 +1,6 @@
 import { createAdminClient } from '../../../lib/supabase/admin'
-import { getStripe, priceIdToPlanMap } from '../../../lib/stripe'
-import { subscriptionToRow } from '../../../lib/billing'
-import { getAccessState } from '../../../lib/plans'
+import { getStripe } from '../../../lib/stripe'
+import { syncSubscription } from '../../../lib/billing-sync'
 import { env } from '../../../lib/env'
 
 // Stripe is the only writer of billing state (public.subscriptions).
@@ -53,38 +52,4 @@ export async function POST(request) {
     // Non-2xx makes Stripe retry the event.
     return Response.json({ error: 'Webhook processing failed' }, { status: 500 })
   }
-}
-
-async function syncSubscription(admin, stripe, subscriptionId, userIdHint) {
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
-  const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id
-
-  let userId = userIdHint || subscription.metadata?.user_id
-  if (!userId) {
-    const { data } = await admin.from('subscriptions').select('user_id').eq('stripe_customer_id', customerId).maybeSingle()
-    userId = data?.user_id
-  }
-  if (!userId) {
-    throw new Error(`No Careerely user for Stripe subscription ${subscription.id}`)
-  }
-
-  const row = subscriptionToRow(subscription, userId, priceIdToPlanMap())
-
-  // Never let an older, ended subscription overwrite a different one that still grants access.
-  const { data: current } = await admin
-    .from('subscriptions')
-    .select('stripe_subscription_id, plan, status, current_period_end')
-    .eq('user_id', userId)
-    .maybeSingle()
-  if (
-    current?.stripe_subscription_id &&
-    current.stripe_subscription_id !== row.stripe_subscription_id &&
-    getAccessState(current).kind === 'active' &&
-    getAccessState(row).kind !== 'active'
-  ) {
-    return
-  }
-
-  const { error } = await admin.from('subscriptions').upsert(row, { onConflict: 'user_id' })
-  if (error) throw error
 }
