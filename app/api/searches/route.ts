@@ -10,6 +10,10 @@ import { searchColumns, searchWriteError, validateSearch } from '../../../lib/se
 // the plan's active-search limit, "Save as paused". A search is never paused
 // silently: if an active search hits the limit, nothing is saved and the
 // response says so, so the form can offer "Save as paused" instead.
+// A new or resumed active search starts its scan in after(); give it the same
+// time as the cron tick and onboarding (the worker budget is 240s).
+export const maxDuration = 300
+
 export async function POST(request: Request) {
   try {
     const user = await requireUser()

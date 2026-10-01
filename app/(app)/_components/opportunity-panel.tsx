@@ -19,6 +19,8 @@ const CHANGE_TAG: Record<string, { label: string; cls: string }> = {
 
 const SOURCE_LABEL = { resume: 'From your resume', posting: 'From the posting', preferences: 'From your preferences', judgment: 'From the posting and your resume' } as const
 
+const isWebUrl = (url: string) => /^https?:\/\//i.test(url)
+
 const REQ_LABEL = { confirmed: 'Confirmed', inferred: 'My judgment', unknown: 'Couldn’t confirm' } as const
 
 const STATUS_LABEL: Record<string, string> = { applied: 'Applied', interview: 'Interview', offer: 'Offer', declined: 'Declined', withdrawn: 'Withdrawn' }
@@ -109,7 +111,8 @@ function PanelContent({ opportunityId, isMyPick, readOnly, onClose, onDismiss, o
   const tile = logoTile(d?.company)
 
   function continueToPosting() {
-    if (!d?.url) return
+    // Postings come from third-party job boards: only ever open web links.
+    if (!d?.url || !isWebUrl(d.url)) return
     window.open(d.url, '_blank', 'noopener,noreferrer')
     if (canAskApplied) setAsk(true)
   }
@@ -186,6 +189,11 @@ function PanelContent({ opportunityId, isMyPick, readOnly, onClose, onDismiss, o
 
         <div className="p-body">
           {!d && !error && <div className="p-loading">Loading…</div>}
+          {!d && error && (
+            <div className="p-loading" role="alert" data-testid="panel-error">
+              Couldn’t load this opportunity. Please try again.
+            </div>
+          )}
           {d && tab === 'summary' && (
             <>
               {d.evidence.length > 0 && (

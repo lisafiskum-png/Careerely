@@ -132,3 +132,14 @@ describe('text helpers', () => {
     expect(unsupportedNumbers('Built a pipeline of 1,200 partners', ['pipeline of 1200 partners'])).toEqual([])
   })
 })
+
+describe('isWebUrl (posting links are opened from the app)', () => {
+  it('keeps only http(s) links', async () => {
+    const { isWebUrl } = await import('../../lib/engine/sources')
+    expect(isWebUrl('https://boards.greenhouse.io/acme/jobs/1')).toBe(true)
+    expect(isWebUrl('http://jobs.lever.co/acme/1')).toBe(true)
+    for (const bad of ['javascript:alert(1)', 'JAVASCRIPT:alert(1)', 'data:text/html,x', '//evil.example', '', null, undefined, 42, 'https://x y']) {
+      expect(isWebUrl(bad), String(bad)).toBe(false)
+    }
+  })
+})

@@ -234,3 +234,34 @@ stage or closed outcome plus exactly one `application_status_changed` event)
 write the change and its event in one transaction, for the signed-in user's
 own application and only with an active plan. Signed-in users can't update
 the status columns directly.
+
+## Launch hardening and production smoke test (Phase D8)
+
+Hardening: security headers on every response (`next.config.ts`), a
+not-found page and error boundaries (`app/not-found.tsx`,
+`app/(app)/error.tsx`, `app/global-error.tsx`), an error message when the
+opportunity panel can't load, `maxDuration = 300` on the Searches routes
+that start a scan in `after()`, and only http(s) posting links are stored or
+opened. `e2e/hardening.spec.ts` and `e2e/webhook.spec.ts` cover these and
+webhook signature checks and idempotency.
+
+Can't be validated locally (stand-ins are used); check once in production:
+
+1. Sign up with a real inbox: confirmation email arrives, link lands on
+   onboarding (Supabase Auth Site URL and redirect URLs, email templates).
+   Password reset email the same way.
+2. Resume upload and parse with the real Claude API.
+3. Checkout with a real card (test mode first): Step 3 success screen, then
+   the webhook marks the plan active (Stripe Dashboard → webhook deliveries
+   all 2xx).
+4. First scan after onboarding finishes (Vercel function logs for the
+   onboarding request's `after()` work; `engine_tasks` rows `done`), and the
+   ATS boards are reachable from Vercel.
+5. Cron: `/api/engine/tick` runs at the scheduled time with `CRON_SECRET`
+   (Vercel → Cron Jobs → logs) and the nightly tasks complete.
+6. A prepared application's PDFs download and open.
+7. Manage billing opens the portal; cancel at period end, then undo; switch
+   plans (upgrade now, downgrade at period end) with the documented portal
+   configuration; webhook deliveries succeed and Settings reflects each.
+8. `NEXT_PUBLIC_APP_URL` is the production URL (checkout and portal return
+   links, email links).

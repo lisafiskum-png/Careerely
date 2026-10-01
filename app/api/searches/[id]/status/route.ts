@@ -14,6 +14,10 @@ import { searchWriteError } from '../../../../../lib/search-input'
 // start repeated scans.
 const Body = z.object({ status: z.enum(['active', 'paused']) })
 
+// A new or resumed active search starts its scan in after(); give it the same
+// time as the cron tick and onboarding (the worker budget is 240s).
+export const maxDuration = 300
+
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireUser()
