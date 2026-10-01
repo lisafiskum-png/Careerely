@@ -28,13 +28,13 @@ export const CANDIDATE_MAX_AGE_DAYS = 45
 export const EVALUATIONS_PER_SCAN = 20
 export const EVALUATION_BATCH = 5
 
-type JobRow = CandidateJob & {
+export type JobRow = CandidateJob & {
   description: string | null
   posted_at: string | null
   salary_min: number | null
 }
 
-const JOB_COLUMNS = 'id, title, company, location, work_style, salary_min, salary_max, salary_currency, is_active, dedupe_key, description, posted_at'
+export const JOB_COLUMNS = 'id, title, company, location, work_style, salary_min, salary_max, salary_currency, is_active, dedupe_key, description, posted_at'
 
 /** Fingerprint of everything an evaluation sees: resume, search preferences, posting. */
 export function evaluationInputsHash(ctx: Pick<SearchContext, 'resumeCorpus' | 'preferencesText'>, job: Parameters<typeof jobDocument>[0]): string {
@@ -414,13 +414,23 @@ async function storeOpportunity(
     .maybeSingle()
   if (error) throw error
   if (!opp) return null // already an opportunity (found by another search)
+  await writeEvaluation(admin, opp.id, run.user_id, job, result)
+  return opp.id
+}
 
+/**
+ * Stores an opportunity's evaluation: its evidence records, then the scores,
+ * requirement evaluations, goal alignment and reasoning that point at them.
+ * Expects the opportunity to have no evidence yet.
+ */
+export async function writeEvaluation(admin: SupabaseClient, opportunityId: string, userId: string, job: Pick<JobRow, 'id'>, result: CandidateResult): Promise<void> {
+  const { evaluation } = result
   const { data: stored, error: evError } = await admin
     .from('evidence')
     .insert(
       evaluation.evidence.map(e => ({
-        user_id: run.user_id,
-        opportunity_id: opp.id,
+        user_id: userId,
+        opportunity_id: opportunityId,
         job_id: job.id,
         signal_type: e.signal_type,
         source_type: e.source_type,
@@ -442,6 +452,11 @@ async function storeOpportunity(
   const { error: updError } = await admin
     .from('opportunities')
     .update({
+      match_score: result.matchScore,
+      goal_aligned: evaluation.goal.aligned,
+      industry_match: evaluation.goal.industryMatch,
+      alignment_score: alignmentScore(evaluation.goal.aligned, evaluation.goal.industryMatch),
+      matched_target_role: evaluation.goal.matchedTargetRole,
       scores: { matchScore: result.matchScore, dimensions, scoredAt: new Date().toISOString() },
       requirement_evaluations: evaluation.requirements.map(r => ({
         requirementText: r.requirementText,
@@ -463,9 +478,8 @@ async function storeOpportunity(
         ? `Matches your target role “${evaluation.goal.matchedTargetRole}”.`
         : 'Doesn’t match one of your target roles, so it ranks below roles that do.',
     })
-    .eq('id', opp.id)
+    .eq('id', opportunityId)
   if (updError) throw updError
-  return opp.id
 }
 
 /**

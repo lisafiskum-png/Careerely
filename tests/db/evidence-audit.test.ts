@@ -163,6 +163,19 @@ describe('evidence traceability audit', () => {
     expect(naive.rows.find(r => r.source_text === 'Excel')!.found).toBe(true)
   })
 
+  it('is plain ASCII, so pasting it into an editor cannot silently change it', () => {
+    const sql = readFileSync(path.join(root, 'supabase/audit/evidence_traceability.sql'), 'utf8')
+    expect([...sql].filter(c => c.charCodeAt(0) > 127)).toEqual([])
+  })
+
+  it('refuses to run when its matching rules have been altered', async () => {
+    // The failure seen in production: the segment break was dropped, leaving an
+    // empty alternative that split every source into single characters.
+    const altered = readFileSync(path.join(root, 'supabase/audit/evidence_traceability.sql'), 'utf8').replace('|\\u2029|', '||')
+    expect(altered).toContain("\\n||[")
+    await expect(db.exec(altered)).rejects.toThrow(/self-test failed/)
+  })
+
   it('agrees with the engine validator on every row', () => {
     const resume = resumeCorpus(RESUME_TEXT, flattenResume(RESUME))
     const job = lineSegments(jobDocument(JOB))
