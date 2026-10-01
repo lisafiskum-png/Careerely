@@ -124,7 +124,8 @@ export function SearchForm({
   limit: number | null
   atLimit: boolean
   onClose: () => void
-  onSaved: () => void
+  /** For a new search: whether its scan started now (false = it waits for tonight). */
+  onSaved: (result: { status?: string; immediateScan?: boolean }) => void
 }) {
   const editing = search !== null
   const [name, setName] = useState(search?.name ?? '')
@@ -182,7 +183,7 @@ export function SearchForm({
       body: JSON.stringify(editing ? body : { ...body, status: pausedMode ? 'paused' : 'active' }),
     }).catch(() => null)
     setSaving(false)
-    if (res?.ok) return onSaved()
+    if (res?.ok) return onSaved(((await res.json().catch(() => null)) ?? {}) as { status?: string; immediateScan?: boolean })
     const data = (await res?.json().catch(() => null)) as { error?: string } | null
     if (res?.status === 409 && data?.error === 'active_search_limit') {
       // Never pause silently: nothing was saved; the user chooses "Save as paused".

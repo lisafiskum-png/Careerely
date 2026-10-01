@@ -668,3 +668,58 @@ describe('plan change: pausing searches above a lower limit (D6)', () => {
     await pg.close()
   })
 })
+
+describe('immediate scan cap (D8)', () => {
+  it('allows Basic 1, Pro 5, Max 10 per UTC day; nothing without a plan; only the server may claim', async () => {
+    const pg = new PGlite()
+    await pg.exec(readFileSync(path.join(import.meta.dirname, 'supabase-stubs.sql'), 'utf8'))
+    for (const file of readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort()) await pg.exec(readFileSync(path.join(migrationsDir, file), 'utf8'))
+    const { IMMEDIATE_SCANS_PER_DAY } = await import('../../lib/plans')
+    for (const plan of PLAN_IDS) {
+      const { rows } = await pg.query<{ n: number }>(`select public.immediate_scan_limit($1::public.plan_id) as n`, [plan])
+      expect(rows[0].n, plan).toBe(IMMEDIATE_SCANS_PER_DAY[plan])
+    }
+
+    const claims = async (uid: string, times: number) => {
+      const out: boolean[] = []
+      for (let i = 0; i < times; i++) out.push((await pg.query<{ ok: boolean }>(`select public.claim_immediate_scan($1) as ok`, [uid])).rows[0].ok)
+      return out
+    }
+    const users = { basic: '91111111-1111-1111-1111-111111111111', pro: '92222222-2222-2222-2222-222222222222', max: '93333333-3333-3333-3333-333333333333', none: '94444444-4444-4444-4444-444444444444' }
+    for (const [plan, uid] of Object.entries(users)) {
+      await pg.query(`insert into auth.users (id, email) values ($1, $2)`, [uid, `${plan}@example.com`])
+      if (plan !== 'none') {
+        await pg.query(
+          `insert into public.subscriptions (user_id, plan, status, current_period_start, current_period_end) values ($1, $2, 'active', now() - interval '1 day', now() + interval '20 days')`,
+          [uid, plan],
+        )
+      }
+    }
+    expect(await claims(users.basic, 2)).toEqual([true, false])
+    expect(await claims(users.pro, 6)).toEqual([true, true, true, true, true, false])
+    expect(await claims(users.max, 11)).toEqual([...Array(10).fill(true), false])
+    expect(await claims(users.none, 1)).toEqual([false])
+
+    // A new UTC day starts a new allowance.
+    await pg.query(`update public.immediate_scan_usage set day = day - 1 where user_id = $1`, [users.basic])
+    expect(await claims(users.basic, 2)).toEqual([true, false])
+
+    // Read-only accounts get none.
+    await pg.query(`update public.subscriptions set status = 'canceled', current_period_end = now() - interval '1 day' where user_id = $1`, [users.max])
+    await pg.query(`delete from public.immediate_scan_usage where user_id = $1`, [users.max])
+    expect(await claims(users.max, 1)).toEqual([false])
+
+    const { rows: grants } = await pg.query<{ role: string; ok: boolean }>(
+      `select r as role, has_function_privilege(r, 'public.claim_immediate_scan(uuid)', 'EXECUTE') as ok from unnest(array['anon', 'authenticated', 'service_role']) r order by r`,
+    )
+    expect(grants).toEqual([
+      { role: 'anon', ok: false },
+      { role: 'authenticated', ok: false },
+      { role: 'service_role', ok: true },
+    ])
+    await pg.exec(`set role authenticated; set request.jwt.claim.sub = '${users.pro}';`)
+    await expect(pg.query(`select * from public.immediate_scan_usage`)).rejects.toThrow(/permission denied/)
+    await pg.exec(`reset role; reset request.jwt.claim.sub;`)
+    await pg.close()
+  })
+})

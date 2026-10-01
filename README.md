@@ -101,7 +101,12 @@ pause and resume searches; there is no delete in V1. At the limit a new
 search can only be saved as paused, and Resume is refused until another
 search is paused. A new active search is scanned straight away; a resumed one
 too, at most once per search per day (shared with the nightly dedupe key);
-an edit applies from the next nightly scan. A search's optional minimum
+an edit applies from the next nightly scan. Immediate scans from these Search
+actions also have a per-user safety cap per UTC day (Basic 1, Pro 5, Max 10;
+`IMMEDIATE_SCANS_PER_DAY`, enforced by `public.claim_immediate_scan()`), not
+shown as a plan entitlement. Over the cap the search is still saved or
+resumed and active, nothing is queued, and the page says "Its next scan will
+run tonight." Onboarding's first scan and nightly scans don't use the cap. A search's optional minimum
 compensation is annual (whole number, up to 10,000,000) and has its own ISO 4217
 currency (`searches.compensation_currency`), compared only with salaries in the
 same currency (no conversion);
@@ -149,12 +154,15 @@ below 60. Two outcomes are not rejections and are kept on
   not low. It is evaluated again once the resume, the search or the posting
   changes.
 
-Scheduling: Vercel Cron calls `/api/engine/tick` (`vercel.json`). While the
-project is on Vercel Hobby, which only allows daily crons, the schedule is
-`0 2 * * *` (once a day, 02:00 UTC, matching `ENGINE_NIGHTLY_HOUR_UTC`). On
-Vercel Pro, set it back to `*/5 * * * *` so the queue is worked every 5 minutes.
-Each tick queues the nightly run when due and works through `engine_tasks`
-for up to 4 minutes. Finishing onboarding queues the user's first scan
+Scheduling: production runs on Vercel Pro, and Vercel Cron calls
+`/api/engine/tick` every 5 minutes (`*/5 * * * *` in `vercel.json`) with
+`Authorization: Bearer <CRON_SECRET>`. The engine is built around these
+repeated ticks: each tick queues the nightly run when it's due (02:00 UTC,
+`ENGINE_NIGHTLY_HOUR_UTC`) and works through `engine_tasks` for up to 4
+minutes, so syncs, the scans queued 30 minutes later, preparation decisions
+and packages complete over the following ticks. (Vercel Hobby only allows a
+daily cron, which would leave nightly scans waiting a day; it is not a
+supported production setup.) Finishing onboarding queues the user's first scan
 immediately. `npm test` includes an end-to-end engine run against the local
 Supabase stack when it's running.
 

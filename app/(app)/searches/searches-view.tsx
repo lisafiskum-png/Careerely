@@ -106,6 +106,7 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
   const [form, setForm] = useState<{ mode: 'create' } | { mode: 'edit'; search: SearchCard } | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
   const [limitHit, setLimitHit] = useState(false)
+  const [scanNotice, setScanNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -128,6 +129,7 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
   async function toggle(search: SearchCard) {
     setMenuFor(null)
     setError(null)
+    setScanNotice(null)
     const next = search.status === 'active' ? 'paused' : 'active'
     // Resume is blocked at the plan's limit until another search is paused.
     if (next === 'active' && atLimit) {
@@ -140,12 +142,18 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
     setSaving(null)
     if (res?.status === 409) setLimitHit(true)
     else if (!res?.ok) setError(search.id)
+    else if (next === 'active') {
+      const body = (await res.json().catch(() => null)) as { immediateScan?: boolean } | null
+      // Over the daily allowance of immediate scans: resumed, but not scanning now.
+      setScanNotice(body?.immediateScan === false ? 'Search resumed. Its next scan will run tonight.' : null)
+    }
     router.refresh()
   }
 
-  function saved() {
+  function saved(result: { status?: string; immediateScan?: boolean }) {
     setForm(null)
     setLimitHit(false)
+    setScanNotice(result.status === 'active' && result.immediateScan === false ? 'Search saved. Its next scan will run tonight.' : null)
     router.refresh()
   }
 
@@ -213,6 +221,12 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
               Couldn’t dismiss this notice. Please try again.
             </span>
           )}
+        </div>
+      )}
+
+      {scanNotice && (
+        <div className="sc-banner" role="status" data-testid="scan-deferred">
+          {scanNotice}
         </div>
       )}
 

@@ -3,7 +3,7 @@ import { requireUser, unauthorizedResponse, UnauthorizedError } from '../../../l
 import { readOnlyResponse } from '../../../lib/write-access'
 import { createClient } from '../../../lib/supabase/server'
 import { createAdminClient } from '../../../lib/supabase/admin'
-import { enqueueFirstScan, runWorker } from '../../../lib/engine/queue'
+import { runWorker, startSearchScan } from '../../../lib/engine/queue'
 import { searchColumns, searchWriteError, validateSearch } from '../../../lib/search-input'
 
 // Create a search (Master Brief §12). The user chooses "Start search" or, at
@@ -33,19 +33,27 @@ export async function POST(request: Request) {
       .single()
     if (error) return searchWriteError(error)
 
+    // A new active search scans now, within the user's daily allowance of
+    // immediate scans; beyond it, it waits for tonight's scan (still active).
+    let immediateScan = false
     if (status === 'active') {
-      // First scan now, as after onboarding, instead of waiting for tonight's run.
-      const admin = createAdminClient()
-      await enqueueFirstScan(admin, user.id, data.id)
-      after(async () => {
-        try {
-          await runWorker(createAdminClient(), { budgetMs: 240_000 })
-        } catch (err) {
-          console.error('first scan kickoff failed', err)
-        }
-      })
+      try {
+        immediateScan = await startSearchScan(createAdminClient(), user.id, data.id, 'create')
+      } catch (err) {
+        // The search is saved and active either way; it then waits for tonight's scan.
+        console.error('immediate scan not started', err)
+      }
+      if (immediateScan) {
+        after(async () => {
+          try {
+            await runWorker(createAdminClient(), { budgetMs: 240_000 })
+          } catch (err) {
+            console.error('first scan kickoff failed', err)
+          }
+        })
+      }
     }
-    return Response.json({ id: data.id, status })
+    return Response.json({ id: data.id, status, immediateScan })
   } catch (err) {
     if (err instanceof UnauthorizedError) return unauthorizedResponse()
     console.error('create search failed', err)

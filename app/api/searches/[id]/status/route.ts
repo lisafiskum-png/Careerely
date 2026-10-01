@@ -4,7 +4,7 @@ import { requireUser, unauthorizedResponse, UnauthorizedError } from '../../../.
 import { readOnlyResponse } from '../../../../../lib/write-access'
 import { createClient } from '../../../../../lib/supabase/server'
 import { createAdminClient } from '../../../../../lib/supabase/admin'
-import { enqueueResumeScan, runWorker } from '../../../../../lib/engine/queue'
+import { runWorker, startSearchScan } from '../../../../../lib/engine/queue'
 import { searchWriteError } from '../../../../../lib/search-input'
 
 // Pause or resume a search (Master Brief §12). Resuming at the plan's
@@ -36,17 +36,28 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     if (error) return searchWriteError(error)
     if (!data) return Response.json({ error: 'Your account can’t change searches right now.' }, { status: 403 })
 
+    // A resumed search scans now, within the user's daily allowance of
+    // immediate scans (and at most once per search per day); otherwise it
+    // waits for tonight's scan (still active).
+    let immediateScan = false
     if (parsed.data.status === 'active') {
-      await enqueueResumeScan(createAdminClient(), user.id, id)
-      after(async () => {
-        try {
-          await runWorker(createAdminClient(), { budgetMs: 240_000 })
-        } catch (err) {
-          console.error('resume scan kickoff failed', err)
-        }
-      })
+      try {
+        immediateScan = await startSearchScan(createAdminClient(), user.id, id, 'resume')
+      } catch (err) {
+        // The search is saved and active either way; it then waits for tonight's scan.
+        console.error('immediate scan not started', err)
+      }
+      if (immediateScan) {
+        after(async () => {
+          try {
+            await runWorker(createAdminClient(), { budgetMs: 240_000 })
+          } catch (err) {
+            console.error('resume scan kickoff failed', err)
+          }
+        })
+      }
     }
-    return Response.json({ status: parsed.data.status })
+    return Response.json(parsed.data.status === 'active' ? { status: 'active', immediateScan } : { status: 'paused' })
   } catch (err) {
     if (err instanceof UnauthorizedError) return unauthorizedResponse()
     console.error('search status update failed', err)

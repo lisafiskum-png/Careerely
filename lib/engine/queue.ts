@@ -76,6 +76,28 @@ export async function enqueueResumeScan(admin: SupabaseClient, userId: string, s
   await enqueue(admin, { kind: 'scan_search', dedupe_key: `scan:${searchId}:${day}`, user_id: userId, search_id: searchId, payload: { phase: 'start', trigger: 'resume', day } })
 }
 
+/**
+ * Immediate scan for a Search action (D8): a new active search ('create') or a
+ * resumed one ('resume'). Within the user's daily allowance
+ * (public.claim_immediate_scan) the scan is queued now; beyond it nothing is
+ * queued and the active search waits for the nightly scan. A resumed search
+ * that already has today's scan queued or running uses no allowance; one
+ * already scanned today keeps the per-search daily guard. Returns whether a
+ * scan is queued or running now.
+ */
+export async function startSearchScan(admin: SupabaseClient, userId: string, searchId: string, action: 'create' | 'resume', now = new Date()): Promise<boolean> {
+  if (action === 'resume') {
+    const { data: today } = await admin.from('engine_tasks').select('status').eq('dedupe_key', `scan:${searchId}:${utcDate(now)}`).maybeSingle()
+    if (today) return today.status === 'queued' || today.status === 'running'
+  }
+  const { data: allowed, error } = await admin.rpc('claim_immediate_scan', { uid: userId })
+  if (error) throw error
+  if (!allowed) return false
+  if (action === 'create') await enqueueFirstScan(admin, userId, searchId)
+  else await enqueueResumeScan(admin, userId, searchId, now)
+  return true
+}
+
 async function enqueueSyncs(admin: SupabaseClient, tag: string) {
   for (const board of COMPANY_BOARDS) {
     await enqueue(admin, { kind: 'sync_source', dedupe_key: `sync:${board.provider}:${board.slug}:${tag}`, payload: { ...board } })
