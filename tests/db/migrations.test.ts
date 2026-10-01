@@ -226,6 +226,43 @@ describe('foundation migration', () => {
     expect(bobJobs.rows).toEqual([])
   })
 
+  it('dismisses only Shortlisted opportunities, allows a later reason, and never restores', async () => {
+    await setSubscription(ALICE, 'pro', 'active', '20 days')
+    const job = await db.query<{ id: string }>(
+      `insert into public.jobs (source, source_job_id, url, title) values ('greenhouse', 'dismiss-1', 'https://x', 'AE') returning id`,
+    )
+    const insert = async (state: string) =>
+      (
+        await db.query<{ id: string }>(
+          `insert into public.opportunities (user_id, job_id, state) values ($1, $2, $3::public.opportunity_state) returning id`,
+          [ALICE, job.rows[0].id, state],
+        )
+      ).rows[0].id
+    // One opportunity per (user, job): reuse the job by deleting between cases.
+    const preparing = await insert('preparing')
+    await expect(
+      asUser(ALICE, () => db.query(`update public.opportunities set dismissed_at = now() where id = $1`, [preparing])),
+    ).rejects.toThrow(/Only shortlisted opportunities can be dismissed/)
+    await db.query(`update public.opportunities set state = 'ready' where id = $1`, [preparing])
+    await expect(
+      asUser(ALICE, () => db.query(`update public.opportunities set dismissed_at = now() where id = $1`, [preparing])),
+    ).rejects.toThrow(/Only shortlisted opportunities can be dismissed/)
+    await db.query(`delete from public.opportunities where id = $1`, [preparing])
+
+    const shortlisted = await insert('shortlisted')
+    await expect(
+      asUser(ALICE, () => db.query(`update public.opportunities set dismiss_reason = 'role' where id = $1`, [shortlisted])),
+    ).rejects.toThrow(/only be given for a dismissed opportunity/)
+    await asUser(ALICE, () => db.query(`update public.opportunities set dismissed_at = now() where id = $1`, [shortlisted]))
+    await asUser(ALICE, () => db.query(`update public.opportunities set dismiss_reason = 'location' where id = $1`, [shortlisted]))
+    await expect(
+      asUser(ALICE, () => db.query(`update public.opportunities set dismissed_at = null where id = $1`, [shortlisted])),
+    ).rejects.toThrow(/cannot be restored/)
+    const { rows } = await db.query<{ dismiss_reason: string }>('select dismiss_reason from public.opportunities where id = $1', [shortlisted])
+    expect(rows[0].dismiss_reason).toBe('location')
+    await db.query(`delete from public.opportunities where id = $1`, [shortlisted])
+  })
+
   it('counts preparations in the current billing period, excluding failures', async () => {
     const { rows: sub } = await db.query<{ current_period_start: Date }>(
       'select current_period_start from public.subscriptions where user_id = $1',
