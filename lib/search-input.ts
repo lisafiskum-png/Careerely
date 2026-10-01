@@ -11,9 +11,33 @@ export const MAX_SEARCH_NAME = 80
 /** Upper bound for an annual minimum, to catch typos (an extra digit or two). */
 export const MAX_COMPENSATION = 10_000_000
 
-/** Currencies offered next to the minimum compensation (ISO 4217). */
-export const CURRENCIES = ['GBP', 'EUR', 'USD', 'CAD', 'AUD', 'CHF', 'SEK', 'NOK', 'DKK', 'SGD', 'AED', 'INR', 'JPY'] as const
+/**
+ * Currencies offered next to the minimum compensation: the ISO 4217 codes of
+ * currencies in circulation (no funds, metals or testing codes). Minimums are
+ * compared with a posting's salary only in the same currency; there is no
+ * conversion.
+ */
+export const CURRENCIES = [
+  'AED', 'AFN', 'ALL', 'AMD', 'AOA', 'ARS', 'AUD', 'AWG', 'AZN', 'BAM', 'BBD', 'BDT', 'BGN', 'BHD', 'BIF', 'BMD', 'BND', 'BOB', 'BRL', 'BSD',
+  'BTN', 'BWP', 'BYN', 'BZD', 'CAD', 'CDF', 'CHF', 'CLP', 'CNY', 'COP', 'CRC', 'CUP', 'CVE', 'CZK', 'DJF', 'DKK', 'DOP', 'DZD', 'EGP', 'ERN',
+  'ETB', 'EUR', 'FJD', 'FKP', 'GBP', 'GEL', 'GHS', 'GIP', 'GMD', 'GNF', 'GTQ', 'GYD', 'HKD', 'HNL', 'HTG', 'HUF', 'IDR', 'ILS', 'INR', 'IQD',
+  'IRR', 'ISK', 'JMD', 'JOD', 'JPY', 'KES', 'KGS', 'KHR', 'KMF', 'KPW', 'KRW', 'KWD', 'KYD', 'KZT', 'LAK', 'LBP', 'LKR', 'LRD', 'LSL', 'LYD',
+  'MAD', 'MDL', 'MGA', 'MKD', 'MMK', 'MNT', 'MOP', 'MRU', 'MUR', 'MVR', 'MWK', 'MXN', 'MYR', 'MZN', 'NAD', 'NGN', 'NIO', 'NOK', 'NPR', 'NZD',
+  'OMR', 'PAB', 'PEN', 'PGK', 'PHP', 'PKR', 'PLN', 'PYG', 'QAR', 'RON', 'RSD', 'RUB', 'RWF', 'SAR', 'SBD', 'SCR', 'SDG', 'SEK', 'SGD', 'SHP',
+  'SLE', 'SOS', 'SRD', 'SSP', 'STN', 'SVC', 'SYP', 'SZL', 'THB', 'TJS', 'TMT', 'TND', 'TOP', 'TRY', 'TTD', 'TWD', 'TZS', 'UAH', 'UGX', 'USD',
+  'UYU', 'UZS', 'VES', 'VND', 'VUV', 'WST', 'XAF', 'XCD', 'XCG', 'XOF', 'XPF', 'YER', 'ZAR', 'ZMW', 'ZWG',
+] as const
 export type Currency = (typeof CURRENCIES)[number]
+
+/** "GBP — British Pound" (English names; the code alone if the runtime lacks one). */
+export function currencyLabel(code: string): string {
+  try {
+    const name = new Intl.DisplayNames(['en'], { type: 'currency' }).of(code)
+    return name && name !== code ? `${code} — ${name}` : code
+  } catch {
+    return code
+  }
+}
 
 export function isCurrency(value: unknown): value is Currency {
   return typeof value === 'string' && (CURRENCIES as readonly string[]).includes(value)

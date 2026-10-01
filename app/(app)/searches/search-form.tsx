@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { ProfileDefaults, SearchCard } from '../../../lib/searches'
 import { MAX_INDUSTRIES, MAX_LOCATIONS, MAX_ROLES, WORK_STYLES, type WorkStyle } from '../../../lib/onboarding'
 import { AREAS, FUNCTIONS, LOCATIONS } from '../../../lib/onboarding-options'
-import { CURRENCIES, formatMoney, parseAmount, validateSearch } from '../../../lib/search-input'
+import { CURRENCIES, currencyLabel, formatMoney, parseAmount, validateSearch } from '../../../lib/search-input'
 
 // Create / edit a search (Master Brief §12). Career Profile values and resume
 // suggestions come first as chips; the user can add their own roles,
@@ -202,9 +202,10 @@ export function SearchForm({
             {editing ? 'Edit search' : 'New search'}
           </h2>
           {editing ? (
-            <p className="sf-scope" data-testid="edit-scope">
-              Changes apply to this search only and will not affect your Career Profile.
-            </p>
+            <div className="sf-scope">
+              <p data-testid="edit-scope">Changes apply to this search only and will not affect your Career Profile.</p>
+              <p data-testid="edit-next-scan">New settings apply from the next scan.</p>
+            </div>
           ) : (
             <p className="sf-origin">Pre-filled from your Career Profile. Changes here apply to this search only.</p>
           )}
@@ -271,7 +272,7 @@ export function SearchForm({
                 <option value="">Currency</option>
                 {CURRENCIES.map(c => (
                   <option key={c} value={c}>
-                    {c}
+                    {currencyLabel(c)}
                   </option>
                 ))}
               </select>

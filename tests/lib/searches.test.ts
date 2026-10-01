@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMoney, parseAmount, searchColumns, validateSearch } from '../../lib/search-input'
+import { CURRENCIES, currencyLabel, formatMoney, parseAmount, searchColumns, validateSearch } from '../../lib/search-input'
 import { compensationFloor, preferencesText } from '../../lib/engine/context'
 
 const base = {
@@ -41,6 +41,14 @@ describe('validateSearch (Searches page form rules)', () => {
   it('requires a currency with a minimum, and sets both or neither', () => {
     expect(validateSearch({ ...base, minCompensation: 70000 })).toMatchObject({ ok: false, error: 'Choose a currency for the minimum compensation.' })
     expect(validateSearch({ ...base, minCompensation: 70000, compensationCurrency: 'XYZ' })).toMatchObject({ ok: false })
+    expect(validateSearch({ ...base, minCompensation: 70000, compensationCurrency: 'gbp' })).toMatchObject({ ok: false })
+    expect(validateSearch({ ...base, minCompensation: 70000, compensationCurrency: 'XAU' })).toMatchObject({ ok: false })
+    // Any ISO 4217 currency in circulation, not a short product list.
+    for (const c of ['BRL', 'ZAR', 'PLN', 'MXN', 'NZD', 'KRW']) {
+      expect(validateSearch({ ...base, minCompensation: 70000, compensationCurrency: c }), c).toMatchObject({ ok: true, value: { compensationCurrency: c } })
+    }
+    expect(validateSearch({ ...base, minCompensation: 10_000_000, compensationCurrency: 'GBP' }).ok).toBe(true)
+    expect(validateSearch({ ...base, minCompensation: 10_000_001, compensationCurrency: 'GBP' }).ok).toBe(false)
     expect(validateSearch({ ...base, minCompensation: 0, compensationCurrency: 'GBP' })).toMatchObject({ ok: false })
     expect(validateSearch({ ...base, minCompensation: 70000.5, compensationCurrency: 'GBP' })).toMatchObject({ ok: false })
     const ok = validateSearch({ ...base, minCompensation: 70000, compensationCurrency: 'GBP' })
@@ -94,5 +102,15 @@ describe('compensationFloor (engine input for a search)', () => {
   it('reaches the preferences given to the model', () => {
     const minCompensation = compensationFloor({ min_compensation: 70000, compensation_currency: 'GBP' }, null)
     expect(preferencesText({ roles: ['BD'], industries: [], workStyles: [], locations: [], minCompensation })).toContain('Minimum compensation: 70000 GBP')
+  })
+})
+
+describe('currency picker list', () => {
+  it('is canonical ISO 4217: unique, three capital letters, labelled with names', () => {
+    expect(new Set(CURRENCIES).size).toBe(CURRENCIES.length)
+    expect(CURRENCIES.length).toBeGreaterThan(140)
+    for (const c of CURRENCIES) expect(c).toMatch(/^[A-Z]{3}$/)
+    expect(currencyLabel('GBP')).toBe('GBP — British Pound')
+    expect(currencyLabel('BRL')).toMatch(/^BRL — /)
   })
 })

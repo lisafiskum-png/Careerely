@@ -225,6 +225,8 @@ test.describe.serial('searches', () => {
     const form = page.getByTestId('search-form')
     await expect(form.getByRole('heading', { name: 'Edit search' })).toBeVisible()
     await expect(form.getByTestId('edit-scope')).toHaveText('Changes apply to this search only and will not affect your Career Profile.')
+    await expect(form.getByTestId('edit-next-scan')).toHaveText('New settings apply from the next scan.')
+    await expect(form.getByLabel('Currency').locator('option[value="BRL"]')).toHaveText('BRL — Brazilian Real')
     await expect(form.getByLabel('Search name')).toHaveValue('SaaS Account Executive')
     await expect(form.getByLabel('Minimum compensation (optional)')).toHaveValue('70,000')
     await expect(form.getByLabel('Currency')).toHaveValue('GBP')
@@ -333,15 +335,34 @@ test.describe.serial('searches', () => {
     await expect(page.getByTestId('limit-banner')).toHaveCount(0)
   })
 
-  test('all searches paused: cards stay, with the "isn’t currently searching" banner', async ({ page }) => {
+  test('all searches paused: cards stay, with the "isn’t currently searching" banner; the nav never says scanning', async ({ page }) => {
     await admin.from('searches').update({ status: 'paused' }).eq('user_id', seed.userId)
+    // Stale and retrying work left behind for paused searches must not read as scanning.
+    const { error } = await admin.from('engine_tasks').insert([
+      { kind: 'scan_search', dedupe_key: `e2e-stale-first:${saasId}`, user_id: seed.userId, search_id: saasId, status: 'queued', attempts: 1, payload: { phase: 'start', trigger: 'first' }, run_after: new Date(Date.now() + DAY).toISOString(), last_error: 'retrying' },
+      { kind: 'scan_search', dedupe_key: `e2e-stale-running:${bdId}`, user_id: seed.userId, search_id: bdId, status: 'running', attempts: 1, payload: { phase: 'start', trigger: 'resume' }, run_after: ago(60_000), locked_until: new Date(Date.now() + DAY).toISOString() },
+    ])
+    if (error) throw error
+    const { error: runError } = await admin.from('search_runs').insert({ user_id: seed.userId, search_id: saasId, status: 'running', started_at: ago(60_000) })
+    if (runError) throw runError
+
     await signIn(page, email)
     await page.goto('/searches')
     await expect(page.getByTestId('all-paused-banner')).toHaveText('Careerely isn’t currently searching. Resume a search below to start scanning the market again.')
     await expect(page.getByTestId('search-card').first()).toBeVisible()
     await expect(page.getByTestId('plan-bar')).toHaveText(/0 of 5/)
+    await expect(page.getByTestId('scan-status')).toHaveText(/^Last scan /)
+    await expect(page.getByText('Scanning the market', { exact: true })).toHaveCount(0)
     await page.waitForTimeout(700)
     await shot(page, 'searches-all-paused')
+
+    // Control: the same running task counts once its search is active again.
+    await admin.from('searches').update({ status: 'active' }).eq('id', bdId)
+    await page.reload()
+    await expect(page.getByTestId('scan-status')).toHaveText('Scanning the market')
+    await admin.from('searches').update({ status: 'paused' }).eq('id', bdId)
+    await admin.from('engine_tasks').delete().like('dedupe_key', 'e2e-stale-%')
+    await admin.from('search_runs').delete().eq('search_id', saasId).eq('status', 'running')
   })
 
   test('no searches yet', async ({ page }) => {

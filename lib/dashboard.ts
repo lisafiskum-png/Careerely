@@ -121,25 +121,34 @@ const RUNNING_RUN_MAX_AGE_MS = 6 * 3600_000
 
 export const getScanStatus = cache(async (userId: string): Promise<ScanStatus & { reviewedInLatest: number | null }> => {
   const supabase = await createClient()
-  const [{ data: latest }, { data: running }] = await Promise.all([
+  const [{ data: latest }, { data: active }] = await Promise.all([
     supabase.from('search_runs').select('jobs_reviewed, finished_at').eq('status', 'succeeded').order('finished_at', { ascending: false }).limit(1).maybeSingle(),
-    supabase
+    supabase.from('searches').select('id').eq('status', 'active'),
+  ])
+  // "Scanning" only ever refers to searches that are active now: a leftover
+  // or retrying task for a paused search never counts (decision 2026-10-01).
+  const activeIds = (active ?? []).map(s => s.id as string)
+  let scanning = false
+  if (activeIds.length) {
+    const { data: running } = await supabase
       .from('search_runs')
       .select('id')
+      .in('search_id', activeIds)
       .eq('status', 'running')
       .gte('started_at', new Date(Date.now() - RUNNING_RUN_MAX_AGE_MS).toISOString())
-      .limit(1),
-  ])
-  let scanning = Boolean(running?.length)
-  if (!scanning) {
-    // A first scan waiting in the queue (e.g. while job boards are first synced).
-    const { data: tasks } = await createAdminClient()
-      .from('engine_tasks')
-      .select('status, payload')
-      .eq('user_id', userId)
-      .eq('kind', 'scan_search')
-      .in('status', ['queued', 'running'])
-    scanning = (tasks ?? []).some(t => t.status === 'running' || (t.payload as { trigger?: string } | null)?.trigger === 'first')
+      .limit(1)
+    scanning = Boolean(running?.length)
+    if (!scanning) {
+      // A first scan waiting in the queue (e.g. while job boards are first synced).
+      const { data: tasks } = await createAdminClient()
+        .from('engine_tasks')
+        .select('status, payload')
+        .eq('user_id', userId)
+        .eq('kind', 'scan_search')
+        .in('search_id', activeIds)
+        .in('status', ['queued', 'running'])
+      scanning = (tasks ?? []).some(t => t.status === 'running' || (t.payload as { trigger?: string } | null)?.trigger === 'first')
+    }
   }
   const lastScanAt = latest?.finished_at ?? null
   return {

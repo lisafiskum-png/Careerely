@@ -102,9 +102,12 @@ search can only be saved as paused, and Resume is refused until another
 search is paused. A new active search is scanned straight away; a resumed one
 too, at most once per search per day (shared with the nightly dedupe key);
 an edit applies from the next nightly scan. A search's optional minimum
-compensation is annual and has its own currency (`searches.compensation_currency`);
+compensation is annual (whole number, up to 10,000,000) and has its own ISO 4217
+currency (`searches.compensation_currency`), compared only with salaries in the
+same currency (no conversion);
 when blank, the engine uses the Career Profile's minimum only if it has both
-an amount and a currency, otherwise there is no minimum.
+an amount and a currency, otherwise there is no minimum. The nav's
+"Scanning the market" only counts scans of searches that are active now.
 
 `npm run test:e2e` includes `e2e/dashboard.spec.ts`, `e2e/opportunities.spec.ts`, `e2e/applications.spec.ts` and `e2e/searches.spec.ts`, which seed a local
 account; set `SCREENSHOT_DIR` to save desktop and mobile screenshots.

@@ -397,6 +397,7 @@
   & .sf-hd { padding: 24px 26px 18px; border-bottom: 1px solid var(--line2) }
   & .sf-title { font-size: 17px; font-weight: 640; letter-spacing: -.028em; margin-bottom: 4px }
   & .sf-origin { font-size: 12.5px; color: var(--ink4) }
+  & .sf-scope p + p { margin-top: 2px }
   & .sf-scope { font-size: 12.5px; color: var(--pu); background: var(--pu-s); border-radius: 8px; padding: 8px 11px; margin-top: 8px; line-height: 1.45 }
   & .sf-body { padding: 20px 26px; overflow-y: auto }
   & .sf-group { margin-bottom: 20px }
@@ -417,7 +418,7 @@
   & .sf-note { font-size: 11.5px; color: var(--ink4); margin-top: 6px }
   & .sf-comp { display: flex; align-items: center; gap: 8px }
   & .sf-comp .sf-input:first-child { flex: 1; min-width: 0 }
-  & .sf-currency { width: 108px; flex-shrink: 0; padding-right: 6px }
+  & .sf-currency { width: 196px; flex-shrink: 0; padding-right: 6px; text-overflow: ellipsis }
   & .sf-per { font-size: 12px; color: var(--ink4); white-space: nowrap }
   & .sf-limit { background: var(--pu-s); border-top: 1px solid rgba(75, 50, 184, .12); padding: 11px 26px; font-size: 12.5px; color: var(--pu) }
   & .sf-ft { padding: 16px 26px; border-top: 1px solid var(--line2); display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 8px }
@@ -479,5 +480,6 @@
     & .sf-limit { padding: 10px 20px }
     & .sf-ft { padding: 14px 20px }
     & .sf-comp { flex-wrap: wrap }
+    & .sf-currency { flex: 1; width: auto }
   }
 }
