@@ -13,7 +13,10 @@ export type SearchContext = {
   prefs: Preferences
   resume: Resume
   resumeText: string
-  /** Resume corpus used to verify quotes: raw text + the reviewed resume. */
+  /**
+   * Resume corpus used to verify quotes: raw text + the reviewed resume, each
+   * structured field on its own segment (U+2029) so a quote can't join two.
+   */
   resumeCorpus: string
   /** Compact resume given to the model. */
   resumeForPrompt: string
@@ -83,10 +86,14 @@ export async function loadSearchContext(admin: SupabaseClient, searchId: string)
     prefs,
     resume: parsed.data,
     resumeText: career.resume_text ?? '',
-    resumeCorpus: `${career.resume_text ?? ''}\n\n${flat}`,
+    resumeCorpus: resumeCorpus(career.resume_text ?? '', flat),
     resumeForPrompt: flat,
     preferencesText: preferencesText(prefs),
   }
+}
+
+export function resumeCorpus(resumeText: string, flattened: string): string {
+  return [resumeText, ...flattened.split('\n')].join('\u2029')
 }
 
 /** The job as the model and the verifier see it. */

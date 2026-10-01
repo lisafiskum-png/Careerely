@@ -84,7 +84,7 @@ Implements `OPPORTUNITY_ENGINE_SCHEMA.ts`. Code in `lib/engine/`:
 | 2 Relevance | `evaluate.ts`, `verify.ts` | Claude evaluates requirements; only verbatim-quoted evidence is kept |
 | 3 Scoring | `scoring.ts` | Weighted dimensions; dimensions without evidence are left out; shortlist at ≥ 60, max 10 per search per night |
 | 4 Ranking | `scoring.ts`, `scan.ts` | Goal-aligned (matches a Step 3 target role) always above non-aligned; then industry, score, recency; rank 1 = My Pick |
-| 5 Evidence | `scan.ts` | Evidence records stored; every claim points to them |
+| 5 Evidence | `scan.ts`, `text.ts` | Evidence records stored; every claim points to them. A quote must match whole words within one line, bullet or resume field. Audit stored evidence with `supabase/audit/evidence_traceability.sql` |
 | 6 Preparation | `prepare.ts` | Top 2 per nightly run, within the plan's monthly allowance (reserved atomically in the database) |
 | 7 Package | `prepare.ts` | Tailored resume changes + segmented cover letter, fact-checked, regenerated once if a check fails |
 

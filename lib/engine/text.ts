@@ -29,11 +29,11 @@ export function htmlToText(html: string): string {
     .trim()
 }
 
-/** Lowercase, unify quotes/dashes, collapse whitespace — for substring checks. */
+/** Unicode-fold (NFKC: ligatures, no-break spaces…), lowercase, unify quotes/dashes, collapse whitespace — for substring checks. */
 export function normalizeForMatch(text: string): string {
   return text
-    .toLowerCase()
     .normalize('NFKC')
+    .toLowerCase()
     .replace(/[‘’‚′]/g, "'")
     .replace(/[“”„″]/g, '"')
     .replace(/[‐-―−]/g, '-')
@@ -42,12 +42,45 @@ export function normalizeForMatch(text: string): string {
     .trim()
 }
 
-/** True when `quote` appears verbatim (after normalisation) in `source`. */
-export function containsQuote(source: string, quote: string): boolean {
-  const q = normalizeForMatch(quote).replace(/^[\s"'.…-]+|[\s"'.…-]+$/g, '')
-  if (q.length < 3) return false
-  return normalizeForMatch(source).includes(q)
+/**
+ * Hard boundaries a quote may not cross: blank lines, list bullets and U+2029
+ * (used to separate fields of the structured resume). Only a single line break
+ * inside a paragraph (a wrapped line in an extracted PDF) may be crossed.
+ */
+const SEGMENT_BREAK = /\n[^\S\n]*\n|\u2029|[•▪●◦]/
+
+/** The quote as it is matched: normalised, without wrapping quotation marks, ellipses or end punctuation. */
+export function normalizeQuote(quote: string): string {
+  return normalizeForMatch(quote).replace(/^[\s"'.…-]+|[\s"'.…-]+$/g, '')
 }
+
+const WORD_CHAR = /[\p{L}\p{N}]/u
+
+/**
+ * True when `quote` appears verbatim (after normalisation) inside a single
+ * segment of `source`, starting and ending on word boundaries: "Excel" is not
+ * found in "excellent", and a quote may not stitch two bullets or two resume
+ * fields together. `source` may be given as separate segments.
+ */
+export function containsQuote(source: string | string[], quote: string): boolean {
+  const q = normalizeQuote(quote)
+  if (q.length < 3) return false
+  const wordStart = WORD_CHAR.test(q[0])
+  const wordEnd = WORD_CHAR.test(q[q.length - 1])
+  const segments = (Array.isArray(source) ? source : [source]).flatMap(s => s.split(SEGMENT_BREAK))
+  for (const segment of segments) {
+    const text = normalizeForMatch(segment)
+    for (let i = text.indexOf(q); i !== -1; i = text.indexOf(q, i + 1)) {
+      const before = i > 0 ? text[i - 1] : ''
+      const after = text[i + q.length] ?? ''
+      if ((!wordStart || !WORD_CHAR.test(before)) && (!wordEnd || !WORD_CHAR.test(after))) return true
+    }
+  }
+  return false
+}
+
+/** Lines of a document as separate quote segments (a quote may not span two lines). */
+export const lineSegments = (text: string): string[] => text.split('\n')
 
 const STOPWORDS = new Set([
   'a', 'an', 'and', 'the', 'of', 'for', 'to', 'in', 'on', 'at', 'with', 'or', 'by', 'as', 'is', 'are', 'be',

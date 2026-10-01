@@ -155,6 +155,54 @@ describe('Stages 2 & 5 — evidence verification', () => {
     expect(v.dimensions.map(d => d.dimension)).toEqual(['skills_match', 'experience_level', 'industry_fit'])
   })
 
+  it('drops sub-word and stitched quotes, leaving those findings unknown rather than negative', () => {
+    const stitched = verifyEvaluation(
+      {
+        ...raw,
+        evidence: [
+          { key: 's1', signal_type: 'skills_keyword_match', source_type: 'resume_text', source_text: 'Analyst', claim: 'x', outcome: 'confirmed', confidence: 0.9 },
+          { key: 's2', signal_type: 'skills_keyword_match', source_type: 'resume_text', source_text: 'Nordic', claim: 'x', outcome: 'confirmed', confidence: 0.9 },
+          { key: 'w1', signal_type: 'skills_keyword_match', source_type: 'resume_text', source_text: 'Nord', claim: 'x', outcome: 'confirmed', confidence: 0.9 },
+          { key: 'w2', signal_type: 'requirement_met', source_type: 'resume_text', source_text: 'crypto cases Built a pipeline', claim: 'x', outcome: 'confirmed', confidence: 0.9 },
+          { key: 'w3', signal_type: 'industry_experience', source_type: 'job_description', source_text: 'business development Experience with AML', claim: 'x', outcome: 'confirmed', confidence: 0.9 },
+          { key: 'w4', signal_type: 'seniority_inference', source_type: 'agent_inference', source_text: 'Stripe Location: London', claim: 'x', outcome: 'inferred', confidence: 0.9 },
+        ],
+        requirements: [
+          { requirement_text: 'business development • Experience with AML', outcome: 'confirmed', evidence_keys: ['s1'], confidence: 0.9, notes: '' },
+          { requirement_text: 'Experience with AML or financial compliance', outcome: 'confirmed', evidence_keys: ['w2', 'w3'], confidence: 0.9, notes: '' },
+        ],
+        dimensions: {
+          skills_match: { score: 10, evidence_keys: ['w1'] },
+          experience_level: { score: 10, evidence_keys: ['w2'] },
+          industry_fit: { score: 10, evidence_keys: ['w3'] },
+          role_category_fit: { score: 10, evidence_keys: ['w4'] },
+        },
+      },
+      sources,
+    )
+    expect(stitched.evidence.map(e => e.key)).toEqual(['s1', 's2'])
+    expect(stitched.dropped.map(d => d.key)).toEqual(['w1', 'w2', 'w3', 'w4'])
+    // The stitched requirement is not a requirement of the posting; the real one is unknown, not failed.
+    expect(stitched.requirements).toEqual([expect.objectContaining({ requirementText: 'Experience with AML or financial compliance', outcome: 'unknown', confidence: 0 })])
+    // Low scores resting on untraceable evidence are not kept: no dimension, no composite score (unknown fit).
+    expect(stitched.dimensions).toEqual([])
+    expect(compositeScore(stitched.dimensions.map(d => ({ dimension: d.dimension, score: d.score, evidenceRecordIds: d.evidenceKeys }))).matchScore).toBeNull()
+  })
+
+  it('never confirms agent inference, whichever source it quotes', () => {
+    const v2 = verifyEvaluation(
+      {
+        ...raw,
+        evidence: [
+          { key: 'i1', signal_type: 'seniority_inference', source_type: 'agent_inference', source_text: '5+ years in business development', claim: 'x', outcome: 'confirmed', confidence: 0.9 },
+          { key: 'i2', signal_type: 'seniority_inference', source_type: 'agent_inference', source_text: 'AML Analyst at Nordic Bank', claim: 'x', outcome: 'confirmed', confidence: 0.9 },
+        ],
+      },
+      sources,
+    )
+    expect(v2.evidence.map(e => [e.key, e.outcome])).toEqual([['i1', 'inferred'], ['i2', 'inferred']])
+  })
+
   it('only accepts one of the user’s own target roles as goal alignment', () => {
     expect(v.goal).toMatchObject({ matchedTargetRole: 'Business Development Manager', aligned: true, industryMatch: true })
     const other = verifyEvaluation({ ...raw, goal: { matched_target_role: 'Chief Wizard', industry_match: false, evidence_keys: [] } }, sources)
