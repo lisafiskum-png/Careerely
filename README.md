@@ -164,3 +164,48 @@ Point a Stripe webhook at `/api/stripe-webhook` with these events:
 `checkout.session.completed`, `customer.subscription.created`,
 `customer.subscription.updated`, `customer.subscription.deleted`,
 `customer.subscription.paused`, `customer.subscription.resumed`.
+
+## Settings and billing (Phase D6)
+
+`/settings` shows the current plan with its entitlements from `lib/plans.ts`
+(no price: amounts, currency, tax and proration live in Stripe), the renewal or
+end date stored from Stripe, the account email and Sign out. "Manage billing"
+(`POST /api/billing/portal`) opens Stripe's Customer Portal for the signed-in
+user's stored Stripe customer (never taken from the request) and returns to
+`/settings`. It is shown whenever a Stripe customer exists, so former
+subscribers can still see invoices. Accounts without access keep the existing
+read-only rules and can subscribe again through Checkout.
+
+Downgrades: the stored plan comes from the subscription's current item, so a
+downgrade scheduled for the period end changes nothing until it takes effect.
+After every sync, `public.apply_plan_search_limit()` pauses only the active
+searches above the new limit (the search created from preferences is kept
+first, then the oldest by `created_at`, then `id`), sets
+`searches.paused_by_plan_change_at`, and queues no scans. It is idempotent, and
+an upgrade never resumes anything. Searches names the paused searches (the
+user can dismiss the notice); Settings says searches were paused. Resuming a
+search clears its marker.
+
+### Stripe Dashboard: Customer Portal configuration (required)
+
+Settings → Billing → Customer portal, default configuration:
+
+- **Business information:** set the return/redirect and terms links; the app
+  passes `return_url = <NEXT_PUBLIC_APP_URL>/settings` on each session.
+- **Customer information:** allow updating email/billing address as you prefer
+  (Careerely's sign-in email is separate and is not changed by Stripe).
+- **Payment methods:** allow customers to update payment methods.
+- **Invoice history:** on.
+- **Cancel subscriptions:** on, **at the end of the billing period** (not
+  immediately). Optional cancellation reasons are fine.
+- **Subscriptions → Customers can switch plans:** on, with the Basic, Pro and
+  Max products and exactly the prices used in `STRIPE_PRICE_BASIC`,
+  `STRIPE_PRICE_PRO` and `STRIPE_PRICE_MAX` (one monthly price each). Quantity
+  changes off.
+- **Proration:** upgrades take effect immediately and are prorated
+  ("Prorate charges and credits", invoiced immediately).
+- **Downgrades:** "When customers downgrade, update at the end of the billing
+  period" (Stripe schedules the change; the current plan and limits stay in
+  force until then).
+- Make sure the webhook above is subscribed to `customer.subscription.updated`
+  and `customer.subscription.deleted`, which carry portal changes.

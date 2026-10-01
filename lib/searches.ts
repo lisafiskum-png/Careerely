@@ -31,6 +31,8 @@ export type SearchCard = {
   minCompensation: number | null
   compensationCurrency: string | null
   createdFromProfile: boolean
+  /** Paused automatically when a lower plan took effect (decision 2026-10-02); cleared on resume or dismiss. */
+  pausedByPlanChange: boolean
   /** From the latest completed scan of this search; null when it has never completed one. */
   latest: { reviewed: number; shortlisted: number; finishedAt: string } | null
   scan: SearchScan
@@ -66,6 +68,7 @@ type SearchRow = {
   min_compensation: number | null
   compensation_currency: string | null
   created_from_profile: boolean
+  paused_by_plan_change_at: string | null
   created_at: string
 }
 
@@ -74,7 +77,7 @@ export async function loadSearches(userId: string, access: AccessState): Promise
   const [{ data: rows, error }, { data: career }] = await Promise.all([
     supabase
       .from('searches')
-      .select('id, name, status, target_roles, industries, locations, work_styles, min_compensation, compensation_currency, created_from_profile, created_at')
+      .select('id, name, status, target_roles, industries, locations, work_styles, min_compensation, compensation_currency, created_from_profile, paused_by_plan_change_at, created_at')
       .order('created_at', { ascending: true }),
     supabase.from('career_profiles').select('target_roles, industries, locations, work_styles, suggestions, min_compensation, compensation_currency').maybeSingle(),
   ])
@@ -147,6 +150,7 @@ export async function loadSearches(userId: string, access: AccessState): Promise
       minCompensation: s.min_compensation,
       compensationCurrency: s.compensation_currency,
       createdFromProfile: s.created_from_profile,
+      pausedByPlanChange: s.status === 'paused' && s.paused_by_plan_change_at !== null,
       latest: last,
       scan,
     }

@@ -45,6 +45,14 @@ export async function syncSubscription(
 
   const { error } = await admin.from('subscriptions').upsert(row, { onConflict: 'user_id' })
   if (error) throw error
+
+  // Decision 2026-10-02: once a lower plan is in effect, pause only the active
+  // searches above its limit (recorded, and shown on Searches and Settings).
+  // The stored plan comes from the subscription's current item, so a downgrade
+  // scheduled for the period end changes nothing until it takes effect.
+  // Idempotent: within the limit there is nothing left to pause.
+  const { error: limitError } = await admin.rpc('apply_plan_search_limit', { uid: userId })
+  if (limitError) throw limitError
 }
 
 /**
