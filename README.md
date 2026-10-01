@@ -182,9 +182,12 @@ After every sync, `public.apply_plan_search_limit()` pauses only the active
 searches above the new limit (the search created from preferences is kept
 first, then the oldest by `created_at`, then `id`), sets
 `searches.paused_by_plan_change_at`, and queues no scans. It is idempotent, and
-an upgrade never resumes anything. Searches names the paused searches (the
-user can dismiss the notice); Settings says searches were paused. Resuming a
-search clears its marker.
+an upgrade never resumes anything. The marker is server-controlled provenance
+(users can't set or clear it); only a search becoming active again (the user
+resuming it) clears it. Searches names the paused searches and Settings says
+searches were paused; "Dismiss" calls `public.dismiss_plan_change_notice()`,
+which only sets `profiles.plan_change_notice_dismissed_at` (notices show
+searches paused by a plan change after that time) and changes no search.
 
 ### Stripe Dashboard: Customer Portal configuration (required)
 

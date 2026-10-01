@@ -12,8 +12,8 @@
 
 alter table public.searches add column if not exists paused_by_plan_change_at timestamptz;
 
--- Resuming a search (or any return to active) clears the marker. A paused
--- search can't otherwise carry it unless the plan change set it.
+-- Resuming a search (or any return to active) clears the marker. Only
+-- apply_plan_search_limit() sets it, so a manually paused search never has it.
 create or replace function public.clear_plan_change_pause()
 returns trigger
 language plpgsql
@@ -74,5 +74,24 @@ $$;
 revoke all on function public.apply_plan_search_limit(uuid) from public, anon, authenticated;
 grant execute on function public.apply_plan_search_limit(uuid) to service_role;
 
--- The user may dismiss the notice (clear the marker) on their own searches.
-grant update (paused_by_plan_change_at) on public.searches to authenticated;
+-- The marker is provenance and server-controlled: users can't set or clear it
+-- directly. It is cleared only when a search becomes active again (trigger
+-- above, e.g. the user resuming it).
+revoke update (paused_by_plan_change_at) on public.searches from authenticated;
+
+-- Dismissing the notice is separate, user-level state: it hides notices for
+-- searches paused by plan changes up to that moment and changes no search.
+-- A later plan-change pause shows a new notice.
+alter table public.profiles add column if not exists plan_change_notice_dismissed_at timestamptz;
+
+create or replace function public.dismiss_plan_change_notice()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.profiles set plan_change_notice_dismissed_at = now() where id = auth.uid();
+$$;
+
+revoke all on function public.dismiss_plan_change_notice() from public, anon;
+grant execute on function public.dismiss_plan_change_notice() to authenticated;

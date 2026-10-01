@@ -102,12 +102,28 @@ test.describe.serial('settings', () => {
     await page.goto('/settings')
     await expect(page.getByTestId('plan-status')).toHaveText('Payment failed. Update your payment method in Manage billing to keep your plan.')
     await expect(page.getByRole('button', { name: 'Manage billing' })).toBeVisible()
-    await page.goto('/searches')
-    await expect(page.getByTestId('read-only-notice')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'New search' })).toBeVisible()
-    await page.goto('/settings')
+    // Full access while Stripe retries: no read-only wording, no second checkout.
+    await expect(page.getByTestId('plan-status')).not.toContainText('read-only')
+    await expect(page.getByRole('button', { name: /^(Basic|Pro|Max)/ })).toHaveCount(0)
     await page.waitForTimeout(400)
     await shot(page, 'settings-past-due', false)
+
+    // Normal signed-in product actions still work.
+    await page.goto('/dashboard')
+    await expect(page.getByRole('heading', { name: 'Choose a plan' })).toHaveCount(0)
+    await page.goto('/searches')
+    await expect(page.getByTestId('read-only-notice')).toHaveCount(0)
+    await page.getByRole('button', { name: 'New search' }).click()
+    const form = page.getByTestId('search-form')
+    await form.getByLabel('Search name').fill('Past due still works')
+    await form.getByRole('button', { name: 'Start search' }).click()
+    await expect(form).toHaveCount(0)
+    const { data: created } = await admin.from('searches').select('id, status').eq('user_id', seed.userId).eq('name', 'Past due still works').single()
+    expect(created!.status).toBe('active')
+    expect((await page.request.post(`/api/searches/${created!.id}/status`, { data: { status: 'paused' } })).status()).toBe(200)
+    expect((await page.request.post(`/api/applications/${seed.applications.stripe}/applied`)).status()).toBe(200)
+    expect((await admin.from('applications').select('status').eq('id', seed.applications.stripe).single()).data!.status).toBe('applied')
+    await admin.from('searches').delete().eq('id', created!.id)
   })
 
   test('ended: read-only, end date, plan picker, and Manage billing for invoices', async ({ page }) => {
@@ -170,10 +186,33 @@ test.describe.serial('settings', () => {
     await expect(page.getByText('Upgrade →')).toHaveCount(0)
     await page.waitForTimeout(600)
     await shot(page, 'searches-plan-change-banner')
+    const fintech = extra!.find(s => s.name === 'Fintech partnerships')!
+    const manual = extra!.find(s => s.name === 'Paused by me')!
+    const searchRow = async (id: string) => (await admin.from('searches').select('status, paused_by_plan_change_at, updated_at').eq('id', id).single()).data!
+    const before = await searchRow(fintech.id)
     await banner.getByRole('button', { name: 'Dismiss' }).click()
     await expect(banner).toHaveCount(0)
-    const fintech = extra!.find(s => s.name === 'Fintech partnerships')!
-    expect((await admin.from('searches').select('status, paused_by_plan_change_at').eq('id', fintech.id).single()).data).toEqual({ status: 'paused', paused_by_plan_change_at: null })
+    // Dismissing changes no search: still paused, still marked as paused by the plan change.
+    expect(await searchRow(fintech.id)).toEqual(before)
+    expect(before.paused_by_plan_change_at).not.toBeNull()
+    expect((await searchRow(manual.id)).paused_by_plan_change_at).toBeNull()
+    expect((await admin.from('profiles').select('plan_change_notice_dismissed_at').eq('id', seed.userId).single()).data!.plan_change_notice_dismissed_at).not.toBeNull()
+    await page.reload()
+    await expect(page.getByTestId('plan-change-banner')).toHaveCount(0)
+    await page.goto('/settings')
+    await expect(page.getByTestId('plan-change-notice')).toHaveCount(0)
+
+    // Resuming the search (after making room) clears its marker; the manual one never had it.
+    await page.goto('/searches')
+    const options = (name: string) => page.getByTestId('search-card').filter({ has: page.getByRole('heading', { name, exact: true }) }).getByRole('button', { name: `Options for ${name}` })
+    await options('Business Development Manager').click()
+    await page.getByRole('menuitem', { name: 'Pause search' }).click()
+    await expect(page.getByTestId('plan-bar')).toHaveText(/0 of 1/)
+    await options('Fintech partnerships').click()
+    await page.getByRole('menuitem', { name: 'Resume search' }).click()
+    await expect(page.getByTestId('plan-bar')).toHaveText(/1 of 1/)
+    expect(await searchRow(fintech.id)).toMatchObject({ status: 'active', paused_by_plan_change_at: null })
+    expect(await searchRow(manual.id)).toMatchObject({ status: 'paused', paused_by_plan_change_at: null })
   })
 
   test('mobile layout', async ({ page }) => {

@@ -117,7 +117,6 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
   const closeForm = useCallback(() => setForm(null), [])
   const { plan, activeCount, searches } = data
   const atLimit = plan !== null && plan.limit !== null && activeCount >= plan.limit
-  const planPaused = searches.filter(s => s.pausedByPlanChange)
 
   async function dismissPlanNotice() {
     await fetch('/api/searches/plan-change-notice', { method: 'DELETE' }).catch(() => null)
@@ -197,10 +196,10 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
         </div>
       )}
 
-      {planPaused.length > 0 && (
+      {data.planChangeNotice.length > 0 && (
         <div className="sc-banner sc-banner-row" role="status" data-testid="plan-change-banner">
           <span>
-            Careerely paused {quoteList(planPaused.map(s => s.name))} when your plan changed, to fit its active-search limit. Nothing was deleted; you can choose which searches stay active.
+            Careerely paused {quoteList(data.planChangeNotice)} when your plan changed, to fit its active-search limit. Nothing was deleted; you can choose which searches stay active.
           </span>
           {!readOnly && (
             <button className="sc-dismiss" onClick={dismissPlanNotice}>

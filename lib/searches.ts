@@ -4,6 +4,7 @@ import { createAdminClient } from './supabase/admin'
 import { PLAN_LIMITS, PLANS, type AccessState } from './plans'
 import { isWorkStyle, type WorkStyle } from './onboarding'
 import type { Suggestions } from './resume/schema'
+import { planChangeNotice } from './plan-status'
 
 // Searches page (Master Brief §12): what Careerely is hunting for on the
 // user's behalf. Read through the user's session; the engine queue, which
@@ -31,7 +32,7 @@ export type SearchCard = {
   minCompensation: number | null
   compensationCurrency: string | null
   createdFromProfile: boolean
-  /** Paused automatically when a lower plan took effect (decision 2026-10-02); cleared on resume or dismiss. */
+  /** Paused automatically when a lower plan took effect (decision 2026-10-02); cleared only on resume. */
   pausedByPlanChange: boolean
   /** From the latest completed scan of this search; null when it has never completed one. */
   latest: { reviewed: number; shortlisted: number; finishedAt: string } | null
@@ -55,6 +56,8 @@ export type SearchesData = {
   /** Null for read-only accounts (no active plan). limit null = unlimited. */
   plan: { name: string; limit: number | null } | null
   profile: ProfileDefaults
+  /** Names for the plan-change notice: paused by a plan change since the user last dismissed it. */
+  planChangeNotice: string[]
 }
 
 type SearchRow = {
@@ -74,12 +77,13 @@ type SearchRow = {
 
 export async function loadSearches(userId: string, access: AccessState): Promise<SearchesData> {
   const supabase = await createClient()
-  const [{ data: rows, error }, { data: career }] = await Promise.all([
+  const [{ data: rows, error }, { data: career }, { data: profileRow }] = await Promise.all([
     supabase
       .from('searches')
       .select('id, name, status, target_roles, industries, locations, work_styles, min_compensation, compensation_currency, created_from_profile, paused_by_plan_change_at, created_at')
       .order('created_at', { ascending: true }),
     supabase.from('career_profiles').select('target_roles, industries, locations, work_styles, suggestions, min_compensation, compensation_currency').maybeSingle(),
+    supabase.from('profiles').select('plan_change_notice_dismissed_at').eq('id', userId).maybeSingle(),
   ])
   if (error) throw error
   const searches = (rows ?? []) as SearchRow[]
@@ -161,6 +165,7 @@ export async function loadSearches(userId: string, access: AccessState): Promise
   const suggestions = (career?.suggestions ?? {}) as Partial<Suggestions>
   const planInfo = access.kind === 'active' ? PLANS.find(p => p.id === access.plan) : undefined
   return {
+    planChangeNotice: planChangeNotice(searches, profileRow?.plan_change_notice_dismissed_at ?? null).map(s => s.name),
     searches: cards,
     activeCount: cards.filter(c => c.status === 'active').length,
     plan: access.kind === 'active' && planInfo ? { name: planInfo.name, limit: PLAN_LIMITS[access.plan].activeSearches } : null,

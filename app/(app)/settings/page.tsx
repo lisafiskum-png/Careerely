@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getUser } from '../../../lib/auth'
 import { createClient } from '../../../lib/supabase/server'
-import { describePlan, type StoredSubscription } from '../../../lib/plan-status'
+import { describePlan, planChangeNotice, type StoredSubscription } from '../../../lib/plan-status'
 import { SubscribeButtons } from '../_components/subscribe-buttons'
 import { ManageBillingButton, SignOutButton } from './settings-actions'
 
@@ -13,12 +13,14 @@ export default async function SettingsPage() {
   const user = await getUser()
   if (!user) redirect('/login?next=/settings')
   const supabase = await createClient()
-  const [{ data: sub }, { data: paused }] = await Promise.all([
+  const [{ data: sub }, { data: paused }, { data: profile }] = await Promise.all([
     supabase.from('subscriptions').select('plan, status, current_period_end, cancel_at_period_end, stripe_customer_id').maybeSingle<StoredSubscription>(),
-    supabase.from('searches').select('id').eq('status', 'paused').not('paused_by_plan_change_at', 'is', null),
+    supabase.from('searches').select('status, paused_by_plan_change_at').eq('status', 'paused').not('paused_by_plan_change_at', 'is', null),
+    supabase.from('profiles').select('plan_change_notice_dismissed_at').eq('id', user.id).maybeSingle(),
   ])
+  // Access and wording from the canonical rule (getAccessState via describePlan).
   const plan = describePlan(sub)
-  const pausedCount = paused?.length ?? 0
+  const pausedCount = planChangeNotice(paused ?? [], profile?.plan_change_notice_dismissed_at ?? null).length
 
   return (
     <main className="page">

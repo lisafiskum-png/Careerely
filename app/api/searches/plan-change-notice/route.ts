@@ -1,14 +1,14 @@
 import { requireUser, unauthorizedResponse, UnauthorizedError } from '../../../../lib/auth'
 import { createClient } from '../../../../lib/supabase/server'
 
-// Dismisses the "paused when your plan changed" notice (Phase D6): clears the
-// marker on the user's own searches. The searches stay paused.
+// Dismisses the "paused when your plan changed" notice (Phase D6). User-level
+// state only: no search changes, and each search keeps its provenance
+// (paused_by_plan_change_at), which only resuming clears.
 export async function DELETE() {
   try {
     await requireUser()
-    // RLS: own searches, active plan.
     const supabase = await createClient()
-    const { error } = await supabase.from('searches').update({ paused_by_plan_change_at: null }).not('paused_by_plan_change_at', 'is', null)
+    const { error } = await supabase.rpc('dismiss_plan_change_notice')
     if (error) return Response.json({ error: 'Couldn’t dismiss this notice.' }, { status: 409 })
     return Response.json({ dismissed: true })
   } catch (err) {

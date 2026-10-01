@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { describePlan, planEntitlements, type StoredSubscription } from '../../lib/plan-status'
+import { describePlan, planChangeNotice, planEntitlements, type StoredSubscription } from '../../lib/plan-status'
+import { getAccessState } from '../../lib/plans'
 
 const now = new Date('2026-10-02T12:00:00Z')
 const sub = (o: Partial<StoredSubscription> = {}): StoredSubscription => ({
@@ -71,5 +72,33 @@ describe('describePlan (approved wording)', () => {
     expect(describePlan(null, now)).toEqual({ kind: 'none', plan: null, status: 'No plan', readOnly: true, canSubscribe: true, canManageBilling: false })
     // Checkout was started (customer created) but never completed.
     expect(describePlan(sub({ plan: null, status: 'incomplete', current_period_end: null }), now)).toMatchObject({ kind: 'none', canManageBilling: true })
+  })
+})
+
+describe('describePlan follows the canonical access rule', () => {
+  it('is read-only exactly when getAccessState says so; past_due keeps full access', () => {
+    for (const status of ['active', 'trialing', 'past_due', 'canceled', 'unpaid', 'incomplete', 'incomplete_expired', 'paused']) {
+      for (const end of ['2026-11-12T08:00:00Z', '2026-09-01T00:00:00Z']) {
+        const s = sub({ status, current_period_end: end })
+        expect(describePlan(s, now).readOnly, `${status} ${end}`).toBe(getAccessState(s, now).kind !== 'active')
+      }
+    }
+    const pastDue = describePlan(sub({ status: 'past_due' }), now)
+    expect(pastDue).toMatchObject({ readOnly: false, canSubscribe: false, canManageBilling: true })
+    expect(pastDue.status).not.toContain('read-only')
+  })
+})
+
+describe('planChangeNotice (dismissal is separate from provenance)', () => {
+  const searches = [
+    { name: 'Auto, earlier', status: 'paused', paused_by_plan_change_at: '2026-10-01T10:00:00Z' },
+    { name: 'Auto, later', status: 'paused', paused_by_plan_change_at: '2026-10-02T10:00:00Z' },
+    { name: 'Manual', status: 'paused', paused_by_plan_change_at: null },
+    { name: 'Active', status: 'active', paused_by_plan_change_at: null },
+  ]
+  it('names only searches paused by a plan change since the last dismissal', () => {
+    expect(planChangeNotice(searches, null).map(s => s.name)).toEqual(['Auto, earlier', 'Auto, later'])
+    expect(planChangeNotice(searches, '2026-10-01T12:00:00Z').map(s => s.name)).toEqual(['Auto, later'])
+    expect(planChangeNotice(searches, '2026-10-03T00:00:00Z')).toEqual([])
   })
 })

@@ -67,3 +67,13 @@ export function describePlan(sub: StoredSubscription | null, now: Date = new Dat
     canSubscribe: true,
   }
 }
+
+/**
+ * Searches to name in the "paused when your plan changed" notice: paused
+ * automatically by a plan change (provenance kept on the search) after the
+ * user last dismissed the notice. Dismissing changes no search.
+ */
+export function planChangeNotice<T extends { status: string; paused_by_plan_change_at: string | null }>(searches: T[], dismissedAt: string | null): T[] {
+  const since = dismissedAt ? new Date(dismissedAt).getTime() : -Infinity
+  return searches.filter(s => s.status === 'paused' && s.paused_by_plan_change_at !== null && new Date(s.paused_by_plan_change_at).getTime() > since)
+}
