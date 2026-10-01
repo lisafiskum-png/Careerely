@@ -52,10 +52,25 @@ export function preferencesText(p: Preferences): string {
 
 export class ContextError extends Error {}
 
+type Floor = { min_compensation: number | null; compensation_currency: string | null }
+
+/**
+ * Annual minimum compensation for one search (decision 2026-10-01): the
+ * search's own amount and currency; when the search has none, the Career
+ * Profile's, only if the profile has both. Otherwise there is no minimum.
+ */
+export function compensationFloor(search: Floor, career: Floor | null): Preferences['minCompensation'] {
+  if (search.min_compensation !== null && search.compensation_currency) return { amount: search.min_compensation, currency: search.compensation_currency }
+  if (search.min_compensation === null && career?.min_compensation && career.compensation_currency) {
+    return { amount: career.min_compensation, currency: career.compensation_currency }
+  }
+  return null
+}
+
 export async function loadSearchContext(admin: SupabaseClient, searchId: string): Promise<SearchContext> {
   const { data: search, error } = await admin
     .from('searches')
-    .select('id, user_id, status, target_roles, industries, work_styles, locations, min_compensation')
+    .select('id, user_id, status, target_roles, industries, work_styles, locations, min_compensation, compensation_currency')
     .eq('id', searchId)
     .maybeSingle()
   if (error) throw error
@@ -70,14 +85,13 @@ export async function loadSearchContext(admin: SupabaseClient, searchId: string)
   const parsed = ResumeSchema.safeParse(career?.resume_data)
   if (!career?.resume_confirmed_at || !parsed.success) throw new ContextError('No confirmed resume')
 
-  const floorAmount = search.min_compensation ?? career.min_compensation
   const prefs: Preferences = {
     roles: search.target_roles,
     industries: search.industries,
     workStyles: search.work_styles,
     locations: search.locations,
-    // [DERIVED] Compensation floors are annual, in the career profile's currency.
-    minCompensation: floorAmount && career.compensation_currency ? { amount: floorAmount, currency: career.compensation_currency } : null,
+    // Compensation floors are annual.
+    minCompensation: compensationFloor(search, career),
   }
   const flat = flattenResume(parsed.data)
   return {

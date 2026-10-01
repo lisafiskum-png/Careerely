@@ -66,6 +66,16 @@ export async function enqueueFirstScan(admin: SupabaseClient, userId: string, se
   await enqueue(admin, { kind: 'scan_search', dedupe_key: `scan:${searchId}:first`, user_id: userId, search_id: searchId, payload: { phase: 'start', trigger: 'first' }, run_after: runAfter })
 }
 
+/**
+ * Scan right after a paused search is resumed (decision 2026-10-01). It shares
+ * the nightly scan's dedupe key, so a search gets at most one scan per UTC day
+ * however often it is paused and resumed.
+ */
+export async function enqueueResumeScan(admin: SupabaseClient, userId: string, searchId: string, now = new Date()): Promise<void> {
+  const day = utcDate(now)
+  await enqueue(admin, { kind: 'scan_search', dedupe_key: `scan:${searchId}:${day}`, user_id: userId, search_id: searchId, payload: { phase: 'start', trigger: 'resume', day } })
+}
+
 async function enqueueSyncs(admin: SupabaseClient, tag: string) {
   for (const board of COMPANY_BOARDS) {
     await enqueue(admin, { kind: 'sync_source', dedupe_key: `sync:${board.provider}:${board.slug}:${tag}`, payload: { ...board } })

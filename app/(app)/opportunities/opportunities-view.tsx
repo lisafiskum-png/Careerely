@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import type { OpportunitiesData, OpportunityListItem } from '../../../lib/opportunities'
@@ -166,7 +167,9 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
               </div>
               <h2 className="empty-title">You’re all caught up</h2>
               <p className="empty-desc">You’ve reviewed everything Careerely has shortlisted. New opportunities will appear here when Careerely finds ones worth your attention.</p>
-              {/* TODO(D5): "Adjust your searches →" once the Searches page exists. */}
+              <Link href="/searches" style={{ display: 'inline-block', marginTop: 16, fontSize: 13, color: 'var(--pu)', fontWeight: 500 }}>
+                Adjust your searches →
+              </Link>
             </div>
           ) : (
             <div className="empty-line" style={{ textAlign: 'left', padding: 0 }} data-testid="op-empty">

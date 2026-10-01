@@ -97,7 +97,7 @@ export async function POST(request: Request) {
 
     const { data: career, error: careerError } = await admin
       .from('career_profiles')
-      .select('target_roles, industries, work_styles, locations, min_compensation, resume_confirmed_at')
+      .select('target_roles, industries, work_styles, locations, min_compensation, compensation_currency, resume_confirmed_at')
       .eq('user_id', user.id)
       .maybeSingle()
     if (careerError) throw careerError
@@ -111,7 +111,10 @@ export async function POST(request: Request) {
       industries: career.industries,
       work_styles: career.work_styles,
       locations: career.locations,
-      min_compensation: career.min_compensation,
+      // A search minimum always carries its currency (both or neither).
+      ...(career.min_compensation && career.compensation_currency
+        ? { min_compensation: career.min_compensation, compensation_currency: career.compensation_currency }
+        : { min_compensation: null, compensation_currency: null }),
     }
 
     const { data: existing } = await admin
