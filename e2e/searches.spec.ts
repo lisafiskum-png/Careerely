@@ -131,9 +131,11 @@ test.describe.serial('searches', () => {
     await expect(saas.getByTestId('search-params')).toContainText('Min £70,000 a year')
     await expect(saas.getByTestId('search-params')).toContainText('Remote')
 
-    // Nothing invented, no dead links, no deletion in V1.
+    // Nothing invented, no deletion in V1.
     await expect(page.getByText(/scanning continuously/i)).toHaveCount(0)
-    await expect(page.getByText(/Manage plan|Upgrade/)).toHaveCount(0)
+    // D6: "Manage plan →" leads to Settings; "Upgrade →" stays hidden.
+    await expect(page.getByRole('link', { name: 'Manage plan →' })).toHaveAttribute('href', '/settings')
+    await expect(page.getByText(/Upgrade/)).toHaveCount(0)
     await expect(page.getByTestId('all-paused-banner')).toHaveCount(0)
     await openMenu(page, 'SaaS Account Executive')
     await expect(page.getByRole('menuitem')).toHaveText(['Edit search', 'Resume search'])

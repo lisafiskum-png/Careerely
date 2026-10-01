@@ -456,3 +456,138 @@ describe('search compensation currency migration (D5)', () => {
     await fresh.close()
   })
 })
+
+describe('plan change: pausing searches above a lower limit (D6)', () => {
+  it('keeps provenance separate from the dismissible notice; users cannot set or clear the marker', async () => {
+    const pg = new PGlite()
+    await pg.exec(readFileSync(path.join(import.meta.dirname, 'supabase-stubs.sql'), 'utf8'))
+    for (const file of readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort()) await pg.exec(readFileSync(path.join(migrationsDir, file), 'utf8'))
+    const uid = '88888888-8888-8888-8888-888888888888'
+    await pg.query(`insert into auth.users (id, email) values ($1, 'h@example.com')`, [uid])
+    const setPlan = (plan: string) =>
+      pg.query(
+        `insert into public.subscriptions (user_id, plan, status, current_period_start, current_period_end)
+         values ($1, $2, 'active', now() - interval '1 day', now() + interval '20 days')
+         on conflict (user_id) do update set plan = excluded.plan`,
+        [uid, plan],
+      )
+    const asUid = async <T,>(fn: () => Promise<T>) => {
+      await pg.exec(`set role authenticated; set request.jwt.claim.sub = '${uid}';`)
+      try {
+        return await fn()
+      } finally {
+        await pg.exec(`reset role; reset request.jwt.claim.sub;`)
+      }
+    }
+    const row = async (name: string) =>
+      (await pg.query<{ status: string; marked: boolean }>(`select status::text, paused_by_plan_change_at is not null as marked from public.searches where name = $1`, [name])).rows[0]
+
+    await setPlan('pro')
+    await pg.query(
+      `insert into public.searches (user_id, name, status, created_at) values
+         ($1, 'Kept', 'active', now() - interval '3 days'), ($1, 'Auto', 'active', now() - interval '2 days'), ($1, 'Manual', 'active', now() - interval '1 day')`,
+      [uid],
+    )
+    // Manually paused by the user: never marked.
+    await asUid(() => pg.query(`update public.searches set status = 'paused' where name = 'Manual'`))
+    expect(await row('Manual')).toEqual({ status: 'paused', marked: false })
+    // Users can't set (or clear) the automatic-pause marker themselves.
+    await expect(asUid(() => pg.query(`update public.searches set paused_by_plan_change_at = now() where name = 'Manual'`))).rejects.toThrow(/permission denied/)
+
+    await setPlan('basic')
+    expect((await pg.query<{ n: number }>(`select public.apply_plan_search_limit($1) as n`, [uid])).rows[0].n).toBe(1)
+    expect(await row('Auto')).toEqual({ status: 'paused', marked: true })
+    expect(await row('Manual')).toEqual({ status: 'paused', marked: false })
+    await expect(asUid(() => pg.query(`update public.searches set paused_by_plan_change_at = null where name = 'Auto'`))).rejects.toThrow(/permission denied/)
+
+    // Dismissing the notice is user-level: no search changes, provenance stays.
+    const before = (await pg.query(`select id, status, paused_by_plan_change_at, updated_at from public.searches order by name`)).rows
+    await asUid(() => pg.query(`select public.dismiss_plan_change_notice()`))
+    expect((await pg.query(`select plan_change_notice_dismissed_at is not null as dismissed from public.profiles where id = $1`, [uid])).rows).toEqual([{ dismissed: true }])
+    expect((await pg.query(`select id, status, paused_by_plan_change_at, updated_at from public.searches order by name`)).rows).toEqual(before)
+    expect(await row('Auto')).toEqual({ status: 'paused', marked: true })
+
+    // Resuming (within the limit) clears the marker.
+    await asUid(() => pg.query(`update public.searches set status = 'paused' where name = 'Kept'`))
+    await asUid(() => pg.query(`update public.searches set status = 'active' where name = 'Auto'`))
+    expect(await row('Auto')).toEqual({ status: 'active', marked: false })
+    await pg.close()
+  })
+
+  it('pauses only the excess, keeps the profile search then the oldest, and is idempotent', async () => {
+    const pg = new PGlite()
+    await pg.exec(readFileSync(path.join(import.meta.dirname, 'supabase-stubs.sql'), 'utf8'))
+    for (const file of readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort()) await pg.exec(readFileSync(path.join(migrationsDir, file), 'utf8'))
+    const uid = '77777777-7777-7777-7777-777777777777'
+    await pg.query(`insert into auth.users (id, email) values ($1, 'g@example.com')`, [uid])
+    const setPlan = (plan: string, status = 'active', end = '20 days') =>
+      pg.query(
+        `insert into public.subscriptions (user_id, plan, status, current_period_start, current_period_end)
+         values ($1, $2, $3, now() - interval '1 day', now() + $4::interval)
+         on conflict (user_id) do update set plan = excluded.plan, status = excluded.status, current_period_end = excluded.current_period_end`,
+        [uid, plan, status, end],
+      )
+    await setPlan('pro')
+    await pg.query(
+      `insert into public.searches (user_id, name, status, created_from_profile, created_at) values
+         ($1, 'Oldest', 'active', false, now() - interval '5 days'),
+         ($1, 'From profile', 'active', true, now() - interval '1 day'),
+         ($1, 'Second oldest', 'active', false, now() - interval '4 days'),
+         ($1, 'Newest', 'active', false, now() - interval '1 hour'),
+         ($1, 'Already paused', 'paused', false, now() - interval '9 days')`,
+      [uid],
+    )
+    const state = async () =>
+      (await pg.query<{ name: string; status: string; marked: boolean }>(`select name, status::text, paused_by_plan_change_at is not null as marked from public.searches order by name`)).rows
+    const apply = async () => (await pg.query<{ n: number }>(`select public.apply_plan_search_limit($1) as n`, [uid])).rows[0].n
+
+    // Within the limit: nothing changes.
+    expect(await apply()).toBe(0)
+
+    // Basic (1): keep the search created from preferences.
+    await setPlan('basic')
+    expect(await apply()).toBe(3)
+    expect(await state()).toEqual([
+      { name: 'Already paused', status: 'paused', marked: false },
+      { name: 'From profile', status: 'active', marked: false },
+      { name: 'Newest', status: 'paused', marked: true },
+      { name: 'Oldest', status: 'paused', marked: true },
+      { name: 'Second oldest', status: 'paused', marked: true },
+    ])
+    // Repeated delivery: nothing more is paused, the marks are unchanged.
+    const marks = (await pg.query(`select id, paused_by_plan_change_at from public.searches order by id`)).rows
+    expect(await apply()).toBe(0)
+    expect((await pg.query(`select id, paused_by_plan_change_at from public.searches order by id`)).rows).toEqual(marks)
+
+    // Upgrading never resumes anything automatically.
+    await setPlan('max')
+    expect(await apply()).toBe(0)
+    expect((await state()).filter(s => s.status === 'active').map(s => s.name)).toEqual(['From profile'])
+
+    // Resuming a search clears its mark; the others keep theirs.
+    await pg.query(`update public.searches set status = 'active' where name = 'Oldest'`)
+    expect((await state()).find(s => s.name === 'Oldest')).toEqual({ name: 'Oldest', status: 'active', marked: false })
+    expect((await state()).filter(s => s.marked).map(s => s.name)).toEqual(['Newest', 'Second oldest'])
+
+    // Pro (5) with 2 active: nothing to do. Without a profile search, the oldest are kept.
+    await setPlan('pro')
+    await pg.query(`update public.searches set created_from_profile = false`)
+    await pg.query(`update public.searches set status = 'active' where name in ('Newest', 'Second oldest')`)
+    await setPlan('basic')
+    expect(await apply()).toBe(3)
+    expect((await state()).filter(s => s.status === 'active').map(s => s.name)).toEqual(['Oldest'])
+
+    // Read-only (access ended): nothing is changed.
+    await setPlan('pro')
+    await pg.query(`update public.searches set status = 'active' where name in ('Newest', 'Second oldest')`)
+    await setPlan('basic', 'canceled', '-1 day')
+    expect(await apply()).toBe(0)
+    expect((await state()).filter(s => s.status === 'active')).toHaveLength(3)
+
+    // Only the service role may run it.
+    await pg.exec(`set role authenticated; set request.jwt.claim.sub = '${uid}';`)
+    await expect(pg.query(`select public.apply_plan_search_limit($1)`, [uid])).rejects.toThrow(/permission denied/)
+    await pg.exec(`reset role; reset request.jwt.claim.sub;`)
+    await pg.close()
+  })
+})

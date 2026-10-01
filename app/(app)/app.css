@@ -425,6 +425,28 @@
   & .sf-error { flex-basis: 100%; text-align: right }
   & .sf-btn { height: 38px; padding: 0 18px; font-size: 13px }
 
+
+  /* ── Settings (D6; minimal, locked tokens) ── */
+  & .set-section { margin-bottom: 40px }
+  & .set-card { background: var(--white); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; margin-top: 16px }
+  & .set-plan { font-size: 15px; font-weight: 620; letter-spacing: -.02em; color: var(--ink); margin-bottom: 6px }
+  & .set-status { font-size: 13.5px; color: var(--ink3); line-height: 1.55 }
+  & .set-status.warn { color: #C0392B }
+  & .set-notice { margin: 16px 0 0 }
+  & .set-notice a { font-weight: 560; white-space: nowrap }
+  & .set-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line2) }
+  & .set-hint { font-size: 12.5px; color: var(--ink4); flex: 1; min-width: 200px }
+  & .set-subscribe { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line2) }
+  & .set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px }
+  & .set-row + .set-row { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line2) }
+  & .set-label { font-size: 12px; font-weight: 520; color: var(--ink4); margin-bottom: 3px }
+  & .set-value { font-size: 14px; color: var(--ink); overflow-wrap: anywhere }
+  & .set-signout { height: 36px; font-size: 13px }
+  & .sc-banner-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px }
+  & .sc-dismiss { font-size: 12.5px; font-weight: 560; color: var(--pu); white-space: nowrap; flex-shrink: 0 }
+  & .plan-manage { font-size: 12.5px; font-weight: 520; color: var(--pu); white-space: nowrap }
+  & .plan-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0 }
+
   @media (max-width: 760px) {
     & .nav { padding: 0 16px }
     & .nav-brand { margin-right: 4px }
@@ -480,6 +502,8 @@
     & .sf-limit { padding: 10px 20px }
     & .sf-ft { padding: 14px 20px }
     & .sf-comp { flex-wrap: wrap }
+    & .set-card { padding: 18px 16px }
+    & .plan-right { width: 100%; justify-content: space-between }
     & .sf-currency { flex: 1; width: auto }
   }
 }

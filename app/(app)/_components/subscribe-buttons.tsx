@@ -1,10 +1,12 @@
 'use client'
 import { useState } from 'react'
 import { PLANS, type PlanId } from '../../../lib/plans'
+import { planEntitlements } from '../../../lib/plan-status'
 
 // Minimal plan picker so billing can be tested end to end.
 // The real upgrade flow and customer portal are built in Phase E.
-export function SubscribeButtons() {
+/** showPrice=false (Settings): entitlements only; Stripe Checkout shows the exact price. */
+export function SubscribeButtons({ showPrice = true }: { showPrice?: boolean }) {
   const [pending, setPending] = useState<PlanId | null>(null)
   const [error, setError] = useState('')
 
@@ -43,7 +45,7 @@ export function SubscribeButtons() {
           >
             <span className="block font-semibold">{plan.name}</span>
             <span className="text-zinc-500">
-              {pending === plan.id ? 'Opening checkout…' : `$${plan.monthlyPriceUsd} per month`}
+              {pending === plan.id ? 'Opening checkout…' : showPrice ? `$${plan.monthlyPriceUsd} per month` : planEntitlements(plan.id).split(' · ').slice(1).join(' · ')}
             </span>
           </button>
         ))}

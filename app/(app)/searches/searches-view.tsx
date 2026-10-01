@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SearchCard, SearchesData } from '../../../lib/searches'
@@ -12,6 +13,12 @@ import { SearchForm } from './search-form'
 // latest completed scan of each search (decision 2026-10-01).
 
 const WORK_STYLE_LABEL = Object.fromEntries(WORK_STYLES.map(w => [w.value, w.label])) as Record<string, string>
+
+/** “A”, “A” and “B”, “A”, “B” and “C”. */
+function quoteList(names: string[]): string {
+  const q = names.map(n => `“${n}”`)
+  return q.length <= 1 ? (q[0] ?? '') : `${q.slice(0, -1).join(', ')} and ${q[q.length - 1]}`
+}
 
 const SearchIcon = ({ size = 16 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={size > 16 ? 1.5 : 2} strokeLinecap="round" aria-hidden>
@@ -111,6 +118,11 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
   const { plan, activeCount, searches } = data
   const atLimit = plan !== null && plan.limit !== null && activeCount >= plan.limit
 
+  async function dismissPlanNotice() {
+    await fetch('/api/searches/plan-change-notice', { method: 'DELETE' }).catch(() => null)
+    router.refresh()
+  }
+
   async function toggle(search: SearchCard) {
     setMenuFor(null)
     setError(null)
@@ -169,12 +181,30 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
               </>
             )}
           </span>
-          {plan.limit !== null && (
-            <span className="usage-pips" aria-hidden>
-              {Array.from({ length: plan.limit }, (_, i) => (
-                <span key={i} className={`pip${i < activeCount ? ' on' : ''}`} />
-              ))}
-            </span>
+          <span className="plan-right">
+            {plan.limit !== null && (
+              <span className="usage-pips" aria-hidden>
+                {Array.from({ length: plan.limit }, (_, i) => (
+                  <span key={i} className={`pip${i < activeCount ? ' on' : ''}`} />
+                ))}
+              </span>
+            )}
+            <Link href="/settings" className="plan-manage">
+              Manage plan →
+            </Link>
+          </span>
+        </div>
+      )}
+
+      {data.planChangeNotice.length > 0 && (
+        <div className="sc-banner sc-banner-row" role="status" data-testid="plan-change-banner">
+          <span>
+            Careerely paused {quoteList(data.planChangeNotice)} when your plan changed, to fit its active-search limit. Nothing was deleted; you can choose which searches stay active.
+          </span>
+          {!readOnly && (
+            <button className="sc-dismiss" onClick={dismissPlanNotice}>
+              Dismiss
+            </button>
           )}
         </div>
       )}
