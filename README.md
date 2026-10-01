@@ -225,3 +225,12 @@ Reading, PDF downloads and Manage billing stay available to read-only
 accounts. Signed-out requests get 401. After each action the page refreshes
 its server data, so nav badges, Dashboard, Opportunities, Applications and
 Searches agree. `e2e/access.spec.ts` covers these rules across all actions.
+
+Application status changes are atomic with their history: the activity rows
+are both Recent activity and the panel's Timeline, so
+`public.mark_application_applied()` ("Yes, I applied": Applied plus exactly
+one `application_applied` event) and `public.set_application_status()` (a
+stage or closed outcome plus exactly one `application_status_changed` event)
+write the change and its event in one transaction, for the signed-in user's
+own application and only with an active plan. Signed-in users can't update
+the status columns directly.
