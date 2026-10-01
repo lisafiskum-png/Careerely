@@ -6,6 +6,8 @@
  * Additions to the locked design are marked "added".
  */
 
+@keyframes cl-fadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes cl-dropIn { from { opacity: 0; transform: translateY(-4px) scale(.98) } to { opacity: 1; transform: none } }
 @keyframes cl-breathe { 0%, 100% { opacity: 1 } 50% { opacity: .3 } }
 @keyframes cl-panelPulse {
   0% { box-shadow: 0 0 0 0 rgba(75, 50, 184, .25) }
@@ -349,6 +351,80 @@
   & .sd-closed { background: var(--ink5) }
 
   /* ── Small screens (added: the locked design is desktop-only) ── */
+
+  /* ── Searches (D5; layout from design/searches-wip.html, locked tokens) ── */
+  & .btn-create { height: 36px; padding: 0 16px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 13px; font-weight: 520; display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0; white-space: nowrap; transition: background .16s var(--ease) }
+  & .btn-create:hover { background: var(--ink2) }
+  & .btn-create:disabled { opacity: .6; cursor: default }
+  & .plan-bar { background: var(--white); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; font-size: 13px; color: var(--ink4) }
+  & .plan-bar strong { font-weight: 600; color: var(--ink) }
+  & .usage-pips { display: flex; gap: 4px; flex-shrink: 0 }
+  & .pip { width: 20px; height: 4px; border-radius: 999px; background: var(--line) }
+  & .pip.on { background: var(--pu) }
+  & .sc-banner { background: var(--pu-s); border: 1px solid rgba(75, 50, 184, .14); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: var(--pu); line-height: 1.5 }
+  & .sc-list { display: flex; flex-direction: column; gap: 10px }
+  & .sc-card { background: var(--white); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 1px 3px rgba(0, 0, 0, .03); transition: opacity .55s var(--ease), transform .55s var(--ease), box-shadow .16s }
+  & .sc-card:hover { box-shadow: 0 2px 12px rgba(0, 0, 0, .06) }
+  & .sc-card.paused.in { opacity: .7 }
+  & .sc-main { padding: 20px 22px 16px; display: flex; align-items: flex-start; gap: 14px }
+  & .sc-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--pu-s); color: var(--pu); display: flex; align-items: center; justify-content: center; flex-shrink: 0 }
+  & .sc-card.paused .sc-icon { background: var(--bg); color: var(--ink4) }
+  & .sc-body { flex: 1; min-width: 0 }
+  & .sc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px }
+  & .sc-name { font-size: 15px; font-weight: 620; letter-spacing: -.022em; line-height: 1.25; color: var(--ink); overflow-wrap: anywhere }
+  & .sc-origin { font-size: 11.5px; color: var(--ink4); margin-top: 3px }
+  & .sc-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0 }
+  & .sc-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 520 }
+  & .sc-status.active { color: var(--gn) }
+  & .sc-status.paused { color: var(--ink4) }
+  & .sc-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor }
+  & .sc-status.active .sc-status-dot { animation: cl-breathe 2.4s ease-in-out infinite }
+  & .sc-status.paused .sc-status-dot { background: var(--ink5) }
+  & .sc-menu-btn { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--ink4); transition: all .12s }
+  & .sc-menu-btn:hover, & .sc-menu-btn[aria-expanded="true"] { background: var(--bg); color: var(--ink) }
+  & .sc-params { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 14px }
+  & .sc-chip { font-size: 11.5px; color: var(--ink2); background: var(--bg); border-radius: 999px; padding: 3px 9px; max-width: 100%; overflow-wrap: anywhere }
+  & .sc-chip.pu { background: var(--pu-s); color: var(--pu) }
+  & .sc-stats { display: grid; grid-template-columns: 1fr 1fr 1.2fr; border-top: 1px solid var(--line2); margin: 0 -22px; padding: 12px 22px 0 }
+  & .sc-stat { display: flex; flex-direction: column; gap: 3px; min-width: 0 }
+  & .sc-stat + .sc-stat { border-left: 1px solid var(--line2); padding-left: 16px; margin-left: 16px }
+  & .sc-stat-n { font-size: 18px; font-weight: 650; letter-spacing: -.04em; color: var(--ink); line-height: 1; font-variant-numeric: tabular-nums }
+  & .sc-stat-l { font-size: 11px; color: var(--ink4) }
+  & .sc-scan-main { font-size: 13px; font-weight: 500; color: var(--ink3); line-height: 18px }
+
+  & .sf-wrap { position: fixed; inset: 0; z-index: 120; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(0, 0, 0, .18); backdrop-filter: blur(2px); animation: cl-fadeIn .18s var(--ease) }
+  & .sf-modal { background: var(--white); border-radius: 18px; box-shadow: 0 12px 48px rgba(0, 0, 0, .14); width: 100%; max-width: 540px; max-height: calc(100dvh - 48px); display: flex; flex-direction: column; overflow: hidden; animation: cl-dropIn .22s var(--ease) }
+  & .sf-hd { padding: 24px 26px 18px; border-bottom: 1px solid var(--line2) }
+  & .sf-title { font-size: 17px; font-weight: 640; letter-spacing: -.028em; margin-bottom: 4px }
+  & .sf-origin { font-size: 12.5px; color: var(--ink4) }
+  & .sf-scope p + p { margin-top: 2px }
+  & .sf-scope { font-size: 12.5px; color: var(--pu); background: var(--pu-s); border-radius: 8px; padding: 8px 11px; margin-top: 8px; line-height: 1.45 }
+  & .sf-body { padding: 20px 26px; overflow-y: auto }
+  & .sf-group { margin-bottom: 20px }
+  & .sf-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 7px }
+  & .sf-label { font-size: 12px; font-weight: 520; color: var(--ink3); display: block }
+  & label.sf-label { margin-bottom: 7px }
+  & .sf-hint, & .sf-optional { font-size: 11.5px; font-weight: 400; color: var(--ink4) }
+  & .sf-input { width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; font: inherit; font-size: 13px; color: var(--ink); background: var(--white); transition: border-color .14s }
+  & .sf-input:focus { outline: none; border-color: var(--pu) }
+  & .sf-input.sm { height: 32px; font-size: 12.5px; padding: 0 10px }
+  & .sf-chips { display: flex; flex-wrap: wrap; gap: 6px }
+  & .pick-chip { font-size: 12px; color: var(--ink2); background: var(--bg); border: 1.5px solid transparent; border-radius: 999px; padding: 5px 12px; transition: all .14s; max-width: 100%; overflow-wrap: anywhere; text-align: left }
+  & .pick-chip:hover { border-color: var(--line) }
+  & .pick-chip.on { background: var(--pu-s); color: var(--pu); border-color: rgba(75, 50, 184, .2) }
+  & .sf-add { display: flex; align-items: center; gap: 6px; margin-top: 8px }
+  & .sf-add-btn { height: 32px; padding: 0 13px; border-radius: 999px; background: var(--bg); color: var(--ink3); font-size: 12px; font-weight: 520; white-space: nowrap; transition: all .14s }
+  & .sf-add-btn:hover { background: var(--line); color: var(--ink) }
+  & .sf-note { font-size: 11.5px; color: var(--ink4); margin-top: 6px }
+  & .sf-comp { display: flex; align-items: center; gap: 8px }
+  & .sf-comp .sf-input:first-child { flex: 1; min-width: 0 }
+  & .sf-currency { width: 196px; flex-shrink: 0; padding-right: 6px; text-overflow: ellipsis }
+  & .sf-per { font-size: 12px; color: var(--ink4); white-space: nowrap }
+  & .sf-limit { background: var(--pu-s); border-top: 1px solid rgba(75, 50, 184, .12); padding: 11px 26px; font-size: 12.5px; color: var(--pu) }
+  & .sf-ft { padding: 16px 26px; border-top: 1px solid var(--line2); display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 8px }
+  & .sf-error { flex-basis: 100%; text-align: right }
+  & .sf-btn { height: 38px; padding: 0 18px; font-size: 13px }
+
   @media (max-width: 760px) {
     & .nav { padding: 0 16px }
     & .nav-brand { margin-right: 4px }
@@ -391,5 +467,19 @@
     & .ap-row { align-items: flex-start; gap: 12px }
     & .ap-right { flex-direction: column; align-items: flex-end; gap: 6px }
     & .op-right .opp-dismiss { opacity: 1; border-color: var(--line); color: var(--ink4) }
+    & .plan-bar { flex-direction: column; align-items: flex-start; gap: 8px }
+    & .sc-main { padding: 18px 16px 14px; gap: 12px }
+    & .sc-icon { display: none }
+    & .sc-stats { grid-template-columns: 1fr 1fr; margin: 0 -16px; padding: 12px 16px 0; row-gap: 12px }
+    & .sc-stat + .sc-stat { padding-left: 12px; margin-left: 12px }
+    & .sc-scan { grid-column: 1 / -1; border-left: none !important; padding-left: 0 !important; margin-left: 0 !important; border-top: 1px solid var(--line2); padding-top: 10px }
+    & .sf-wrap { padding: 12px; align-items: flex-end }
+    & .sf-modal { max-height: calc(100dvh - 24px) }
+    & .sf-hd { padding: 20px 20px 14px }
+    & .sf-body { padding: 18px 20px }
+    & .sf-limit { padding: 10px 20px }
+    & .sf-ft { padding: 14px 20px }
+    & .sf-comp { flex-wrap: wrap }
+    & .sf-currency { flex: 1; width: auto }
   }
 }

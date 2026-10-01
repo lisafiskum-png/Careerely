@@ -222,11 +222,13 @@ test.describe.serial('opportunities', () => {
     await prompt.getByRole('button', { name: 'Dismiss without a reason' }).click()
     await expect(page.getByRole('heading', { name: 'You’re all caught up' })).toBeVisible()
     await expect(page.getByTestId('op-title')).toHaveText('0 opportunities')
-    await expect(page.getByText('Adjust your searches')).toHaveCount(0)
     await page.reload()
     await expect(page.getByRole('heading', { name: 'You’re all caught up' })).toBeVisible()
     await page.waitForTimeout(800)
     await shot(page, 'opportunities-caught-up', false)
+    // D5: the Searches page exists, so the empty state links to it.
+    await page.getByRole('link', { name: 'Adjust your searches →' }).click()
+    await expect(page).toHaveURL(/\/searches$/)
   })
 
   test('mobile layout', async ({ page }) => {

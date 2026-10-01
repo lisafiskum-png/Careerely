@@ -166,6 +166,19 @@ describe('foundation migration', () => {
     expect(rows).toEqual([{ n: 2 }])
   })
 
+  it('stores a search minimum with its own currency, both or neither (D5)', async () => {
+    await asUser(ALICE, () => db.query(`update public.searches set min_compensation = 70000, compensation_currency = 'GBP' where name = 'First'`))
+    const { rows } = await db.query(`select min_compensation, compensation_currency from public.searches where name = 'First'`)
+    expect(rows).toEqual([{ min_compensation: 70000, compensation_currency: 'GBP' }])
+    await expect(asUser(ALICE, () => db.query(`update public.searches set compensation_currency = null where name = 'First'`))).rejects.toThrow(/searches_compensation_pair/)
+    await expect(asUser(ALICE, () => db.query(`update public.searches set min_compensation = null where name = 'First'`))).rejects.toThrow(/searches_compensation_pair/)
+    await expect(asUser(ALICE, () => db.query(`update public.searches set compensation_currency = 'gbp' where name = 'First'`))).rejects.toThrow(/searches_compensation_currency_format/)
+    await expect(
+      asUser(ALICE, () => db.query(`insert into public.searches (user_id, name, status, min_compensation) values ($1, 'No currency', 'paused', 50000)`, [ALICE])),
+    ).rejects.toThrow(/searches_compensation_pair/)
+    await asUser(ALICE, () => db.query(`update public.searches set min_compensation = null, compensation_currency = null where name = 'First'`))
+  })
+
   it('keeps access until the end of a cancelled period, then goes read-only', async () => {
     await setSubscription(ALICE, 'pro', 'canceled', '5 days')
     let { rows } = await db.query('select public.has_active_access($1) as ok', [ALICE])
@@ -410,5 +423,36 @@ describe('foundation migration', () => {
       const { rows } = await db.query(`select count(*)::int as n from public.${table} where ${col} = $1`, [ALICE])
       expect(rows, table).toEqual([{ n: 0 }])
     }
+  })
+})
+
+describe('search compensation currency migration (D5)', () => {
+  it('keeps existing engine behaviour for existing searches', async () => {
+    const fresh = new PGlite()
+    await fresh.exec(readFileSync(path.join(import.meta.dirname, 'supabase-stubs.sql'), 'utf8'))
+    const files = readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort()
+    const target = '20261001180000_search_compensation_currency.sql'
+    for (const file of files.filter(f => f < target)) await fresh.exec(readFileSync(path.join(migrationsDir, file), 'utf8'))
+
+    const withCurrency = '55555555-5555-5555-5555-555555555555'
+    const without = '66666666-6666-6666-6666-666666666666'
+    await fresh.query(`insert into auth.users (id, email) values ($1, 'a@example.com'), ($2, 'b@example.com')`, [withCurrency, without])
+    await fresh.query(`insert into public.career_profiles (user_id, min_compensation, compensation_currency) values ($1, 60000, 'EUR'), ($2, null, null)`, [withCurrency, without])
+    await fresh.query(
+      `insert into public.searches (user_id, name, status, min_compensation) values
+         ($1, 'Applied in EUR', 'paused', 80000), ($1, 'No minimum', 'paused', null), ($2, 'Had no effect', 'paused', 90000)`,
+      [withCurrency, without],
+    )
+
+    await fresh.exec(readFileSync(path.join(migrationsDir, target), 'utf8'))
+    const { rows } = await fresh.query(`select name, min_compensation, compensation_currency from public.searches order by name`)
+    expect(rows).toEqual([
+      // The engine used the profile currency for this minimum: kept, now explicit.
+      { name: 'Applied in EUR', min_compensation: 80000, compensation_currency: 'EUR' },
+      // Without any currency the engine ignored the amount: cleared, so nothing changes.
+      { name: 'Had no effect', min_compensation: null, compensation_currency: null },
+      { name: 'No minimum', min_compensation: null, compensation_currency: null },
+    ])
+    await fresh.close()
   })
 })

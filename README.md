@@ -93,7 +93,23 @@ application out of Ready to apply; it never goes back (enforced in the
 database). Each change is an `application_status_changed` activity event,
 which is the panel's timeline and appears in Recent activity.
 
-`npm run test:e2e` includes `e2e/dashboard.spec.ts`, `e2e/opportunities.spec.ts` and `e2e/applications.spec.ts`, which seeds a local
+`/searches` (Phase D5) shows each search with its parameters and, from its
+latest completed scan, "Reviewed in latest scan" and "Shortlisted in latest
+scan" (never summed or live counts), plus the plan's active-search usage
+(limit from `lib/plans.ts`, enforced in the database). Users create, edit,
+pause and resume searches; there is no delete in V1. At the limit a new
+search can only be saved as paused, and Resume is refused until another
+search is paused. A new active search is scanned straight away; a resumed one
+too, at most once per search per day (shared with the nightly dedupe key);
+an edit applies from the next nightly scan. A search's optional minimum
+compensation is annual (whole number, up to 10,000,000) and has its own ISO 4217
+currency (`searches.compensation_currency`), compared only with salaries in the
+same currency (no conversion);
+when blank, the engine uses the Career Profile's minimum only if it has both
+an amount and a currency, otherwise there is no minimum. The nav's
+"Scanning the market" only counts scans of searches that are active now.
+
+`npm run test:e2e` includes `e2e/dashboard.spec.ts`, `e2e/opportunities.spec.ts`, `e2e/applications.spec.ts` and `e2e/searches.spec.ts`, which seed a local
 account; set `SCREENSHOT_DIR` to save desktop and mobile screenshots.
 
 ## Onboarding
