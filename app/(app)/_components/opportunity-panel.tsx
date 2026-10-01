@@ -21,6 +21,10 @@ const SOURCE_LABEL = { resume: 'From your resume', posting: 'From the posting', 
 
 const REQ_LABEL = { confirmed: 'Confirmed', inferred: 'My judgment', unknown: 'Couldn’t confirm' } as const
 
+const STATUS_LABEL: Record<string, string> = { applied: 'Applied', interview: 'Interview', offer: 'Offer', declined: 'Declined', withdrawn: 'Withdrawn' }
+
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim()
 
 type PanelProps = {
@@ -96,6 +100,11 @@ function PanelContent({ opportunityId, isMyPick, readOnly, onClose, onDismiss, o
   const pkg = d?.package
   const ready = d?.state === 'ready' && pkg?.status === 'ready'
   const canAskApplied = Boolean(d?.application && d.application.status === 'ready_to_apply' && !d.application.outcome && !readOnly)
+  // Applied / Interview / Offer, or closed (Declined / Withdrawn): tracked on Applications.
+  const submitted = d?.application && d.application.status !== 'ready_to_apply' ? d.application : null
+  const submittedLabel = submitted
+    ? `${STATUS_LABEL[submitted.outcome ?? submitted.status] ?? ''}${submitted.appliedAt && !submitted.outcome && submitted.status === 'applied' ? ` · ${shortDate(submitted.appliedAt)}` : ''}`
+    : null
   const canDismiss = d?.state === 'shortlisted' && !readOnly
   const tile = logoTile(d?.company)
 
@@ -152,8 +161,9 @@ function PanelContent({ opportunityId, isMyPick, readOnly, onClose, onDismiss, o
           </div>
           {d && (
             <div className="p-chips">
-              {ready && pkg?.hasChanges && <Chip kind="g">Resume tailored</Chip>}
-              {ready && <Chip kind="g">Cover letter drafted</Chip>}
+              {submittedLabel && <Chip kind="gray">{submittedLabel}</Chip>}
+              {ready && !submitted && pkg?.hasChanges && <Chip kind="g">Resume tailored</Chip>}
+              {ready && !submitted && <Chip kind="g">Cover letter drafted</Chip>}
               {d.state === 'preparing' && <Chip kind="gray">Preparing application…</Chip>}
               {isMyPick && <Chip kind="v">My pick</Chip>}
             </div>
@@ -178,25 +188,27 @@ function PanelContent({ opportunityId, isMyPick, readOnly, onClose, onDismiss, o
           {!d && !error && <div className="p-loading">Loading…</div>}
           {d && tab === 'summary' && (
             <>
+              {d.evidence.length > 0 && (
               <div className="psec">
-                <div className="psec-lbl">Why I picked this</div>
-                <div className="ev-rows">
-                  {d.evidence.map(e => (
-                    <div className="ev-row" key={e.id}>
-                      <span className={`ev-row-check${e.outcome === 'inferred' ? ' inferred' : ''}`} aria-hidden>
-                        ✓
-                      </span>
-                      <div>
-                        <div className="ev-row-skill">{e.claim}</div>
-                        <div className="ev-row-proof">
-                          {e.outcome === 'inferred' ? 'My judgment · ' : ''}
-                          {SOURCE_LABEL[e.source]}: “{e.quote}”
+                  <div className="psec-lbl">Why I picked this</div>
+                  <div className="ev-rows">
+                    {d.evidence.map(e => (
+                      <div className="ev-row" key={e.id}>
+                        <span className={`ev-row-check${e.outcome === 'inferred' ? ' inferred' : ''}`} aria-hidden>
+                          ✓
+                        </span>
+                        <div>
+                          <div className="ev-row-skill">{e.claim}</div>
+                          <div className="ev-row-proof">
+                            {e.outcome === 'inferred' ? 'My judgment · ' : ''}
+                            {SOURCE_LABEL[e.source]}: “{e.quote}”
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="psec">
                 <div className="psec-lbl">What Careerely changed</div>
                 {ready ? (
@@ -227,6 +239,22 @@ function PanelContent({ opportunityId, isMyPick, readOnly, onClose, onDismiss, o
                       <div className="con-item" key={i}>
                         <div className="con-dot" />
                         {t}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {d.timeline.length > 1 && (
+                <div className="psec">
+                  <div className="psec-lbl">Timeline</div>
+                  <div className="timeline" data-testid="timeline">
+                    {d.timeline.map((t, i) => (
+                      <div className="tl-item" key={i}>
+                        <span className={`tl-dot${i === 0 ? ' now' : ''}`} aria-hidden />
+                        <div>
+                          <div className="tl-label">{t.label}</div>
+                          <div className="tl-date">{shortDate(t.at)}</div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -323,9 +351,17 @@ function PanelContent({ opportunityId, isMyPick, readOnly, onClose, onDismiss, o
               </>
             ) : (
               <>
-                <button className="btn-pa" onClick={continueToPosting} disabled={!d.url}>
-                  {ready ? 'Continue to application →' : 'View the posting →'}
-                </button>
+                {submitted ? (
+                  <div className="ft-status" data-testid="panel-status">
+                    {submittedLabel}
+                  </div>
+                ) : !d.postingListed ? (
+                  <div className="ft-status">Posting no longer listed</div>
+                ) : (
+                  <button className="btn-pa" onClick={continueToPosting} disabled={!d.url}>
+                    {ready ? 'Continue to application →' : 'View the posting →'}
+                  </button>
+                )}
                 {(ready || canDismiss) && (
                   <button className="p-ov-btn" aria-label="More actions" aria-expanded={menu} onClick={() => setMenu(m => !m)}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

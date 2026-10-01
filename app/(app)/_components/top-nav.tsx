@@ -20,12 +20,12 @@ export function TopNav({
   scan: ScanStatus
 }) {
   const pathname = usePathname()
-  // Searches, Applications and Settings are built in later Phase D steps.
+  // Searches and Settings are built in later Phase D steps.
   const tabs: Tab[] = [
     { label: 'Dashboard', href: '/dashboard', built: true },
     { label: 'Searches', href: '/searches', built: false },
     { label: 'Opportunities', href: '/opportunities', built: true, badge: badges.opportunities },
-    { label: 'Applications', href: '/applications', built: false, badge: badges.applications },
+    { label: 'Applications', href: '/applications', built: true, badge: badges.applications },
     { label: 'Settings', href: '/settings', built: false },
   ]
 

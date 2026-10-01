@@ -249,6 +249,13 @@
   & .ft-ask { width: 100%; font-size: 13px; color: var(--ink3); margin-bottom: 2px } /* added: "Did you apply?" */
   & .ft-done { flex: 1; font-size: 13px; color: var(--gn); font-weight: 520 }
   & .ft-error { width: 100%; font-size: 12.5px; color: #C0392B }
+  & .ft-status { flex: 1; height: 42px; border-radius: 999px; background: var(--bg); color: var(--ink3); font-size: 13.5px; font-weight: 520; display: flex; align-items: center; justify-content: center } /* added: submitted / closed posting */
+  & .timeline { display: flex; flex-direction: column; gap: 14px; padding-left: 2px }
+  & .tl-item { display: flex; align-items: flex-start; gap: 12px }
+  & .tl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink5); margin-top: 6px; flex-shrink: 0 }
+  & .tl-dot.now { background: var(--pu) }
+  & .tl-label { font-size: 13px; font-weight: 520; color: var(--ink) }
+  & .tl-date { font-size: 12px; color: var(--ink4) }
   & .p-ov-btn { width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 999px; border: 1px solid var(--line); color: var(--ink4); transition: all .14s; flex-shrink: 0 }
   & .p-ov-btn:hover { background: var(--bg); color: var(--ink) }
   & .p-ov-menu { position: absolute; bottom: 62px; right: 28px; background: var(--white); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 32px rgba(0, 0, 0, .09); overflow: hidden; min-width: 190px; z-index: 10 }
@@ -305,6 +312,42 @@
   & .section-action { font-size: 13px; color: var(--ink4); letter-spacing: -.005em; transition: color .14s }
   & .section-action:hover { color: var(--ink) }
 
+  /* ── Applications page (D4): layout from design/applications-wip.html,
+        visual language from the locked dashboard ── */
+  & .ap-ready-list { display: flex; flex-direction: column; gap: 12px; margin-top: 16px }
+  & .ap-ready { background: var(--white); border: 1px solid var(--line); border-radius: 12px; display: grid; grid-template-columns: 1fr 230px; cursor: pointer; overflow: hidden; transition: box-shadow .25s var(--ease), border-color .25s, transform .25s var(--ease) }
+  & .ap-ready:hover { box-shadow: 0 12px 48px rgba(75, 50, 184, .08), 0 2px 8px rgba(0, 0, 0, .04); border-color: rgba(75, 50, 184, .2); transform: translateY(-1px) }
+  & .ap-ready-left { padding: 22px 24px; min-width: 0; border-right: 1px solid var(--line2) }
+  & .ap-ready-left .chips { flex-wrap: nowrap; overflow: hidden }
+  & .ap-ready-left .chip-ev { flex: 0 1 auto }
+  & .ap-ready-right { padding: 22px 22px; display: flex; flex-direction: column; justify-content: space-between; gap: 16px; background: rgba(245, 244, 241, .35) }
+  & .ap-ready-right .btn-review { align-self: flex-start }
+  & .ap-row { display: flex; align-items: center; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--line2); cursor: pointer; transition: background .18s, padding-left .18s var(--ease) }
+  & .ap-row:last-child { border-bottom: none }
+  & .ap-row:hover { background: rgba(75, 50, 184, .025); padding-left: 4px }
+  & .ap-row:hover .opp-role { color: var(--pu) }
+  & .ap-row.closed { opacity: .6 }
+  & .ap-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0 }
+  & .ap-date { font-size: 12px; color: var(--ink4); white-space: nowrap }
+  & .status-pill { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 3px 10px; white-space: nowrap }
+  & .st-applied { color: var(--pu); background: var(--pu-s) }
+  & .st-interview, & .st-offer { color: var(--gn); background: var(--gn-s) }
+  & .st-offer { font-weight: 700 }
+  & .st-declined, & .st-withdrawn { color: var(--ink4); background: rgba(0, 0, 0, .05) }
+  & .ap-menu-wrap { position: relative }
+  & .status-btn { height: 26px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line); font-size: 11.5px; color: var(--ink3); display: flex; align-items: center; gap: 4px; white-space: nowrap; transition: all .12s }
+  & .status-btn:hover { border-color: var(--ink); color: var(--ink) }
+  & .status-menu { position: absolute; right: 0; top: 32px; background: var(--white); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 32px rgba(0, 0, 0, .09); min-width: 170px; overflow: hidden; z-index: 30 }
+  & .sd-item { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; padding: 10px 14px; font-size: 13px; color: var(--ink2); transition: background .1s }
+  & .sd-item:hover { background: var(--bg) }
+  & .sd-item[aria-checked="true"] { font-weight: 600; color: var(--ink) }
+  & .sd-item.closed { color: var(--ink3) }
+  & .sd-sep { height: 1px; background: var(--line2) }
+  & .sd-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0 }
+  & .sd-applied { background: var(--pu) }
+  & .sd-interview, & .sd-offer { background: var(--gn) }
+  & .sd-closed { background: var(--ink5) }
+
   /* ── Small screens (added: the locked design is desktop-only) ── */
   @media (max-width: 760px) {
     & .nav { padding: 0 16px }
@@ -341,6 +384,12 @@
     & .op-row .chips { flex-wrap: wrap }
     & .op-right-line { flex-direction: column-reverse; align-items: flex-end; gap: 6px }
     & .op-right .opp-badge { font-size: 10.5px; white-space: nowrap }
+    & .ap-ready { grid-template-columns: 1fr }
+    & .ap-ready-left { border-right: none; border-bottom: 1px solid var(--line2); padding: 20px }
+    & .ap-ready-left .chips { flex-wrap: wrap }
+    & .ap-ready-right { padding: 16px 20px }
+    & .ap-row { align-items: flex-start; gap: 12px }
+    & .ap-right { flex-direction: column; align-items: flex-end; gap: 6px }
     & .op-right .opp-dismiss { opacity: 1; border-color: var(--line); color: var(--ink4) }
   }
 }
