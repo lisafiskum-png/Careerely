@@ -127,7 +127,7 @@ test.describe.serial('applications', () => {
     const rows = page.getByTestId('app-row')
     await expect(rows).toHaveCount(3)
     await expect(page.getByTestId('submitted-count')).toHaveText('3 applications')
-    // Active stages first (Interview, then Applied), closed outcomes last.
+    // Active stages first (Offer, Interview, Applied), closed outcomes last.
     await expect(rows.nth(0)).toContainText('Revolut')
     await expect(rows.nth(0).getByTestId('status-pill')).toHaveText('Interview')
     await expect(rows.nth(1)).toContainText('N26')
@@ -169,6 +169,17 @@ test.describe.serial('applications', () => {
     const s = await appState(seed.applications.stripe)
     expect(s.status).toBe('applied')
     expect(s.applied_at).not.toBeNull()
+
+    // The initial confirmation is recorded once: "You applied to …", never also "Moved … to Applied".
+    const kinds = async (kind: string) =>
+      (await admin.from('activity').select('id', { count: 'exact', head: true }).eq('user_id', seed.userId).eq('kind', kind).eq('application_id', seed.applications.stripe)).count
+    expect(await kinds('application_applied')).toBe(1)
+    expect(await kinds('application_status_changed')).toBe(0)
+    await page.goto('/dashboard')
+    const activity = page.getByRole('region', { name: 'Recent activity' })
+    await activity.scrollIntoViewIfNeeded()
+    await expect(activity.locator('.act-row', { hasText: 'Stripe' }).filter({ hasText: /applied/i })).toHaveText([/You applied to Stripe — Business Development Lead, Payments/])
+    await expect(activity).not.toContainText('Moved Stripe')
   })
 
   test('manual status updates: stages, closing and reopening; recorded as a timeline', async ({ page }) => {
@@ -181,6 +192,15 @@ test.describe.serial('applications', () => {
     await expect(appRow(page, 'N26').getByTestId('status-pill')).toHaveText('Interview')
     expect(await appState(extra.N26.applicationId)).toMatchObject({ status: 'interview', outcome: null })
     await expect(page.getByTestId('app-summary')).toHaveText(/2\s*interviews/)
+
+    // Interview → Offer: Offer is listed before Interview, Applied, then closed outcomes.
+    await appRow(page, 'N26').getByRole('button', { name: 'Update' }).click()
+    await page.getByRole('menuitemradio', { name: 'Offer' }).click()
+    await expect(appRow(page, 'N26').getByTestId('status-pill')).toHaveText('Offer')
+    await expect(page.getByTestId('app-summary')).toHaveText(/2\s*interviews/)
+    const rows = page.getByTestId('app-row')
+    await expect(rows.getByTestId('status-pill')).toHaveText(['Offer', 'Interview', 'Applied', 'Declined'])
+    for (const [i, company] of ['N26', 'Revolut', 'Stripe', 'Wise'].entries()) await expect(rows.nth(i)).toContainText(company)
 
     // Declined → reopened by choosing a stage.
     await appRow(page, 'Wise').getByRole('button', { name: 'Update' }).click()

@@ -56,7 +56,8 @@ type Row = {
   application_packages: { status: string; has_changes: boolean | null } | null
 }
 
-const STAGE_ORDER: Record<AppStage, number> = { interview: 0, offer: 1, applied: 2 }
+// Display order only: Offer, Interview, Applied.
+const STAGE_ORDER: Record<AppStage, number> = { offer: 0, interview: 1, applied: 2 }
 
 export async function loadApplications(): Promise<ApplicationsData> {
   const supabase = await createClient()
@@ -96,13 +97,13 @@ export async function loadApplications(): Promise<ApplicationsData> {
   const ready = items
     .filter(a => a.status === 'ready_to_apply' && !a.outcome)
     .sort((a, b) => Number(a.postingClosed) - Number(b.postingClosed) || (a.rank ?? Infinity) - (b.rank ?? Infinity))
-  // Active stages first (Interview, Offer, Applied), closed outcomes last; most recent change first.
+  // Active stages first (Offer, Interview, Applied), then closed outcomes; within each group, most recent status update first.
   const submitted = items
     .filter(a => a.status !== 'ready_to_apply')
     .sort(
       (a, b) =>
         Number(Boolean(a.outcome)) - Number(Boolean(b.outcome)) ||
-        STAGE_ORDER[a.status as AppStage] - STAGE_ORDER[b.status as AppStage] ||
+        (a.outcome ? 0 : STAGE_ORDER[a.status as AppStage] - STAGE_ORDER[b.status as AppStage]) ||
         b.statusUpdatedAt.localeCompare(a.statusUpdatedAt),
     )
 

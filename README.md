@@ -85,7 +85,7 @@ leave out dismissed and applied opportunities and postings no longer listed
 on their board (nothing is changed; a relisted posting reappears).
 
 `/applications` (Phase D4) shows "Ready to apply" (stored rank order) and
-"Your applications" (Interview, Offer, Applied, then closed), with the
+"Your applications" (Offer, Interview, Applied, then closed; most recent update first), with the
 summary "N prepared · N applied · N interviews" from stored rows. Status is
 tracked manually: Applied / Interview / Offer, closed as Declined /
 Withdrawn (choosing a stage reopens). Only "Yes, I applied" moves an
