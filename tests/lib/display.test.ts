@@ -20,6 +20,8 @@ describe('display formatting (no added information)', () => {
 
   it('builds the meta line from the posting fields that exist', () => {
     expect(locationLabel('Dublin, Ireland (Hybrid)', 'hybrid')).toBe('Dublin, Ireland')
+    expect(locationLabel('Remote', 'remote')).toBeNull()
+    expect(locationLabel('Remote', null)).toBe('Remote')
     expect(jobMeta({ location: 'Dublin, Ireland (Hybrid)', work_style: 'hybrid', salary_min: 120000, salary_max: 160000, salary_currency: 'USD' })).toEqual([
       'Dublin, Ireland',
       'Hybrid',

@@ -14,6 +14,7 @@ import type { WorkStyle } from './engine/schema'
 // across scans or estimated.
 
 type JobFields = {
+  is_active: boolean | null
   title: string
   company: string | null
   location: string | null
@@ -72,24 +73,32 @@ function movedToApplications(app: { status: string; outcome: string | null } | n
 }
 
 /**
- * The user's live opportunities as the dashboard lists them: not dismissed,
- * not yet applied to, in the engine's rank order (rank 1 = My Pick).
+ * The user's live opportunities as Dashboard and Opportunities list them: not
+ * dismissed, not yet applied to, posting still listed on its company board,
+ * in the engine's rank order (the first is shown as My Pick). Nothing is
+ * changed for the ones left out: an unlisted posting reappears if relisted.
  */
-export const getLiveOpportunities = cache(async (): Promise<{ list: DashOpportunity[]; raw: Map<string, OpportunityRow>; anyDismissed: boolean }> => {
+export const getLiveOpportunities = cache(async (): Promise<{ list: DashOpportunity[]; raw: Map<string, OpportunityRow>; anyDismissed: boolean; anyApplied: boolean }> => {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('opportunities')
     .select(
-      'id, rank, state, match_score, dismissed_at, reasoning, primary_evidence_ids, jobs(title, company, location, work_style, salary_min, salary_max, salary_currency), applications(id, status, outcome), application_packages(status, has_changes)',
+      'id, rank, state, match_score, dismissed_at, reasoning, primary_evidence_ids, jobs(is_active, title, company, location, work_style, salary_min, salary_max, salary_currency), applications(id, status, outcome), application_packages(status, has_changes)',
     )
   if (error) throw error
   const rows = (data ?? []) as unknown as OpportunityRow[]
   const raw = new Map(rows.map(r => [r.id, r]))
   const list: DashOpportunity[] = []
+  let anyApplied = false
   for (const r of rows) {
     if (r.dismissed_at || !r.jobs) continue
     const app = first(r.applications)
-    if (movedToApplications(app)) continue
+    if (movedToApplications(app)) {
+      anyApplied = true
+      continue
+    }
+    // Decision 2026-10-01: postings no longer listed on their board are hidden.
+    if (r.jobs.is_active === false) continue
     const pkg = first(r.application_packages)
     list.push({
       id: r.id,
@@ -105,7 +114,7 @@ export const getLiveOpportunities = cache(async (): Promise<{ list: DashOpportun
     })
   }
   list.sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity) || (b.matchScore ?? 0) - (a.matchScore ?? 0))
-  return { list, raw, anyDismissed: rows.some(r => r.dismissed_at) }
+  return { list, raw, anyDismissed: rows.some(r => r.dismissed_at), anyApplied }
 })
 
 const RUNNING_RUN_MAX_AGE_MS = 6 * 3600_000
@@ -149,15 +158,31 @@ export const getAccount = cache(async (userId: string): Promise<{ firstName: str
   return { firstName: profile?.first_name ?? null, lastName: profile?.last_name ?? null, access: getAccessState(subscription) }
 })
 
+/** The two primary evidence points (LOCKED: two strongest only) for each opportunity. */
+export async function primaryEvidence(supabase: SupabaseClient, idsByOpportunity: Map<string, string[]>): Promise<Map<string, DashPick['evidence']>> {
+  const all = [...new Set([...idsByOpportunity.values()].flat())]
+  const out = new Map<string, DashPick['evidence']>()
+  if (!all.length) return out
+  const byId = new Map<string, { claim: string; outcome: string }>()
+  for (let i = 0; i < all.length; i += 200) {
+    const { data } = await supabase.from('evidence').select('id, claim, outcome').in('id', all.slice(i, i + 200))
+    for (const e of data ?? []) byId.set(e.id as string, { claim: e.claim as string, outcome: e.outcome as string })
+  }
+  for (const [opp, ids] of idsByOpportunity) {
+    out.set(
+      opp,
+      ids
+        .map(id => byId.get(id))
+        .filter((e): e is { claim: string; outcome: string } => Boolean(e) && (e!.outcome === 'confirmed' || e!.outcome === 'inferred'))
+        .slice(0, 2)
+        .map(e => ({ claim: e.claim, outcome: e.outcome as 'confirmed' | 'inferred' })),
+    )
+  }
+  return out
+}
+
 async function pickEvidence(supabase: SupabaseClient, ids: string[]): Promise<DashPick['evidence']> {
-  if (!ids.length) return []
-  const { data } = await supabase.from('evidence').select('id, claim, outcome').in('id', ids)
-  const byId = new Map((data ?? []).map(e => [e.id as string, e]))
-  return ids
-    .map(id => byId.get(id))
-    .filter((e): e is NonNullable<typeof e> => Boolean(e) && (e!.outcome === 'confirmed' || e!.outcome === 'inferred'))
-    .slice(0, 2) // LOCKED: two strongest evidence points only
-    .map(e => ({ claim: e.claim as string, outcome: e.outcome as 'confirmed' | 'inferred' }))
+  return (await primaryEvidence(supabase, new Map([['pick', ids]]))).get('pick') ?? []
 }
 
 async function recentActivity(supabase: SupabaseClient): Promise<DashActivity[]> {

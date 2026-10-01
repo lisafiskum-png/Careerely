@@ -19,6 +19,8 @@ const CHANGE_TAG: Record<string, { label: string; cls: string }> = {
 
 const SOURCE_LABEL = { resume: 'From your resume', posting: 'From the posting', preferences: 'From your preferences', judgment: 'From the posting and your resume' } as const
 
+const REQ_LABEL = { confirmed: 'Confirmed', inferred: 'My judgment', unknown: 'Couldn’t confirm' } as const
+
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim()
 
 type PanelProps = {
@@ -287,6 +289,19 @@ function PanelContent({ opportunityId, isMyPick, readOnly, onClose, onDismiss, o
                     </p>
                   ))}
               </div>
+              {d.requirements.length > 0 && (
+                <div className="psec" style={{ marginTop: 24 }}>
+                  <div className="psec-lbl">Requirements</div>
+                  <div className="req-list">
+                    {d.requirements.map((r, k) => (
+                      <div className="req-item" key={k}>
+                        <span className={`req-tag req-${r.outcome}`}>{REQ_LABEL[r.outcome]}</span>
+                        <span>{r.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

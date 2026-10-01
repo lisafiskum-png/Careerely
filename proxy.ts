@@ -5,7 +5,7 @@ import { createServerClient } from '@supabase/ssr'
 // keeps signed-out visitors out of the app. API routes do their own auth check
 // (lib/auth.ts), so they are excluded here.
 
-const PROTECTED_PREFIXES = ['/dashboard', '/onboarding']
+const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/opportunities']
 // Signed-in users skip these and continue where they left off.
 const GUEST_ONLY = ['/signup', '/login']
 
