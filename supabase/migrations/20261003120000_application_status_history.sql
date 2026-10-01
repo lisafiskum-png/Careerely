@@ -105,8 +105,10 @@ begin
 end;
 $$;
 
-revoke all on function public.mark_application_applied(uuid) from public, anon;
-revoke all on function public.set_application_status(uuid, text, text) from public, anon;
+-- Only signed-in users need these (the app calls them with the user's session).
+-- Revoke the default grants, including Supabase's default service_role grant.
+revoke all on function public.mark_application_applied(uuid) from public, anon, service_role;
+revoke all on function public.set_application_status(uuid, text, text) from public, anon, service_role;
 grant execute on function public.mark_application_applied(uuid) to authenticated;
 grant execute on function public.set_application_status(uuid, text, text) to authenticated;
 

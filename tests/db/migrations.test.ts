@@ -362,6 +362,19 @@ describe('foundation migration', () => {
     expect(await state()).toEqual({ status: 'interview', outcome: 'withdrawn', applied: true })
     expect(await events()).toHaveLength(3)
     await setSubscription(ALICE, 'pro', 'active', '20 days')
+
+    // Only signed-in users may run them; the user always comes from auth.uid().
+    for (const fn of ['public.mark_application_applied(uuid)', 'public.set_application_status(uuid,text,text)']) {
+      const { rows: grants } = await db.query<{ role: string; ok: boolean }>(
+        `select r as role, has_function_privilege(r, $1, 'EXECUTE') as ok from unnest(array['anon', 'authenticated', 'service_role']) r order by r`,
+        [fn],
+      )
+      expect(grants, fn).toEqual([
+        { role: 'anon', ok: false },
+        { role: 'authenticated', ok: true },
+        { role: 'service_role', ok: false },
+      ])
+    }
     await db.query('delete from public.opportunities where id = $1', [opp.rows[0].id])
   })
 
