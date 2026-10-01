@@ -84,7 +84,16 @@ primary evidence points, using the same panel. Dashboard and Opportunities
 leave out dismissed and applied opportunities and postings no longer listed
 on their board (nothing is changed; a relisted posting reappears).
 
-`npm run test:e2e` includes `e2e/dashboard.spec.ts` and `e2e/opportunities.spec.ts`, which seeds a local
+`/applications` (Phase D4) shows "Ready to apply" (stored rank order) and
+"Your applications" (Interview, Offer, Applied, then closed), with the
+summary "N prepared · N applied · N interviews" from stored rows. Status is
+tracked manually: Applied / Interview / Offer, closed as Declined /
+Withdrawn (choosing a stage reopens). Only "Yes, I applied" moves an
+application out of Ready to apply; it never goes back (enforced in the
+database). Each change is an `application_status_changed` activity event,
+which is the panel's timeline and appears in Recent activity.
+
+`npm run test:e2e` includes `e2e/dashboard.spec.ts`, `e2e/opportunities.spec.ts` and `e2e/applications.spec.ts`, which seeds a local
 account; set `SCREENSHOT_DIR` to save desktop and mobile screenshots.
 
 ## Onboarding

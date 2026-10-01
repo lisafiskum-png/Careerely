@@ -94,6 +94,12 @@ function ActivityIcon({ icon }: { icon: DashActivity['icon'] }) {
         <path d="m12 3 1.9 5.8a2 2 0 0 0 1.3 1.3L21 12" />
       </svg>
     )
+  if (icon === 'closed')
+    return (
+      <svg {...common}>
+        <line x1="6" y1="12" x2="18" y2="12" />
+      </svg>
+    )
   if (icon === 'prepared')
     return (
       <svg {...common}>
@@ -433,6 +439,9 @@ export function DashboardView({ data, firstName, readOnly }: { data: DashboardDa
       >
         <div className="section-header">
           <span className="section-label">Applications ready</span>
+          <Link href="/applications" className="section-action">
+            View all →
+          </Link>
         </div>
         <div>
           {data.apps

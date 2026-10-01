@@ -263,6 +263,31 @@ describe('foundation migration', () => {
     await db.query(`delete from public.opportunities where id = $1`, [shortlisted])
   })
 
+  it('keeps application status rules: no return to Ready to apply, outcomes only once submitted', async () => {
+    await setSubscription(ALICE, 'pro', 'active', '20 days')
+    const job = await db.query<{ id: string }>(
+      `insert into public.jobs (source, source_job_id, url, title) values ('greenhouse', 'apps-1', 'https://x', 'AE') returning id`,
+    )
+    const opp = await db.query<{ id: string }>(`insert into public.opportunities (user_id, job_id, state) values ($1, $2, 'ready') returning id`, [ALICE, job.rows[0].id])
+    const app = await db.query<{ id: string }>(
+      `insert into public.applications (user_id, opportunity_id, job_id, status) values ($1, $2, $3, 'ready_to_apply') returning id`,
+      [ALICE, opp.rows[0].id, job.rows[0].id],
+    )
+    const id = app.rows[0].id
+    const asAlice = (sql: string) => asUser(ALICE, () => db.query(sql, [id]))
+
+    await expect(asAlice(`update public.applications set outcome = 'declined' where id = $1`)).rejects.toThrow(/Only a submitted application can be closed/)
+    await expect(asAlice(`update public.applications set status = 'interview' where id = $1`)).rejects.toThrow(/needs its applied date/)
+    await asAlice(`update public.applications set status = 'applied', applied_at = now() where id = $1`)
+    await asAlice(`update public.applications set status = 'interview' where id = $1`)
+    await asAlice(`update public.applications set outcome = 'withdrawn' where id = $1`)
+    await asAlice(`update public.applications set status = 'offer', outcome = null where id = $1`) // reopen
+    await expect(asAlice(`update public.applications set status = 'ready_to_apply', outcome = null where id = $1`)).rejects.toThrow(/cannot return to Ready to apply/)
+    const { rows } = await db.query<{ status: string; outcome: string | null }>('select status, outcome from public.applications where id = $1', [id])
+    expect(rows[0]).toEqual({ status: 'offer', outcome: null })
+    await db.query('delete from public.opportunities where id = $1', [opp.rows[0].id])
+  })
+
   it('counts preparations in the current billing period, excluding failures', async () => {
     const { rows: sub } = await db.query<{ current_period_start: Date }>(
       'select current_period_start from public.subscriptions where user_id = $1',

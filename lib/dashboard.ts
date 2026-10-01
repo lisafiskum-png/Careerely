@@ -58,7 +58,7 @@ export type DashPick = DashOpportunity & {
 
 export type DashActivity = {
   id: string
-  icon: 'scan' | 'shortlist' | 'prepared' | 'applied'
+  icon: 'scan' | 'shortlist' | 'prepared' | 'applied' | 'closed'
   parts: (string | { strong: string })[]
   at: string
 }
@@ -190,7 +190,7 @@ async function recentActivity(supabase: SupabaseClient): Promise<DashActivity[]>
     supabase
       .from('activity')
       .select('id, kind, payload, created_at, opportunities(jobs(title, company))')
-      .in('kind', ['opportunities_shortlisted', 'application_prepared', 'application_applied'])
+      .in('kind', ['opportunities_shortlisted', 'application_prepared', 'application_applied', 'application_status_changed'])
       .order('created_at', { ascending: false })
       .limit(10),
     supabase
@@ -211,6 +211,16 @@ async function recentActivity(supabase: SupabaseClient): Promise<DashActivity[]>
       items.push({ id: e.id, icon: 'prepared', parts: ['Prepared an application for ', { strong: job.company ?? job.title }, ` — ${job.title}`], at })
     } else if (e.kind === 'application_applied' && job) {
       items.push({ id: e.id, icon: 'applied', parts: ['You applied to ', { strong: job.company ?? job.title }, ` — ${job.title}`], at })
+    } else if (e.kind === 'application_status_changed' && job) {
+      const p = e.payload as { status?: string; outcome?: string | null }
+      const label = { applied: 'Applied', interview: 'Interview', offer: 'Offer', declined: 'Declined', withdrawn: 'Withdrawn' }[p.outcome ?? p.status ?? '']
+      if (label) {
+        items.push(
+          p.outcome
+            ? { id: e.id, icon: 'closed', parts: ['Marked ', { strong: job.company ?? job.title }, ` — ${job.title} as ${label}`], at }
+            : { id: e.id, icon: 'applied', parts: ['Moved ', { strong: job.company ?? job.title }, ` — ${job.title} to ${label}`], at },
+        )
+      }
     }
   }
   for (const r of runs ?? []) {
