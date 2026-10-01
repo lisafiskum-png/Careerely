@@ -1,25 +1,18 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import type { OpportunitiesData, OpportunityListItem } from '../../../lib/opportunities'
 import { logoTile } from '../../../lib/display'
 import { LogoTile } from '../_components/logo-tile'
 import { OpportunityPanel } from '../_components/opportunity-panel'
 import { RelTime } from '../_components/rel-time'
+import { DismissPrompt, type DismissReason } from '../_components/dismiss-prompt'
 
 // Layout from design/opportunities-wip.html (reference), visual language and
 // motion from the locked dashboard. States are kept distinct: Shortlisted (no
 // preparation indicators), Preparing (still reviewable), Ready.
 
 const DISMISS_MS = 380
-const REASONS = [
-  ['role', 'Role'],
-  ['company', 'Company'],
-  ['location', 'Location'],
-  ['salary', 'Salary'],
-  ['industry', 'Industry'],
-  ['other', 'Other'],
-] as const
 
 const Check = () => (
   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden>
@@ -58,7 +51,7 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
   const [shown, setShown] = useState(0) // 0 = nothing; 1 = header; 2 = pick; 3+ = rows revealed
   const [collapsing, setCollapsing] = useState<Set<string>>(new Set())
   const [gone, setGone] = useState<Set<string>>(new Set())
-  const [reasonFor, setReasonFor] = useState<string | null>(null)
+  const [confirmFor, setConfirmFor] = useState<string | null>(null)
   const [panel, setPanel] = useState<{ id: string; isPick: boolean } | null>(null)
   const [pulse, setPulse] = useState<string | null>(null)
 
@@ -83,11 +76,20 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
   }, [])
   const closePanel = useCallback(() => setPanel(null), [])
 
-  const dismiss = useCallback(
-    async (id: string) => {
+  // "Not for me": ask first (reason optional); nothing changes until confirmed.
+  const requestDismiss = useCallback(
+    (id: string) => {
       if (panel?.id === id) setPanel(null)
-      setReasonFor(null)
-      const res = await fetch(`/api/opportunities/${id}/dismiss`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => null)
+      setConfirmFor(id)
+    },
+    [panel],
+  )
+  const cancelDismiss = useCallback(() => setConfirmFor(null), [])
+
+  const confirmDismiss = useCallback(
+    async (id: string, reason: DismissReason | null) => {
+      setConfirmFor(null)
+      const res = await fetch(`/api/opportunities/${id}/dismiss`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) }).catch(() => null)
       if (!res?.ok) return
       setCollapsing(s => new Set(s).add(id))
       setTimeout(() => {
@@ -97,33 +99,13 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
           n.delete(id)
           return n
         })
-        setReasonFor(id)
         router.refresh()
       }, DISMISS_MS)
     },
-    [panel, router],
+    [router],
   )
 
-  async function giveReason(id: string, reason: string | null) {
-    setReasonFor(null)
-    if (reason) {
-      await fetch(`/api/opportunities/${id}/dismiss`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) }).catch(() => null)
-    }
-  }
-
-  const reasonPicker = (id: string) => (
-    <div className="reason-picker" key={`reason-${id}`} role="group" aria-label="Why not?">
-      <span className="reason-label">Why not?</span>
-      {REASONS.map(([value, label]) => (
-        <button key={value} className="reason-btn" onClick={() => giveReason(id, value)}>
-          {label}
-        </button>
-      ))}
-      <button className="reason-skip" onClick={() => giveReason(id, null)}>
-        Skip
-      </button>
-    </div>
-  )
+  const prompt = (id: string) => <DismissPrompt key={`dismiss-${id}`} onConfirm={reason => confirmDismiss(id, reason)} onCancel={cancelDismiss} />
 
   const onKey = (e: React.KeyboardEvent, fn: () => void) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -135,7 +117,6 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
   const empty = !pick && others.length === 0
   const pickTile = pick ? logoTile(pick.company) : null
   const pickReady = pick?.state === 'ready'
-  const orphanReason = reasonFor && !data.others.some(o => o.id === reasonFor) ? reasonFor : null
 
   return (
     <>
@@ -169,7 +150,6 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
         )}
       </header>
 
-      {orphanReason && !readOnly && <div style={{ marginBottom: 24 }}>{reasonPicker(orphanReason)}</div>}
 
       {empty ? (
         <div className={`seq${shown >= 2 ? ' in' : ''}`}>
@@ -257,7 +237,9 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
             </div>
           )}
 
-          <section className={`seq${shown >= 2 ? ' in' : ''}`} aria-label="Also shortlisted" hidden={others.length === 0 && !data.others.some(o => o.id === reasonFor)}>
+          {pick && confirmFor === pick.id && !readOnly && <div style={{ margin: '-32px 0 40px' }}>{prompt(pick.id)}</div>}
+
+          <section className={`seq${shown >= 2 ? ' in' : ''}`} aria-label="Also shortlisted" hidden={others.length === 0}>
             <div className="op-section">
               <span className="section-label">Also shortlisted</span>
               <span className="op-count" data-testid="op-count">
@@ -266,11 +248,11 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
             </div>
             <div>
               {data.others.map((o, i) => {
-                if (gone.has(o.id)) return reasonFor === o.id && !readOnly ? reasonPicker(o.id) : null
+                if (gone.has(o.id)) return null
                 const tile = logoTile(o.company)
                 return (
+                  <Fragment key={o.id}>
                   <div
-                    key={o.id}
                     className={`op-row seq${shown >= 3 + i ? ' in' : ''}${collapsing.has(o.id) ? ' dismissing' : ''}${pulse === o.id ? ' row-pulse' : ''}`}
                     role="button"
                     tabIndex={0}
@@ -305,7 +287,7 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
                           className="opp-dismiss"
                           onClick={e => {
                             e.stopPropagation()
-                            dismiss(o.id)
+                            requestDismiss(o.id)
                           }}
                         >
                           Not for me
@@ -313,6 +295,8 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
                       )}
                     </div>
                   </div>
+                  {confirmFor === o.id && !readOnly && prompt(o.id)}
+                  </Fragment>
                 )
               })}
             </div>
@@ -325,7 +309,7 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
         isMyPick={Boolean(panel?.isPick)}
         readOnly={readOnly}
         onClose={closePanel}
-        onDismiss={dismiss}
+        onDismiss={requestDismiss}
         onApplied={() => router.refresh()}
       />
     </>

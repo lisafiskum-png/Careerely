@@ -150,19 +150,44 @@ test.describe.serial('opportunities', () => {
     expect(pdf.headers()['content-type']).toBe('application/pdf')
   })
 
-  test('"Not for me" with an optional reason; the count follows', async ({ page }) => {
+  test('"Not for me" asks first; cancel changes nothing; confirm with or without a reason', async ({ page }) => {
     await signIn(page, email)
     await page.goto('/opportunities')
-    const criteo = page.getByTestId('op-row').filter({ hasText: 'Criteo' })
-    await criteo.hover()
-    await criteo.getByRole('button', { name: 'Not for me' }).click()
-    await expect(criteo).toHaveCount(0)
-    await page.getByRole('button', { name: 'Salary' }).click()
+    const row = (company: string) => page.getByTestId('op-row').filter({ hasText: company })
+    const state = async (id: string) => (await admin.from('opportunities').select('dismissed_at, dismiss_reason').eq('id', id).single()).data!
+    const prompt = page.getByTestId('dismiss-prompt')
+
+    // Cancel: nothing changes, the row stays, the count stays.
+    await row('Criteo').hover()
+    await row('Criteo').getByRole('button', { name: 'Not for me' }).click()
+    await expect(prompt).toBeVisible()
+    for (const label of ['Role', 'Company', 'Location', 'Salary', 'Industry', 'Other', 'Dismiss without a reason', 'Cancel']) {
+      await expect(prompt.getByRole('button', { name: label, exact: true })).toBeVisible()
+    }
+    await prompt.getByRole('button', { name: 'Cancel' }).click()
+    await expect(prompt).toHaveCount(0)
+    await expect(row('Criteo')).toBeVisible()
+    await expect(page.getByTestId('op-title')).toHaveText('8 opportunities')
+    expect(await state(seed.opportunities.criteo)).toEqual({ dismissed_at: null, dismiss_reason: null })
+    await page.reload()
+    await expect(row('Criteo')).toBeVisible()
+
+    // Confirm with a reason.
+    await row('Criteo').hover()
+    await row('Criteo').getByRole('button', { name: 'Not for me' }).click()
+    await prompt.getByRole('button', { name: 'Salary' }).click()
+    await expect(row('Criteo')).toHaveCount(0)
     await expect(page.getByTestId('op-title')).toHaveText('7 opportunities')
     await expect(page.getByTestId('op-count')).toHaveText('6 opportunities')
-    await expect
-      .poll(async () => (await admin.from('opportunities').select('dismiss_reason').eq('id', seed.opportunities.criteo).single()).data!.dismiss_reason)
-      .toBe('salary')
+    await expect.poll(async () => (await state(seed.opportunities.criteo)).dismiss_reason).toBe('salary')
+
+    // Confirm without a reason.
+    await row('Nubank').hover()
+    await row('Nubank').getByRole('button', { name: 'Not for me' }).click()
+    await prompt.getByRole('button', { name: 'Dismiss without a reason' }).click()
+    await expect(row('Nubank')).toHaveCount(0)
+    await expect.poll(async () => (await state(seed.opportunities.nubank)).dismissed_at).not.toBeNull()
+    expect((await state(seed.opportunities.nubank)).dismiss_reason).toBeNull()
   })
 
   test('"You’re all caught up" only once every opportunity, My Pick included, is gone', async ({ page }) => {
@@ -183,10 +208,21 @@ test.describe.serial('opportunities', () => {
     const panel = page.getByRole('dialog')
     await panel.getByRole('button', { name: 'More actions' }).click()
     await panel.getByRole('menuitem', { name: 'Not for me' }).click()
+    // The panel closes and the prompt appears with My Pick still in place; cancelling keeps it.
+    const prompt = page.getByTestId('dismiss-prompt')
+    await expect(prompt).toBeVisible()
+    await expect(page.getByTestId('op-pick')).toBeVisible()
+    await prompt.getByRole('button', { name: 'Cancel' }).click()
+    await expect(page.getByTestId('op-pick')).toBeVisible()
+    expect((await admin.from('opportunities').select('dismissed_at').eq('id', emptySeed.opportunities.stripe).single()).data!.dismissed_at).toBeNull()
+
+    await page.getByTestId('op-pick').click()
+    await panel.getByRole('button', { name: 'More actions' }).click()
+    await panel.getByRole('menuitem', { name: 'Not for me' }).click()
+    await prompt.getByRole('button', { name: 'Dismiss without a reason' }).click()
     await expect(page.getByRole('heading', { name: 'You’re all caught up' })).toBeVisible()
     await expect(page.getByTestId('op-title')).toHaveText('0 opportunities')
     await expect(page.getByText('Adjust your searches')).toHaveCount(0)
-    await page.getByRole('button', { name: 'Skip' }).click()
     await page.reload()
     await expect(page.getByRole('heading', { name: 'You’re all caught up' })).toBeVisible()
     await page.waitForTimeout(800)

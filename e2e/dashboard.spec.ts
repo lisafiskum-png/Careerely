@@ -150,15 +150,34 @@ test.describe.serial('dashboard', () => {
     await expect(panel).toContainText('Preparing application…')
   })
 
-  test('"Not for me": dismisses Shortlisted rows only, then offers an optional reason', async ({ page }) => {
+  test('"Not for me": asks first (reason optional); cancelling changes nothing; Shortlisted only', async ({ page }) => {
     await signIn(page, email)
     const shopify = page.getByTestId('shortlist-row').filter({ hasText: 'Shopify' })
+    const dismissedAt = async () => (await admin.from('opportunities').select('dismissed_at').eq('id', seed.opportunities.shopify).single()).data!.dismissed_at
+
+    // Cancel, and Escape: the row stays and nothing is stored.
+    for (const close of ['cancel', 'escape'] as const) {
+      await shopify.hover()
+      await shopify.getByRole('button', { name: 'Not for me' }).click()
+      const prompt = page.getByTestId('dismiss-prompt')
+      await expect(prompt).toBeVisible()
+      await expect(prompt.getByRole('button', { name: 'Dismiss without a reason' })).toBeVisible()
+      await expect(shopify).toBeVisible()
+      if (close === 'cancel') await prompt.getByRole('button', { name: 'Cancel' }).click()
+      else await page.keyboard.press('Escape')
+      await expect(prompt).toHaveCount(0)
+      await expect(shopify).toBeVisible()
+      expect(await dismissedAt()).toBeNull()
+    }
+    await page.reload()
+    await expect(shopify).toBeVisible()
+
+    // Confirming with a reason dismisses.
     await shopify.hover()
     await shopify.getByRole('button', { name: 'Not for me' }).click()
+    await page.getByTestId('dismiss-prompt').getByRole('button', { name: 'Location' }).click()
     await expect(shopify).toHaveCount(0)
-    await expect(page.getByText('Why not?')).toBeVisible()
-    await page.getByRole('button', { name: 'Location' }).click()
-    await expect(page.getByText('Why not?')).toHaveCount(0)
+    await expect(page.getByTestId('dismiss-prompt')).toHaveCount(0)
     await expect(page.getByTestId('stat-line')).toContainText(/7\s*shortlisted/)
     await expect(page.getByRole('navigation', { name: 'Main' }).getByText('Opportunities6')).toBeVisible()
     // The next-ranked opportunity moves into the five-row preview; nothing else changes.
