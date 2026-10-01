@@ -78,7 +78,13 @@ The role. Actions: "Not for me" with an optional reason (Shortlisted only,
 enforced in the database), "Continue to application" then "Did you apply?",
 and PDF downloads of the prepared documents.
 
-`npm run test:e2e` includes `e2e/dashboard.spec.ts`, which seeds a local
+`/opportunities` (Phase D3) lists every live opportunity in stored rank order:
+My Pick featured, then "Also shortlisted", each with its match % and two
+primary evidence points, using the same panel. Dashboard and Opportunities
+leave out dismissed and applied opportunities and postings no longer listed
+on their board (nothing is changed; a relisted posting reappears).
+
+`npm run test:e2e` includes `e2e/dashboard.spec.ts` and `e2e/opportunities.spec.ts`, which seeds a local
 account; set `SCREENSHOT_DIR` to save desktop and mobile screenshots.
 
 ## Onboarding

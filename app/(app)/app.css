@@ -229,6 +229,13 @@
   & .doc-line { white-space: pre-wrap; min-height: 1.85em }
   & .doc-changed { background: rgba(26, 122, 74, .04); border-left: 2px solid var(--gn); border-radius: 0 6px 6px 0; padding: 4px 12px; margin: 4px 0 }
   & .doc-change-tag { font-size: 10px; font-weight: 660; color: var(--gn); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px }
+  /* added: per-opportunity requirements (Master Brief §10) */
+  & .req-list { display: flex; flex-direction: column; gap: 9px }
+  & .req-item { display: flex; align-items: flex-start; gap: 10px; font-size: 13.5px; color: var(--ink2); line-height: 1.5 }
+  & .req-tag { font-size: 9.5px; font-weight: 660; border-radius: 3px; padding: 2px 6px; flex-shrink: 0; margin-top: 3px; letter-spacing: .02em; min-width: 92px; text-align: center }
+  & .req-confirmed { color: var(--gn); background: var(--gn-s) }
+  & .req-inferred { color: var(--pu); background: var(--pu-s) }
+  & .req-unknown { color: var(--ink4); background: rgba(0, 0, 0, .05) }
   & .not-ready { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 16px 18px }
   & .not-ready-title { font-size: 13px; font-weight: 560; color: var(--ink3); margin-bottom: 4px }
   & .not-ready-desc { font-size: 12.5px; color: var(--ink4); line-height: 1.5 }
@@ -249,6 +256,54 @@
   & .pom-item:hover { background: var(--bg) }
   & .pom-item.danger { color: #C0392B }
   & .row-pulse { animation: cl-panelPulse .55s var(--ease) forwards }
+
+  /* ── Opportunities page (D3): layout from design/opportunities-wip.html,
+        visual language from the locked dashboard (tokens, hairline rows) ── */
+  & .op-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 40px }
+  & .op-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--ink4); margin-bottom: 10px }
+  & .op-title { font-size: clamp(28px, 3vw, 36px); font-weight: 720; letter-spacing: -.05em; line-height: 1.05; color: var(--ink) }
+  & .op-subtitle { font-size: 13px; color: var(--ink4); margin-top: 10px }
+  & .op-subtitle .ps-n { font-weight: 600; color: var(--ink3) }
+  & .scan-chip { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink4); background: var(--white); border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; white-space: nowrap; flex-shrink: 0 }
+  & .op-pick { background: var(--white); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; cursor: pointer; margin-bottom: 48px; transition: box-shadow .25s var(--ease), border-color .25s, transform .25s var(--ease) }
+  & .op-pick:hover { box-shadow: 0 12px 48px rgba(75, 50, 184, .1), 0 2px 8px rgba(0, 0, 0, .04); border-color: rgba(75, 50, 184, .2); transform: translateY(-1px) }
+  & .op-pick-inner { display: grid; grid-template-columns: 1fr 260px }
+  & .op-pick-left { padding: 28px 30px; border-right: 1px solid var(--line2); min-width: 0 }
+  & .op-pick-top { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 18px }
+  & .op-pick-badge { font-size: 10.5px; font-weight: 660; letter-spacing: .1em; text-transform: uppercase; color: var(--pu); margin-bottom: 6px }
+  & .op-pick-role { font-size: 19px; font-weight: 680; letter-spacing: -.035em; line-height: 1.15; margin-bottom: 5px }
+  & .op-pick-co { font-size: 13px; color: var(--ink4); display: flex; flex-wrap: wrap; gap: 5px }
+  & .op-pick-right { padding: 28px 24px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; background: rgba(245, 244, 241, .35) }
+  & .op-reasoning { font-size: 13.5px; color: var(--ink3); line-height: 1.6 }
+  & .op-prep { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11.5px; color: var(--gn); font-weight: 500 }
+  & .op-prep.pending { color: var(--ink4) }
+  & .op-prep span { display: inline-flex; align-items: center; gap: 4px }
+  & .chips { display: flex; gap: 6px; flex-wrap: wrap }
+  & .chip { font-size: 11.5px; font-weight: 520; border-radius: 5px; padding: 3px 9px; letter-spacing: -.005em; display: inline-flex; align-items: center; gap: 4px; max-width: 100%; min-width: 0 }
+  & .chip > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+  & .chip-match { color: var(--pu); background: var(--pu-s); flex-shrink: 0 }
+  & .chip-ev { color: var(--gn); background: var(--gn-s) }
+  & .chip-ev.inferred { color: var(--ink3); background: rgba(0, 0, 0, .05) }
+  & .op-section { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 12px }
+  & .op-count { font-size: 12px; color: var(--ink4) }
+  & .op-row { display: flex; align-items: center; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--line2); cursor: pointer; overflow: hidden; max-height: 260px;
+    transition: background .18s, padding-left .18s var(--ease), opacity .32s var(--ease), transform .32s var(--ease), max-height .42s var(--ease), padding-top .42s var(--ease), padding-bottom .42s var(--ease), border-color .42s var(--ease) }
+  & .op-row:last-child { border-bottom: none }
+  & .op-row:hover { background: rgba(75, 50, 184, .025); padding-left: 4px }
+  & .op-row:hover .opp-role { color: var(--pu) }
+  & .op-row.dismissing { opacity: 0; transform: translateX(8px); max-height: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; border-color: transparent !important; pointer-events: none }
+  & .op-row .chips { margin-top: 8px; flex-wrap: nowrap; overflow: hidden }
+  & .op-row .chip-ev { flex: 0 1 auto }
+  & .op-right { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; flex-shrink: 0 }
+  & .op-right-line { display: flex; align-items: center; gap: 10px }
+  & .btn-sm { height: 28px; padding: 0 13px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 520; white-space: nowrap; transition: background .14s }
+  & .btn-sm:hover { background: var(--ink2) }
+  & .empty-block { text-align: center; padding: 72px 24px }
+  & .empty-icon { width: 48px; height: 48px; border-radius: 12px; background: var(--white); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; color: var(--ink4) }
+  & .empty-title { font-size: 16px; font-weight: 620; letter-spacing: -.02em; margin-bottom: 8px }
+  & .empty-desc { font-size: 13.5px; color: var(--ink4); max-width: 360px; margin: 0 auto; line-height: 1.6 }
+  & .section-action { font-size: 13px; color: var(--ink4); letter-spacing: -.005em; transition: color .14s }
+  & .section-action:hover { color: var(--ink) }
 
   /* ── Small screens (added: the locked design is desktop-only) ── */
   @media (max-width: 760px) {
@@ -278,5 +333,14 @@
     & .p-body { padding: 22px 20px }
     & .p-ft { padding: 14px 20px }
     & .p-ov-menu { right: 20px }
+    & .op-header { flex-direction: column; align-items: flex-start; margin-bottom: 28px }
+    & .op-pick-inner { grid-template-columns: 1fr }
+    & .op-pick-left { padding: 22px 20px; border-right: none; border-bottom: 1px solid var(--line2) }
+    & .op-pick-right { padding: 18px 20px }
+    & .op-row { align-items: flex-start; gap: 12px }
+    & .op-row .chips { flex-wrap: wrap }
+    & .op-right-line { flex-direction: column-reverse; align-items: flex-end; gap: 6px }
+    & .op-right .opp-badge { font-size: 10.5px; white-space: nowrap }
+    & .op-right .opp-dismiss { opacity: 1; border-color: var(--line); color: var(--ink4) }
   }
 }

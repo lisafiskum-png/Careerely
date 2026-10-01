@@ -22,6 +22,8 @@ export type OpportunityDetail = {
   description: string | null
   evidence: DetailEvidence[]
   considered: string[]
+  /** The posting's requirements as evaluated: confirmed, my judgment (inferred) or couldn't confirm (unknown). */
+  requirements: { text: string; outcome: 'confirmed' | 'inferred' | 'unknown' }[]
   package: null | {
     status: 'preparing' | 'ready' | 'failed'
     hasChanges: boolean | null
@@ -98,6 +100,11 @@ export async function loadOpportunityDetail(supabase: SupabaseClient, id: string
     description: job.description,
     evidence,
     considered,
+    requirements: ((opp.requirement_evaluations as Requirement[] | null) ?? []).map(r => ({
+      text: r.requirementText,
+      // Anything other than confirmed/inferred is shown as unknown, never as a negative.
+      outcome: r.outcome === 'confirmed' || r.outcome === 'inferred' ? r.outcome : 'unknown',
+    })),
     package: pkg
       ? {
           status: pkg.status,

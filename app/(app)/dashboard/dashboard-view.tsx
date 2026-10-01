@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DashActivity, DashboardData, DashOpportunity } from '../../../lib/dashboard'
@@ -386,6 +387,9 @@ export function DashboardView({ data, firstName, readOnly }: { data: DashboardDa
                 (<FadeNumber value={String(otherCount)} />)
               </span>
             </span>
+            <Link href="/opportunities" className="section-action">
+              View all opportunities →
+            </Link>
           </div>
           <div>
             {data.rows.map((r: DashOpportunity, i) => {
@@ -430,7 +434,6 @@ export function DashboardView({ data, firstName, readOnly }: { data: DashboardDa
                 </div>
               )
             })}
-            {/* TODO(D3): "View all opportunities →" linking to /opportunities once that page exists. */}
             {pick && rows.length === 0 && otherCount === 0 && !data.rows.some(r => reasonFor === r.id) && (
               <div className="empty-line">You’ve reviewed everything shortlisted. Careerely will surface new opportunities as they appear.</div>
             )}

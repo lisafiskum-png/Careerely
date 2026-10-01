@@ -33,6 +33,8 @@ export function locationLabel(location: string | null | undefined, style: WorkSt
   const loc = location?.trim()
   if (!loc) return null
   if (!style) return loc
+  // "Remote" as the whole location only repeats the work style.
+  if (/^(remote|hybrid|on[- ]?site)$/i.test(loc) && loc.toLowerCase().replace(/[- ]/g, '') === style.replace('_', '')) return null
   return loc.replace(/\s*[(-]\s*(remote|hybrid|on[- ]?site|in[- ]office)\s*\)?\s*$/i, '').trim() || loc
 }
 
