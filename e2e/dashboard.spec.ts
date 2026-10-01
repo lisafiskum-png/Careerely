@@ -19,6 +19,8 @@ const email = `dash+${Date.now()}@example.com`
 const readOnlyEmail = `dash-ro+${Date.now()}@example.com`
 let seed: Awaited<ReturnType<typeof seedDashboardUser>>
 let readOnlySeed: Awaited<ReturnType<typeof seedDashboardUser>>
+let mobileSeed: Awaited<ReturnType<typeof seedDashboardUser>>
+const mobileEmail = `dash-m+${Date.now()}@example.com`
 
 async function signIn(page: Page, address: string) {
   await page.goto('/login')
@@ -32,9 +34,10 @@ test.describe.serial('dashboard', () => {
   test.beforeAll(async () => {
     seed = await seedDashboardUser(admin, { email, firstName: 'Lisa' })
     readOnlySeed = await seedDashboardUser(admin, { email: readOnlyEmail, firstName: 'Lisa', readOnly: true })
+    mobileSeed = await seedDashboardUser(admin, { email: mobileEmail, firstName: 'Lisa' })
   })
   test.afterAll(async () => {
-    for (const s of [seed, readOnlySeed]) if (s) await admin.auth.admin.deleteUser(s.userId)
+    for (const s of [seed, readOnlySeed, mobileSeed]) if (s) await admin.auth.admin.deleteUser(s.userId)
   })
 
   test('shows stored data in the locked layout: stats, My Pick, shortlist, applications, activity', async ({ page }) => {
@@ -44,7 +47,7 @@ test.describe.serial('dashboard', () => {
     await expect(page.getByText(/^GOOD (MORNING|AFTERNOON|EVENING), LISA\.$/)).toBeVisible()
     await expect(page.getByRole('heading', { name: /Here's what Careerely\s*found for you\./ })).toBeVisible()
     const stats = page.getByTestId('stat-line')
-    await expect(stats).toContainText(/5\s*shortlisted/)
+    await expect(stats).toContainText(/8\s*shortlisted/)
     await expect(stats).toContainText(/2\s*applications ready/)
     await expect(stats).toContainText(/4,393\s*reviewed in latest scan/)
     await expect(stats).toContainText(/last scan\s*3 min ago/)
@@ -53,7 +56,7 @@ test.describe.serial('dashboard', () => {
     // Nav: top bar, badges = live opportunities and ready applications.
     const nav = page.getByRole('navigation', { name: 'Main' })
     await expect(nav.getByRole('link', { name: 'Dashboard', exact: true })).toHaveAttribute('aria-current', 'page')
-    await expect(nav.getByText('Opportunities5')).toBeVisible()
+    await expect(nav.getByText('Opportunities8')).toBeVisible()
     await expect(nav.getByText('Applications2')).toBeVisible()
 
     // My Pick: two evidence points, reasoning, large match number, no bar.
@@ -70,9 +73,13 @@ test.describe.serial('dashboard', () => {
     await expect(pick).toContainText('Resume tailored')
     await expect(pick).toContainText('Cover letter drafted')
 
-    // Also shortlisted: states kept distinct; only Shortlisted rows can be dismissed.
+    // Also shortlisted: a preview of at most 5 rows in stored rank order (7 more exist);
+    // states kept distinct; only Shortlisted rows can be dismissed.
     const rows = page.getByTestId('shortlist-row')
-    await expect(rows).toHaveCount(4)
+    await expect(rows).toHaveCount(5)
+    await expect(page.getByRole('region', { name: 'Also shortlisted' }).locator('.section-count')).toHaveText('(7)')
+    await expect(rows.nth(4)).toContainText('Nubank')
+    await expect(page.getByTestId('shortlist-row').filter({ hasText: 'Snowflake' })).toHaveCount(0)
     await expect(rows.nth(0)).toContainText('Ramp')
     await expect(rows.nth(0)).toContainText('Application ready')
     await expect(rows.nth(1)).toContainText('Cohere')
@@ -90,7 +97,7 @@ test.describe.serial('dashboard', () => {
     const activity = page.getByRole('region', { name: 'Recent activity' })
     await activity.scrollIntoViewIfNeeded()
     await expect(activity).toContainText('Reviewed 4,393 postings for “Business Development Manager”')
-    await expect(activity).toContainText('Shortlisted 5 opportunities')
+    await expect(activity).toContainText('Shortlisted 8 opportunities')
     await expect(activity).toContainText('Prepared an application for Stripe')
 
     await page.evaluate(() => window.scrollTo(0, 0))
@@ -150,8 +157,13 @@ test.describe.serial('dashboard', () => {
     await expect(page.getByText('Why not?')).toBeVisible()
     await page.getByRole('button', { name: 'Location' }).click()
     await expect(page.getByText('Why not?')).toHaveCount(0)
-    await expect(page.getByTestId('stat-line')).toContainText(/4\s*shortlisted/)
-    await expect(page.getByRole('navigation', { name: 'Main' }).getByText('Opportunities4')).toBeVisible()
+    await expect(page.getByTestId('stat-line')).toContainText(/7\s*shortlisted/)
+    await expect(page.getByRole('navigation', { name: 'Main' }).getByText('Opportunities7')).toBeVisible()
+    // The next-ranked opportunity moves into the five-row preview; nothing else changes.
+    await expect(page.getByTestId('shortlist-row')).toHaveCount(5)
+    await expect(page.getByTestId('shortlist-row').nth(4)).toContainText('Snowflake')
+    const { data: hidden } = await admin.from('opportunities').select('state, dismissed_at, rank').eq('id', seed.opportunities.databricks).single()
+    expect(hidden).toMatchObject({ state: 'shortlisted', dismissed_at: null, rank: 8 })
 
     const { data } = await admin.from('opportunities').select('dismissed_at, dismiss_reason').eq('id', seed.opportunities.shopify).single()
     expect(data!.dismissed_at).not.toBeNull()
@@ -186,6 +198,9 @@ test.describe.serial('dashboard', () => {
     // It has moved to Applications: the next-ranked opportunity leads the dashboard.
     await page.reload()
     await expect(page.getByTestId('my-pick')).toContainText('Ramp')
+    // Display only: the stored ranking is unchanged.
+    const { data: ranks } = await admin.from('opportunities').select('rank, is_my_pick').in('id', [seed.opportunities.stripe, seed.opportunities.ramp]).order('rank')
+    expect(ranks).toEqual([{ rank: 1, is_my_pick: true }, { rank: 2, is_my_pick: false }])
     await expect(page.getByRole('region', { name: 'Recent activity' })).toContainText('You applied to Stripe')
   })
 
@@ -206,7 +221,8 @@ test.describe.serial('dashboard', () => {
 
   test('mobile layout', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
-    await signIn(page, email)
+    await signIn(page, mobileEmail)
+    await expect(page.getByTestId('shortlist-row')).toHaveCount(5)
     await expect(page.getByTestId('my-pick')).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)

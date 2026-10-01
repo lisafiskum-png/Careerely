@@ -132,7 +132,10 @@ export function DashboardView({ data, firstName, readOnly }: { data: DashboardDa
 
   const pick = data.pick && !gone.has(data.pick.id) ? data.pick : null
   const rows = data.rows.filter(r => !gone.has(r.id))
-  const shortlisted = (pick ? 1 : 0) + rows.length
+  // Counts cover every live opportunity, not just the rows previewed here.
+  const goneRows = data.rows.length - rows.length
+  const shortlisted = data.stats.shortlisted - goneRows - (data.pick && !pick ? 1 : 0)
+  const otherCount = data.otherCount - goneRows
   const ready = data.apps.filter(a => !gone.has(a.id)).length
 
   const nShort = useCountUp(data.stats.shortlisted, 700, countsOn)
@@ -380,7 +383,7 @@ export function DashboardView({ data, firstName, readOnly }: { data: DashboardDa
             <span className="section-label">
               Also shortlisted{' '}
               <span className="section-count">
-                (<FadeNumber value={String(rows.length)} />)
+                (<FadeNumber value={String(otherCount)} />)
               </span>
             </span>
           </div>
@@ -427,7 +430,8 @@ export function DashboardView({ data, firstName, readOnly }: { data: DashboardDa
                 </div>
               )
             })}
-            {pick && rows.length === 0 && !data.rows.some(r => reasonFor === r.id) && (
+            {/* TODO(D3): "View all opportunities →" linking to /opportunities once that page exists. */}
+            {pick && rows.length === 0 && otherCount === 0 && !data.rows.some(r => reasonFor === r.id) && (
               <div className="empty-line">You’ve reviewed everything shortlisted. Careerely will surface new opportunities as they appear.</div>
             )}
           </div>

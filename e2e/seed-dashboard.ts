@@ -28,6 +28,9 @@ const JOBS: Job[] = [
   { company: 'Cohere', title: 'Account Executive, EMEA', location: 'London, UK', work_style: 'hybrid', description: 'Sell Cohere’s platform to enterprises in EMEA.\n\n• Enterprise sales experience' },
   { company: 'Shopify', title: 'Partnerships Manager', location: 'Toronto, Canada', work_style: 'hybrid', description: 'Grow Shopify’s partner ecosystem.\n\n• Partnerships experience' },
   { company: 'Criteo', title: 'Business Development Manager', location: 'Paris, France', work_style: 'hybrid', salary: [90000, 115000, 'EUR'], description: 'Develop new business for Criteo.\n\n• Full-cycle business development' },
+  { company: 'Nubank', title: 'Partnerships Lead', location: 'São Paulo, Brazil', work_style: 'hybrid', description: 'Lead partnerships for Nubank.\n\n• Partnerships experience' },
+  { company: 'Snowflake', title: 'Senior Partnerships Manager', location: 'Remote', work_style: 'remote', salary: [130000, 160000, 'USD'], description: 'Grow Snowflake’s partner ecosystem.\n\n• Partner-led sales experience' },
+  { company: 'Databricks', title: 'Strategic Account Executive', location: 'Remote', work_style: 'remote', salary: [140000, 180000, 'USD'], description: 'Sell the Databricks platform to strategic accounts.\n\n• Enterprise sales experience' },
 ]
 
 const RESUME_TEXT = 'Lisa Fiskum\nAML Analyst, Nordic Bank\n• Led due diligence on complex crypto cases\n• Worked with sales on onboarding enterprise clients\nBusiness Development Associate, Fintech Startup\n• Built a pipeline of 40 partner banks'
@@ -83,7 +86,7 @@ export async function seedDashboardUser(admin: SupabaseClient, opts: { email: st
   const run = await check(
     admin
       .from('search_runs')
-      .insert({ user_id: userId, search_id: search.id, status: 'succeeded', jobs_reviewed: 4393, jobs_rejected: 3021, jobs_deferred: 1361, jobs_shortlisted: 5, started_at: iso(9 * 60_000), finished_at: iso(3 * 60_000) })
+      .insert({ user_id: userId, search_id: search.id, status: 'succeeded', jobs_reviewed: 4393, jobs_rejected: 3021, jobs_deferred: 1361, jobs_shortlisted: 8, started_at: iso(9 * 60_000), finished_at: iso(3 * 60_000) })
       .select('id')
       .single(),
   )
@@ -145,6 +148,10 @@ export async function seedDashboardUser(admin: SupabaseClient, opts: { email: st
   const cohere = await opp('Cohere', 3, 'preparing', 77, true)
   const shopify = await opp('Shopify', 4, 'shortlisted', 74, true)
   const criteo = await opp('Criteo', 5, 'shortlisted', 72, false)
+  // Beyond the dashboard's five-row preview.
+  const nubank = await opp('Nubank', 6, 'shortlisted', 70, true)
+  const snowflake = await opp('Snowflake', 7, 'shortlisted', 68, true)
+  const databricks = await opp('Databricks', 8, 'shortlisted', 66, true)
 
   const evidenceFor = async (oppId: string, company: string) => {
     const rows = await check(
@@ -165,6 +172,9 @@ export async function seedDashboardUser(admin: SupabaseClient, opts: { email: st
     [cohere, 'Cohere'],
     [shopify, 'Shopify'],
     [criteo, 'Criteo'],
+    [nubank, 'Nubank'],
+    [snowflake, 'Snowflake'],
+    [databricks, 'Databricks'],
   ] as const)
     await evidenceFor(o.id, c)
 
@@ -200,10 +210,10 @@ export async function seedDashboardUser(admin: SupabaseClient, opts: { email: st
     await check(admin.from('activity').insert({ user_id: userId, kind: 'application_prepared', opportunity_id: o.id, application_id: app.id, payload: {}, created_at: iso(2 * 60_000) }))
     return app.id as string
   }
-  await check(admin.from('activity').insert({ user_id: userId, kind: 'opportunities_shortlisted', payload: { count: 5, run_id: run.id }, created_at: iso(3 * 60_000) }))
+  await check(admin.from('activity').insert({ user_id: userId, kind: 'opportunities_shortlisted', payload: { count: 8, run_id: run.id }, created_at: iso(3 * 60_000) }))
   const stripeApp = await prepared(stripe, 'Stripe')
   const rampApp = await prepared(ramp, 'Ramp')
   await check(admin.from('application_packages').insert({ user_id: userId, opportunity_id: cohere.id, status: 'preparing', quota_period_start: iso(40 * 86_400_000) }))
 
-  return { userId, opportunities: { stripe: stripe.id, ramp: ramp.id, cohere: cohere.id, shopify: shopify.id, criteo: criteo.id }, applications: { stripe: stripeApp, ramp: rampApp } }
+  return { userId, opportunities: { stripe: stripe.id, ramp: ramp.id, cohere: cohere.id, shopify: shopify.id, criteo: criteo.id, nubank: nubank.id, snowflake: snowflake.id, databricks: databricks.id }, applications: { stripe: stripeApp, ramp: rampApp } }
 }

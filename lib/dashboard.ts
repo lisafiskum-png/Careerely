@@ -201,9 +201,15 @@ async function recentActivity(supabase: SupabaseClient): Promise<DashActivity[]>
   return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 8)
 }
 
+/** Dashboard presentation limit (2026-10-01): My Pick plus up to 5 more. Not an engine cap. */
+export const DASHBOARD_SHORTLIST_ROWS = 5
+
 export type DashboardData = {
   pick: DashPick | null
+  /** Preview of the shortlist after My Pick: at most DASHBOARD_SHORTLIST_ROWS, in stored rank order. */
   rows: DashOpportunity[]
+  /** All live opportunities after My Pick, including those beyond the preview. */
+  otherCount: number
   apps: DashOpportunity[]
   activity: DashActivity[]
   stats: { shortlisted: number; ready: number; reviewedInLatest: number | null; lastScanAt: string | null }
@@ -214,7 +220,8 @@ export type DashboardData = {
 export async function loadDashboard(userId: string): Promise<DashboardData> {
   const supabase = await createClient()
   const [{ list, raw, anyDismissed }, scan, activity] = await Promise.all([getLiveOpportunities(), getScanStatus(userId), recentActivity(supabase)])
-  const [top, ...rows] = list
+  const [top, ...others] = list
+  const rows = others.slice(0, DASHBOARD_SHORTLIST_ROWS)
   let pick: DashPick | null = null
   if (top) {
     const r = raw.get(top.id)!
@@ -224,6 +231,7 @@ export async function loadDashboard(userId: string): Promise<DashboardData> {
   return {
     pick,
     rows,
+    otherCount: others.length,
     apps,
     activity,
     stats: { shortlisted: list.length, ready: apps.length, reviewedInLatest: scan.reviewedInLatest, lastScanAt: scan.lastScanAt },
