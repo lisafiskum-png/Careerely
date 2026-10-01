@@ -237,7 +237,8 @@ test.describe.serial('dashboard', () => {
     await expect(panel.getByRole('menuitem', { name: 'Download cover letter PDF' })).toBeVisible()
     await page.keyboard.press('Escape')
     const res = await page.request.post(`/api/applications/${readOnlySeed.applications.stripe}/applied`)
-    expect(res.status()).toBe(409)
+    expect(res.status()).toBe(403)
+    expect(await res.json()).toMatchObject({ code: 'read_only' })
   })
 
   test('mobile layout', async ({ page }) => {

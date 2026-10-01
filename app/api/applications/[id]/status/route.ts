@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { requireUser, unauthorizedResponse, UnauthorizedError } from '../../../../../lib/auth'
+import { readOnlyResponse } from '../../../../../lib/write-access'
 import { createClient } from '../../../../../lib/supabase/server'
 import { createAdminClient } from '../../../../../lib/supabase/admin'
 
@@ -19,6 +20,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     const { id } = await ctx.params
     const parsed = Body.safeParse(await request.json().catch(() => null))
     if (!parsed.success || !/^[0-9a-f-]{36}$/i.test(id)) return Response.json({ error: 'Invalid request' }, { status: 400 })
+    const readOnly = await readOnlyResponse()
+    if (readOnly) return readOnly
 
     const supabase = await createClient()
     const { data: current } = await supabase.from('applications').select('id, status, outcome, opportunity_id').eq('id', id).maybeSingle()
@@ -39,9 +42,11 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       .single()
     if (error) return Response.json({ error: 'Couldn’t update this application.' }, { status: 409 })
 
-    await createAdminClient()
+    // The status change stands; a lost activity event is logged (see applied route).
+    const { error: activityError } = await createAdminClient()
       .from('activity')
       .insert({ user_id: user.id, kind: 'application_status_changed', opportunity_id: current.opportunity_id, application_id: id, payload: change })
+    if (activityError) console.error('activity insert failed (application_status_changed)', id, activityError)
     return Response.json(change)
   } catch (err) {
     if (err instanceof UnauthorizedError) return unauthorizedResponse()

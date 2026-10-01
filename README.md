@@ -212,3 +212,16 @@ Settings → Billing → Customer portal, default configuration:
   force until then).
 - Make sure the webhook above is subscribed to `customer.subscription.updated`
   and `customer.subscription.deleted`, which carry portal changes.
+
+## Signed-in actions (Phase D7)
+
+Every signed-in action is an API route under `app/api/` that takes the user
+from the session, never from the request. Ownership is enforced by row level
+security: another user's opportunity, application or search is "not found"
+(404) and unchanged. Writes by read-only accounts all return
+`403 { error: 'Your account is read-only.', code: 'read_only' }`
+(`lib/write-access.ts`, the canonical access rule; RLS remains the backstop).
+Reading, PDF downloads and Manage billing stay available to read-only
+accounts. Signed-out requests get 401. After each action the page refreshes
+its server data, so nav badges, Dashboard, Opportunities, Applications and
+Searches agree. `e2e/access.spec.ts` covers these rules across all actions.
