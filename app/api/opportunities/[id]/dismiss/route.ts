@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { requireUser, unauthorizedResponse, UnauthorizedError } from '../../../../../lib/auth'
+import { readOnlyResponse } from '../../../../../lib/write-access'
 import { createClient } from '../../../../../lib/supabase/server'
 
 const Body = z.object({ reason: z.enum(['role', 'company', 'location', 'salary', 'industry', 'other']).nullable().optional() })
@@ -14,6 +15,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     const parsed = Body.safeParse(await request.json().catch(() => ({})))
     if (!parsed.success || !/^[0-9a-f-]{36}$/i.test(id)) return Response.json({ error: 'Invalid request' }, { status: 400 })
     const reason = parsed.data.reason ?? null
+    const readOnly = await readOnlyResponse()
+    if (readOnly) return readOnly
 
     const supabase = await createClient()
     const { data: opp } = await supabase.from('opportunities').select('id, state, dismissed_at').eq('id', id).maybeSingle()

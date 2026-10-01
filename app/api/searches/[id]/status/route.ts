@@ -1,6 +1,7 @@
 import { after } from 'next/server'
 import { z } from 'zod'
 import { requireUser, unauthorizedResponse, UnauthorizedError } from '../../../../../lib/auth'
+import { readOnlyResponse } from '../../../../../lib/write-access'
 import { createClient } from '../../../../../lib/supabase/server'
 import { createAdminClient } from '../../../../../lib/supabase/admin'
 import { enqueueResumeScan, runWorker } from '../../../../../lib/engine/queue'
@@ -19,6 +20,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     const { id } = await ctx.params
     const parsed = Body.safeParse(await request.json().catch(() => null))
     if (!parsed.success || !/^[0-9a-f-]{36}$/i.test(id)) return Response.json({ error: 'Invalid request' }, { status: 400 })
+    const readOnly = await readOnlyResponse()
+    if (readOnly) return readOnly
 
     const supabase = await createClient()
     const { data: current } = await supabase.from('searches').select('id, status').eq('id', id).maybeSingle()

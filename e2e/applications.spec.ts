@@ -260,7 +260,9 @@ test.describe.serial('applications', () => {
     await expect(panel.getByRole('menuitem', { name: 'Download cover letter PDF' })).toBeVisible()
     await page.keyboard.press('Escape')
     const { data: n26 } = await admin.from('applications').select('id').eq('user_id', readOnlySeed.userId).eq('status', 'applied').is('outcome', null).limit(1).single()
-    expect((await page.request.post(`/api/applications/${n26!.id}/status`, { data: { status: 'interview' } })).status()).toBe(409)
+    const res = await page.request.post(`/api/applications/${n26!.id}/status`, { data: { status: 'interview' } })
+    expect(res.status()).toBe(403)
+    expect(await res.json()).toMatchObject({ code: 'read_only' })
   })
 
   test('mobile layout', async ({ page }) => {

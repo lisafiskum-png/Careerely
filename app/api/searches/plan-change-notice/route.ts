@@ -1,4 +1,5 @@
 import { requireUser, unauthorizedResponse, UnauthorizedError } from '../../../../lib/auth'
+import { readOnlyResponse } from '../../../../lib/write-access'
 import { createClient } from '../../../../lib/supabase/server'
 
 // Dismisses the "paused when your plan changed" notice (Phase D6). User-level
@@ -7,6 +8,8 @@ import { createClient } from '../../../../lib/supabase/server'
 export async function DELETE() {
   try {
     await requireUser()
+    const readOnly = await readOnlyResponse()
+    if (readOnly) return readOnly
     const supabase = await createClient()
     const { error } = await supabase.rpc('dismiss_plan_change_notice')
     if (error) return Response.json({ error: 'Couldn’t dismiss this notice.' }, { status: 409 })

@@ -125,6 +125,7 @@ export function DashboardView({ data, firstName, readOnly }: { data: DashboardDa
   const [collapsing, setCollapsing] = useState<Set<string>>(new Set())
   const [gone, setGone] = useState<Set<string>>(new Set())
   const [confirmFor, setConfirmFor] = useState<string | null>(null)
+  const [dismissError, setDismissError] = useState<string | null>(null)
   const [panel, setPanel] = useState<{ id: string; isPick: boolean } | null>(null)
   const [pulse, setPulse] = useState<string | null>(null)
   const appsRef = useRef<HTMLElement>(null)
@@ -197,6 +198,7 @@ export function DashboardView({ data, firstName, readOnly }: { data: DashboardDa
   const requestDismiss = useCallback(
     (id: string) => {
       if (panel?.id === id) setPanel(null)
+      setDismissError(null)
       setConfirmFor(id)
     },
     [panel],
@@ -207,7 +209,12 @@ export function DashboardView({ data, firstName, readOnly }: { data: DashboardDa
     async (id: string, reason: DismissReason | null) => {
       setConfirmFor(null)
       const res = await fetch(`/api/opportunities/${id}/dismiss`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) }).catch(() => null)
-      if (!res?.ok) return
+      if (!res?.ok) {
+        // Nothing was dismissed: say so, and re-read in case the opportunity changed.
+        setDismissError(id)
+        router.refresh()
+        return
+      }
       setCollapsing(s => new Set(s).add(id))
       setTimeout(() => {
         setGone(s => new Set(s).add(id))
@@ -225,6 +232,12 @@ export function DashboardView({ data, firstName, readOnly }: { data: DashboardDa
   const onApplied = useCallback(() => router.refresh(), [router])
 
   const prompt = (id: string) => <DismissPrompt key={`dismiss-${id}`} onConfirm={reason => confirmDismiss(id, reason)} onCancel={cancelDismiss} />
+  const dismissFailed = (id: string) =>
+    dismissError === id && (
+      <div className="ft-error" role="alert" data-testid="dismiss-error" style={{ padding: '8px 0' }}>
+        Couldn’t dismiss this opportunity. Please try again.
+      </div>
+    )
 
   const rowKey = (e: React.KeyboardEvent, fn: () => void) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -361,6 +374,7 @@ export function DashboardView({ data, firstName, readOnly }: { data: DashboardDa
           </div>
         )}
         {pick && confirmFor === pick.id && !readOnly && <div style={{ marginTop: 12 }}>{prompt(pick.id)}</div>}
+        {pick && dismissFailed(pick.id)}
       </section>
 
       {/* ALSO SHORTLISTED */}
@@ -419,6 +433,7 @@ export function DashboardView({ data, firstName, readOnly }: { data: DashboardDa
                   </div>
                 </div>
                 {confirmFor === r.id && !readOnly && prompt(r.id)}
+                {dismissFailed(r.id)}
                 </Fragment>
               )
             })}

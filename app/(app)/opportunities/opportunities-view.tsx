@@ -53,6 +53,7 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
   const [collapsing, setCollapsing] = useState<Set<string>>(new Set())
   const [gone, setGone] = useState<Set<string>>(new Set())
   const [confirmFor, setConfirmFor] = useState<string | null>(null)
+  const [dismissError, setDismissError] = useState<string | null>(null)
   const [panel, setPanel] = useState<{ id: string; isPick: boolean } | null>(null)
   const [pulse, setPulse] = useState<string | null>(null)
 
@@ -81,6 +82,7 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
   const requestDismiss = useCallback(
     (id: string) => {
       if (panel?.id === id) setPanel(null)
+      setDismissError(null)
       setConfirmFor(id)
     },
     [panel],
@@ -91,7 +93,12 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
     async (id: string, reason: DismissReason | null) => {
       setConfirmFor(null)
       const res = await fetch(`/api/opportunities/${id}/dismiss`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) }).catch(() => null)
-      if (!res?.ok) return
+      if (!res?.ok) {
+        // Nothing was dismissed: say so, and re-read in case the opportunity changed.
+        setDismissError(id)
+        router.refresh()
+        return
+      }
       setCollapsing(s => new Set(s).add(id))
       setTimeout(() => {
         setGone(s => new Set(s).add(id))
@@ -107,6 +114,12 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
   )
 
   const prompt = (id: string) => <DismissPrompt key={`dismiss-${id}`} onConfirm={reason => confirmDismiss(id, reason)} onCancel={cancelDismiss} />
+  const dismissFailed = (id: string) =>
+    dismissError === id && (
+      <div className="ft-error" role="alert" data-testid="dismiss-error" style={{ padding: '8px 0' }}>
+        Couldn’t dismiss this opportunity. Please try again.
+      </div>
+    )
 
   const onKey = (e: React.KeyboardEvent, fn: () => void) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -241,6 +254,7 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
           )}
 
           {pick && confirmFor === pick.id && !readOnly && <div style={{ margin: '-32px 0 40px' }}>{prompt(pick.id)}</div>}
+          {pick && dismissFailed(pick.id)}
 
           <section className={`seq${shown >= 2 ? ' in' : ''}`} aria-label="Also shortlisted" hidden={others.length === 0}>
             <div className="op-section">
@@ -299,6 +313,7 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
                     </div>
                   </div>
                   {confirmFor === o.id && !readOnly && prompt(o.id)}
+                  {dismissFailed(o.id)}
                   </Fragment>
                 )
               })}

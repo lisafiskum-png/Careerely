@@ -1,5 +1,6 @@
 import { after } from 'next/server'
 import { requireUser, unauthorizedResponse, UnauthorizedError } from '../../../lib/auth'
+import { readOnlyResponse } from '../../../lib/write-access'
 import { createClient } from '../../../lib/supabase/server'
 import { createAdminClient } from '../../../lib/supabase/admin'
 import { enqueueFirstScan, runWorker } from '../../../lib/engine/queue'
@@ -15,6 +16,8 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null
     const parsed = validateSearch(body)
     if (!parsed.ok) return Response.json({ error: parsed.error }, { status: 400 })
+    const readOnly = await readOnlyResponse()
+    if (readOnly) return readOnly
     const status = body?.status === 'paused' ? 'paused' : 'active'
 
     // RLS: own row and an active plan; the database enforces the active-search limit.

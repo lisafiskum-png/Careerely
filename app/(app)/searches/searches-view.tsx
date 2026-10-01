@@ -118,8 +118,10 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
   const { plan, activeCount, searches } = data
   const atLimit = plan !== null && plan.limit !== null && activeCount >= plan.limit
 
+  const [noticeError, setNoticeError] = useState(false)
   async function dismissPlanNotice() {
-    await fetch('/api/searches/plan-change-notice', { method: 'DELETE' }).catch(() => null)
+    const res = await fetch('/api/searches/plan-change-notice', { method: 'DELETE' }).catch(() => null)
+    setNoticeError(!res?.ok)
     router.refresh()
   }
 
@@ -205,6 +207,11 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
             <button className="sc-dismiss" onClick={dismissPlanNotice}>
               Dismiss
             </button>
+          )}
+          {noticeError && (
+            <span className="ft-error" role="alert">
+              Couldn’t dismiss this notice. Please try again.
+            </span>
           )}
         </div>
       )}

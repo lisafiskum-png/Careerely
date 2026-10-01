@@ -1,4 +1,5 @@
 import { requireUser, unauthorizedResponse, UnauthorizedError } from '../../../../lib/auth'
+import { readOnlyResponse } from '../../../../lib/write-access'
 import { createClient } from '../../../../lib/supabase/server'
 import { searchColumns, searchWriteError, validateSearch } from '../../../../lib/search-input'
 
@@ -13,6 +14,8 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
     if (!/^[0-9a-f-]{36}$/i.test(id)) return Response.json({ error: 'Invalid request' }, { status: 400 })
     const parsed = validateSearch(await request.json().catch(() => null))
     if (!parsed.ok) return Response.json({ error: parsed.error }, { status: 400 })
+    const readOnly = await readOnlyResponse()
+    if (readOnly) return readOnly
 
     // RLS: own search and an active plan (read-only accounts can't edit).
     const supabase = await createClient()

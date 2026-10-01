@@ -287,17 +287,94 @@ describe('foundation migration', () => {
       [ALICE, opp.rows[0].id, job.rows[0].id],
     )
     const id = app.rows[0].id
-    const asAlice = (sql: string) => asUser(ALICE, () => db.query(sql, [id]))
+    // The trigger holds for every writer (here the server role).
+    const asServer = (sql: string) => db.query(sql, [id])
 
-    await expect(asAlice(`update public.applications set outcome = 'declined' where id = $1`)).rejects.toThrow(/Only a submitted application can be closed/)
-    await expect(asAlice(`update public.applications set status = 'interview' where id = $1`)).rejects.toThrow(/needs its applied date/)
-    await asAlice(`update public.applications set status = 'applied', applied_at = now() where id = $1`)
-    await asAlice(`update public.applications set status = 'interview' where id = $1`)
-    await asAlice(`update public.applications set outcome = 'withdrawn' where id = $1`)
-    await asAlice(`update public.applications set status = 'offer', outcome = null where id = $1`) // reopen
-    await expect(asAlice(`update public.applications set status = 'ready_to_apply', outcome = null where id = $1`)).rejects.toThrow(/cannot return to Ready to apply/)
+    await expect(asServer(`update public.applications set outcome = 'declined' where id = $1`)).rejects.toThrow(/Only a submitted application can be closed/)
+    await expect(asServer(`update public.applications set status = 'interview' where id = $1`)).rejects.toThrow(/needs its applied date/)
+    await asServer(`update public.applications set status = 'applied', applied_at = now() where id = $1`)
+    await asServer(`update public.applications set status = 'interview' where id = $1`)
+    await asServer(`update public.applications set outcome = 'withdrawn' where id = $1`)
+    await asServer(`update public.applications set status = 'offer', outcome = null where id = $1`) // reopen
+    await expect(asServer(`update public.applications set status = 'ready_to_apply', outcome = null where id = $1`)).rejects.toThrow(/cannot return to Ready to apply/)
     const { rows } = await db.query<{ status: string; outcome: string | null }>('select status, outcome from public.applications where id = $1', [id])
     expect(rows[0]).toEqual({ status: 'offer', outcome: null })
+    // Signed-in users can't change status columns directly (only through the functions below).
+    await expect(asUser(ALICE, () => db.query(`update public.applications set status = 'interview' where id = $1`, [id]))).rejects.toThrow(/permission denied/)
+    await db.query('delete from public.opportunities where id = $1', [opp.rows[0].id])
+  })
+
+  it('writes each application status change and its history event in one transaction (D7)', async () => {
+    await setSubscription(ALICE, 'pro', 'active', '20 days')
+    const job = await db.query<{ id: string }>(
+      `insert into public.jobs (source, source_job_id, url, title) values ('greenhouse', 'apps-tx', 'https://x', 'AE') returning id`,
+    )
+    const opp = await db.query<{ id: string }>(`insert into public.opportunities (user_id, job_id, state) values ($1, $2, 'ready') returning id`, [ALICE, job.rows[0].id])
+    const { rows: created } = await db.query<{ id: string }>(
+      `insert into public.applications (user_id, opportunity_id, job_id, status) values ($1, $2, $3, 'ready_to_apply') returning id`,
+      [ALICE, opp.rows[0].id, job.rows[0].id],
+    )
+    const id = created[0].id
+    const state = async () => (await db.query<{ status: string; outcome: string | null; applied: boolean }>(`select status::text, outcome::text, applied_at is not null as applied from public.applications where id = $1`, [id])).rows[0]
+    const events = async () =>
+      (await db.query<{ kind: string; payload: unknown }>(`select kind, payload from public.activity where application_id = $1 order by created_at, kind`, [id])).rows
+    const asAlice = (sql: string, params: unknown[] = [id]) => asUser(ALICE, () => db.query(sql, params))
+
+    // If the history event can't be written, the status change doesn't commit.
+    await db.exec(`
+      create function public.test_fail_activity() returns trigger language plpgsql as $$ begin raise exception 'history write failed'; end; $$;
+      create trigger test_fail_activity before insert on public.activity for each row execute function public.test_fail_activity();
+    `)
+    await expect(asAlice(`select public.mark_application_applied($1)`)).rejects.toThrow(/history write failed/)
+    expect(await state()).toEqual({ status: 'ready_to_apply', outcome: null, applied: false })
+    expect(await events()).toEqual([])
+
+    // Initial apply: the change and exactly one application_applied event; a repeat records nothing.
+    await db.exec(`drop trigger test_fail_activity on public.activity; drop function public.test_fail_activity();`)
+    await asAlice(`select public.mark_application_applied($1)`)
+    expect(await state()).toEqual({ status: 'applied', outcome: null, applied: true })
+    expect(await events()).toEqual([{ kind: 'application_applied', payload: {} }])
+    await expect(asAlice(`select public.mark_application_applied($1)`)).rejects.toThrow(/not waiting to be applied to/)
+    expect(await events()).toHaveLength(1)
+
+    // Later changes: one event each; choosing the current state records nothing.
+    await asAlice(`select public.set_application_status($1, 'interview', null)`)
+    await asAlice(`select public.set_application_status($1, 'interview', null)`)
+    await asAlice(`select public.set_application_status($1, null, 'withdrawn')`)
+    expect(await state()).toEqual({ status: 'interview', outcome: 'withdrawn', applied: true })
+    expect((await events()).map(e => e.payload)).toEqual([{}, { status: 'interview', outcome: null }, { status: 'interview', outcome: 'withdrawn' }])
+
+    // A failed history write rolls back a later change too.
+    await db.exec(`
+      create function public.test_fail_activity() returns trigger language plpgsql as $$ begin raise exception 'history write failed'; end; $$;
+      create trigger test_fail_activity before insert on public.activity for each row execute function public.test_fail_activity();
+    `)
+    await expect(asAlice(`select public.set_application_status($1, 'offer', null)`)).rejects.toThrow(/history write failed/)
+    expect(await state()).toEqual({ status: 'interview', outcome: 'withdrawn', applied: true })
+    await db.exec(`drop trigger test_fail_activity on public.activity; drop function public.test_fail_activity();`)
+    expect(await events()).toHaveLength(3)
+
+    // Own applications only; invalid input and read-only accounts change nothing.
+    await expect(asUser(BOB, () => db.query(`select public.set_application_status($1, 'offer', null)`, [id]))).rejects.toThrow(/not found/)
+    await expect(asAlice(`select public.set_application_status($1, 'offer', 'declined')`)).rejects.toThrow(/Invalid status change/)
+    await setSubscription(ALICE, 'pro', 'canceled', '-1 day')
+    await expect(asAlice(`select public.set_application_status($1, 'offer', null)`)).rejects.toThrow(/read-only/)
+    expect(await state()).toEqual({ status: 'interview', outcome: 'withdrawn', applied: true })
+    expect(await events()).toHaveLength(3)
+    await setSubscription(ALICE, 'pro', 'active', '20 days')
+
+    // Only signed-in users may run them; the user always comes from auth.uid().
+    for (const fn of ['public.mark_application_applied(uuid)', 'public.set_application_status(uuid,text,text)']) {
+      const { rows: grants } = await db.query<{ role: string; ok: boolean }>(
+        `select r as role, has_function_privilege(r, $1, 'EXECUTE') as ok from unnest(array['anon', 'authenticated', 'service_role']) r order by r`,
+        [fn],
+      )
+      expect(grants, fn).toEqual([
+        { role: 'anon', ok: false },
+        { role: 'authenticated', ok: true },
+        { role: 'service_role', ok: false },
+      ])
+    }
     await db.query('delete from public.opportunities where id = $1', [opp.rows[0].id])
   })
 
