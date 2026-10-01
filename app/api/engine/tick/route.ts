@@ -1,7 +1,8 @@
 import { createAdminClient } from '../../../../lib/supabase/admin'
 import { ensureNightly, runWorker } from '../../../../lib/engine/queue'
 
-// Opportunity Engine scheduler. Called by Vercel Cron (see vercel.json) with
+// Opportunity Engine scheduler. Called every 5 minutes by Supabase Cron
+// (pg_cron + pg_net; see README → Scheduling) with
 // `Authorization: Bearer <CRON_SECRET>`. Each call queues tonight's run if it's
 // due, then works through the queue for a bounded time.
 

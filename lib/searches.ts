@@ -17,8 +17,10 @@ const RUNNING_RUN_MAX_AGE_MS = 6 * 3600_000
 export type SearchScan =
   /** A scan of this search is running, or queued for a search scanned before. */
   | { state: 'scanning'; lastScanAt: string | null }
-  /** Never completed a scan; the first one is queued (or waits for tonight). */
+  /** Never completed a scan; its first scan is queued (a real task exists). */
   | { state: 'first' }
+  /** Never completed a scan and nothing is queued (e.g. over the daily immediate-scan cap): the next nightly run scans it. */
+  | { state: 'nightly' }
   | { state: 'idle'; lastScanAt: string }
 
 export type SearchCard = {
@@ -127,9 +129,11 @@ export async function loadSearches(userId: string, access: AccessState): Promise
   }
   const inProgress = new Set((running ?? []).map(r => r.search_id))
   const queued = new Set<string>()
+  const pending = new Set<string>()
   const now = Date.now()
   for (const t of tasks ?? []) {
     if (!t.search_id) continue
+    pending.add(t.search_id)
     if (t.status === 'running') inProgress.add(t.search_id)
     else if (new Date(t.run_after).getTime() <= now) queued.add(t.search_id)
   }
@@ -139,7 +143,9 @@ export async function loadSearches(userId: string, access: AccessState): Promise
     const scan: SearchScan = inProgress.has(s.id)
       ? { state: 'scanning', lastScanAt: last?.finishedAt ?? null }
       : !last
-        ? { state: 'first' }
+        ? pending.has(s.id)
+          ? { state: 'first' }
+          : { state: 'nightly' }
         : queued.has(s.id)
           ? { state: 'scanning', lastScanAt: last.finishedAt }
           : { state: 'idle', lastScanAt: last.finishedAt }

@@ -49,6 +49,9 @@ function ScanLine({ search, readOnly }: { search: SearchCard; readOnly: boolean 
     main = 'Scanning now…'
   } else if (search.scan.state === 'first') {
     main = 'First scan queued'
+  } else if (search.scan.state === 'nightly') {
+    // Nothing queued (e.g. over the daily cap on immediate scans).
+    main = 'First scan at next nightly run'
   } else {
     main = lastLine
     sub = 'Scans nightly'
@@ -145,7 +148,7 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
     else if (next === 'active') {
       const body = (await res.json().catch(() => null)) as { immediateScan?: boolean } | null
       // Over the daily allowance of immediate scans: resumed, but not scanning now.
-      setScanNotice(body?.immediateScan === false ? 'Search resumed. Its next scan will run tonight.' : null)
+      setScanNotice(body?.immediateScan === false ? 'Search resumed. Its next scan will run at the next nightly run.' : null)
     }
     router.refresh()
   }
@@ -153,7 +156,7 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
   function saved(result: { status?: string; immediateScan?: boolean }) {
     setForm(null)
     setLimitHit(false)
-    setScanNotice(result.status === 'active' && result.immediateScan === false ? 'Search saved. Its next scan will run tonight.' : null)
+    setScanNotice(result.status === 'active' && result.immediateScan === false ? 'Search saved. Its first scan will run at the next nightly run.' : null)
     router.refresh()
   }
 

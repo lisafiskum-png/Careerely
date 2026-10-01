@@ -9,7 +9,7 @@ and design.
 
 ## Stack
 
-- Next.js 16 (App Router) on Vercel Pro
+- Next.js 16 (App Router) on Vercel (Hobby); engine ticks from Supabase Cron
 - Supabase: Postgres, Auth, Storage
 - Stripe subscriptions: Basic $29 / Pro $49 / Max $79 per month
 - Claude API (`claude-sonnet-4-6`)
@@ -105,8 +105,10 @@ an edit applies from the next nightly scan. Immediate scans from these Search
 actions also have a per-user safety cap per UTC day (Basic 1, Pro 5, Max 10;
 `IMMEDIATE_SCANS_PER_DAY`, enforced by `public.claim_immediate_scan()`), not
 shown as a plan entitlement. Over the cap the search is still saved or
-resumed and active, nothing is queued, and the page says "Its next scan will
-run tonight." Onboarding's first scan and nightly scans don't use the cap. A search's optional minimum
+resumed and active, nothing is queued, and the page says its scan "will run
+at the next nightly run" (a never-scanned card shows "First scan at next
+nightly run"; "First scan queued" only when a scan task really exists).
+Onboarding's first scan and nightly scans don't use the cap. A search's optional minimum
 compensation is annual (whole number, up to 10,000,000) and has its own ISO 4217
 currency (`searches.compensation_currency`), compared only with salaries in the
 same currency (no conversion);
@@ -154,15 +156,74 @@ below 60. Two outcomes are not rejections and are kept on
   not low. It is evaluated again once the resume, the search or the posting
   changes.
 
-Scheduling: production runs on Vercel Pro, and Vercel Cron calls
-`/api/engine/tick` every 5 minutes (`*/5 * * * *` in `vercel.json`) with
-`Authorization: Bearer <CRON_SECRET>`. The engine is built around these
-repeated ticks: each tick queues the nightly run when it's due (02:00 UTC,
-`ENGINE_NIGHTLY_HOUR_UTC`) and works through `engine_tasks` for up to 4
+Scheduling: the engine is built around repeated ticks of
+`GET /api/engine/tick` (with `Authorization: Bearer <CRON_SECRET>`), every 5
+minutes in production. Each tick queues the nightly run when it's due (02:00
+UTC, `ENGINE_NIGHTLY_HOUR_UTC`) and works through `engine_tasks` for up to 4
 minutes, so syncs, the scans queued 30 minutes later, preparation decisions
-and packages complete over the following ticks. (Vercel Hobby only allows a
-daily cron, which would leave nightly scans waiting a day; it is not a
-supported production setup.) Finishing onboarding queues the user's first scan
+and packages complete over the following ticks. Production stays on Vercel
+Hobby, so the ticks come from **Supabase Cron**, not Vercel Cron (there is no
+`vercel.json` cron). User actions (onboarding, new or resumed searches) also
+start the worker straight away.
+
+### Supabase Cron setup (production, once)
+
+The secret lives in Supabase Vault, never in this repository, in SQL you
+save, or in the cron job's command text.
+
+1. **Choose the secret.** Generate a long random value (for example
+   `openssl rand -hex 32`). In Vercel → Project → Settings → Environment
+   Variables, set `CRON_SECRET` to it for Production, then redeploy so the
+   tick endpoint uses it.
+2. **Enable the extensions.** Supabase Dashboard → Integrations → **Cron**:
+   enable it (installs `pg_cron`). Database → Extensions: enable **pg_net**.
+   Vault (`supabase_vault`) is enabled on every Supabase project.
+3. **Store the secret in Vault.** Dashboard → Integrations → **Vault** → Add
+   new secret: name `careerely_cron_secret`, value = the same value as
+   `CRON_SECRET`. (Using the Vault screen keeps the value out of SQL editor
+   history.)
+4. **Schedule the job.** In the SQL editor, run:
+
+   ```sql
+   select cron.schedule(
+     'careerely-engine-tick',
+     '*/5 * * * *',
+     $$
+     select net.http_get(
+       url := 'https://www.careerely.ai/api/engine/tick',
+       headers := jsonb_build_object(
+         'Authorization',
+         'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'careerely_cron_secret')
+       ),
+       timeout_milliseconds := 300000
+     );
+     $$
+   );
+   ```
+
+   The command only references the Vault secret by name; the value is read at
+   run time. Use the exact production host (`https://www.careerely.ai`) so no
+   redirect drops the header. The 300 s timeout matches the tick's
+   `maxDuration` (the worker itself stops after 4 minutes).
+5. **Verify** (a few minutes later):
+
+   ```sql
+   select jobid, jobname, schedule, active from cron.job;
+   select status, return_message, start_time from cron.job_run_details order by start_time desc limit 5;
+   select status_code, error_msg, created from net._http_response order by created desc limit 5;
+   ```
+
+   Expect `succeeded` runs and HTTP `200` responses (a JSON body like
+   `{"processed":…,"failed":…}`). `401` means the Vault secret and Vercel's
+   `CRON_SECRET` differ. Vercel → Logs shows the matching `/api/engine/tick`
+   requests every 5 minutes.
+6. **Rotate the secret:** set the new value in Vercel and redeploy, then
+   update it in Vault (Integrations → Vault → edit `careerely_cron_secret`).
+   Ticks in between return 401 and are simply retried 5 minutes later.
+7. **Pause or remove:** `select cron.unschedule('careerely-engine-tick');`
+
+On Vercel Hobby the tick's `maxDuration = 300` needs Fluid compute (on by
+default for new projects; Vercel → Project → Settings → Functions). Finishing onboarding queues the user's first scan
 immediately. `npm test` includes an end-to-end engine run against the local
 Supabase stack when it's running.
 
@@ -265,8 +326,10 @@ Can't be validated locally (stand-ins are used); check once in production:
 4. First scan after onboarding finishes (Vercel function logs for the
    onboarding request's `after()` work; `engine_tasks` rows `done`), and the
    ATS boards are reachable from Vercel.
-5. Cron: `/api/engine/tick` runs at the scheduled time with `CRON_SECRET`
-   (Vercel → Cron Jobs → logs) and the nightly tasks complete.
+5. Supabase Cron calls `/api/engine/tick` every 5 minutes with the Vault
+   secret (`cron.job_run_details` succeeded, `net._http_response` 200, Vercel
+   logs), and the 02:00 UTC nightly run completes over the following ticks
+   with no tasks stuck in `engine_tasks`.
 6. A prepared application's PDFs download and open.
 7. Manage billing opens the portal; cancel at period end, then undo; switch
    plans (upgrade now, downgrade at period end) with the documented portal
