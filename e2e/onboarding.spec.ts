@@ -221,7 +221,21 @@ test.describe.serial('onboarding', () => {
     expect(profile!.onboarding_completed_at).not.toBeNull()
 
     await page.getByRole('button', { name: 'Go to my dashboard' }).click()
-    await expect(page.getByText('You’re on Pro').or(page.getByText("You're on Pro"))).toBeVisible()
+    // Phase D: the dashboard shows the first scan running, with no invented numbers.
+    await expect(page.getByRole('heading', { name: /Here's what Careerely\s*found for you\./ })).toBeVisible()
+    // With no postings synced yet the scan waits; if earlier runs left postings
+    // in the local database it may already have finished.
+    const status = (await page.getByTestId('scan-status').textContent()) ?? ''
+    if (status === 'Scanning the market') {
+      await expect(page.getByTestId('pick-empty')).toHaveText('Your first scan is running. Opportunities will appear here when it finishes.')
+      await expect(page.getByTestId('stat-line')).toContainText(/0\s*shortlisted/)
+      await expect(page.getByTestId('stat-line')).not.toContainText('reviewed')
+    } else {
+      expect(status).toMatch(/^Last scan /)
+      await expect(page.getByTestId('stat-line')).toContainText(/reviewed in latest scan/)
+    }
+    await page.waitForTimeout(1200)
+    if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, status === 'Scanning the market' ? 'desktop-first-scan.png' : 'desktop-empty-after-scan.png') })
 
     // Finished users skip onboarding and guest pages.
     await page.goto('/onboarding/2')

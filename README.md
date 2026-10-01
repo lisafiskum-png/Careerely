@@ -45,6 +45,9 @@ Apply the database schema before first use; see [`supabase/README.md`](supabase/
 - `lib/plans.ts`: plans, limits and access rules (mirrored in the database)
 - `lib/billing.ts`, `lib/stripe.ts`: Stripe subscription sync
 - `lib/engine/`: Opportunity Engine (see below)
+- `app/(app)/`: signed-in app: top-bar shell and Dashboard (`app.css` ports
+  `design/dashboard-final.html`); `lib/dashboard.ts` and
+  `lib/opportunity-detail.ts` read the stored data it shows
 - `supabase/migrations/`: database schema and row level security
 - `tests/`: Vitest suites
 
@@ -62,6 +65,21 @@ docker run -d -p 12111:12111 stripe/stripe-mock           # Stripe API stand-in
 The Claude API is replaced by `e2e/mock-anthropic.mjs`, and the Stripe-hosted
 checkout page is simulated by the test (payment succeeds, the webhook's
 subscription row is written, Stripe redirects back).
+
+## Dashboard (Phase D)
+
+`/dashboard` follows `design/dashboard-final.html` (locked). Every number and
+claim comes from stored data: counts from the user's live opportunities and
+applications, "reviewed in latest scan" and "last scan" from the latest
+completed `search_runs` row, evidence and reasoning from the engine's records.
+The opportunity panel (`/api/opportunities/[id]`) shows Summary (Why I picked
+this · What Careerely changed · Things I considered), Resume, Cover letter and
+The role. Actions: "Not for me" with an optional reason (Shortlisted only,
+enforced in the database), "Continue to application" then "Did you apply?",
+and PDF downloads of the prepared documents.
+
+`npm run test:e2e` includes `e2e/dashboard.spec.ts`, which seeds a local
+account; set `SCREENSHOT_DIR` to save desktop and mobile screenshots.
 
 ## Onboarding
 
