@@ -360,6 +360,68 @@ describe.skipIf(!reachable)('Opportunity Engine (local Supabase)', () => {
     expect(latest).toEqual([{ run_id: third![2].id, status: 'unevaluable' }])
   })
 
+  it('remediation script re-evaluates only the named prepared opportunities and regenerates their packages in place', async () => {
+    const { reevaluateOpportunity } = await import('../../scripts/reevaluate-opportunities')
+    const snapshot = async () => {
+      const { data } = await admin.from('opportunities').select('id, state, match_score, updated_at, jobs(title)').eq('user_id', userId).order('id')
+      return data!
+    }
+    // The first run's two prepared opportunities (later scans prepared more).
+    const { data: ready } = await admin.from('opportunities').select('id').eq('user_id', userId).eq('state', 'ready').order('ready_at').limit(2)
+    const ids = ready!.map(o => o.id as string)
+    expect(ids).toHaveLength(2)
+    const others = (await snapshot()).filter(o => !ids.includes(o.id))
+    const { count: runsBefore } = await admin.from('search_runs').select('id', { count: 'exact', head: true }).eq('user_id', userId)
+    const { count: tasksBefore } = await admin.from('engine_tasks').select('id', { count: 'exact', head: true }).eq('user_id', userId)
+    const { data: oldEvidence } = await admin.from('evidence').select('id').in('opportunity_id', ids)
+    const { data: oldPackages } = await admin.from('application_packages').select('id, quota_period_start').in('opportunity_id', ids).order('id')
+    const usedBefore = (await admin.rpc('preparations_used', { uid: userId })).data
+
+    // Dry run changes nothing.
+    const dry = await reevaluateOpportunity(admin, ids[0], { apply: false })
+    expect(dry.outcome).toBe('dry_run')
+    expect((await admin.from('evidence').select('id').in('opportunity_id', ids)).data).toEqual(expect.arrayContaining(oldEvidence!))
+
+    const callsBefore = packageCalls
+    for (const id of ids) {
+      const r = await reevaluateOpportunity(admin, id, { apply: true })
+      expect(r).toMatchObject({ outcome: 'regenerated', preparationsUsedBefore: usedBefore, preparationsUsedAfter: usedBefore })
+      expect(r.newScore).toBeGreaterThanOrEqual(60)
+    }
+    expect(packageCalls - callsBefore).toBe(4) // 2 attempts each: the "300%" draft is rejected again
+
+    // Same package rows and quota period; regenerated and ready.
+    const { data: packages } = await admin.from('application_packages').select('id, quota_period_start, status, attempts, tailored_resume_text').in('opportunity_id', ids).order('id')
+    expect(packages!.map(p => [p.id, p.quota_period_start])).toEqual(oldPackages!.map(p => [p.id, p.quota_period_start]))
+    for (const p of packages!) {
+      expect(p).toMatchObject({ status: 'ready', attempts: 2 })
+      expect(p.tailored_resume_text).not.toContain('300%')
+    }
+    // Evidence replaced: new rows, and every reference points at them.
+    const { data: newEvidence } = await admin.from('evidence').select('id').in('opportunity_id', ids)
+    expect(newEvidence!.length).toBeGreaterThan(0)
+    expect(newEvidence!.some(e => oldEvidence!.some(o => o.id === e.id))).toBe(false)
+    const { data: opps } = await admin.from('opportunities').select('state, primary_evidence_ids, reasoning_evidence_ids').in('id', ids)
+    const newIds = new Set(newEvidence!.map(e => e.id))
+    for (const o of opps!) {
+      expect(o.state).toBe('ready')
+      for (const id of [...o.primary_evidence_ids, ...o.reasoning_evidence_ids]) expect(newIds.has(id)).toBe(true)
+    }
+    // Nothing else: no search run, no queue task, other opportunities untouched apart from rank.
+    expect((await admin.from('search_runs').select('id', { count: 'exact', head: true }).eq('user_id', userId)).count).toBe(runsBefore)
+    expect((await admin.from('engine_tasks').select('id', { count: 'exact', head: true }).eq('user_id', userId)).count).toBe(tasksBefore)
+    const after = (await snapshot()).filter(o => !ids.includes(o.id))
+    expect(after.map(o => [o.id, o.state, o.match_score])).toEqual(others.map(o => [o.id, o.state, o.match_score]))
+
+    // If the stricter evidence no longer supports the role, the package is discarded and its quota released.
+    await admin.from('jobs').update({ title: 'Growth Associate, Payments' }).eq('id', (await admin.from('opportunities').select('job_id').eq('id', ids[1]).single()).data!.job_id)
+    const discarded = await reevaluateOpportunity(admin, ids[1], { apply: true })
+    expect(discarded).toMatchObject({ outcome: 'discarded', newScore: null, preparationsUsedAfter: Number(usedBefore) - 1 })
+    const { data: gone } = await admin.from('application_packages').select('status').eq('opportunity_id', ids[1]).single()
+    expect(gone!.status).toBe('failed')
+    expect((await admin.from('opportunities').select('state').eq('id', ids[1]).single()).data!.state).toBe('shortlisted')
+  })
+
   it('does not search or prepare for accounts without an active subscription', async () => {
     const { data: search } = await admin
       .from('searches')

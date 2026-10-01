@@ -34,6 +34,7 @@ Apply the database schema before first use; see [`supabase/README.md`](supabase/
 | `npm run test:e2e` | Full onboarding journey in a browser (see below) |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript |
+| `npm run remediate:reevaluate -- <opportunity-id>... [--apply]` | Re-evaluates prepared opportunities with the current evidence rules and regenerates their packages in place (dry run without `--apply`) |
 
 ## Layout
 
