@@ -38,6 +38,8 @@ test.describe.serial('dashboard', () => {
   })
   test.afterAll(async () => {
     for (const s of [seed, readOnlySeed, mobileSeed]) if (s) await admin.auth.admin.deleteUser(s.userId)
+    // Seeded postings are shared rows; remove them so other suites see a clean jobs table.
+    await admin.from('jobs').delete().like('source_job_id', 'e2e-%')
   })
 
   test('shows stored data in the locked layout: stats, My Pick, shortlist, applications, activity', async ({ page }) => {
@@ -53,10 +55,10 @@ test.describe.serial('dashboard', () => {
     await expect(stats).toContainText(/last scan\s*3 min ago/)
     await expect(page.getByTestId('scan-status')).toHaveText(/Last scan 3 min ago/)
 
-    // Nav: top bar, badges = live opportunities and ready applications.
+    // Nav: top bar. Opportunities badge = My Pick + visible rows (1 + 5), not all 8 live.
     const nav = page.getByRole('navigation', { name: 'Main' })
     await expect(nav.getByRole('link', { name: 'Dashboard', exact: true })).toHaveAttribute('aria-current', 'page')
-    await expect(nav.getByText('Opportunities8')).toBeVisible()
+    await expect(nav.getByText('Opportunities6')).toBeVisible()
     await expect(nav.getByText('Applications2')).toBeVisible()
 
     // My Pick: two evidence points, reasoning, large match number, no bar.
@@ -158,7 +160,7 @@ test.describe.serial('dashboard', () => {
     await page.getByRole('button', { name: 'Location' }).click()
     await expect(page.getByText('Why not?')).toHaveCount(0)
     await expect(page.getByTestId('stat-line')).toContainText(/7\s*shortlisted/)
-    await expect(page.getByRole('navigation', { name: 'Main' }).getByText('Opportunities7')).toBeVisible()
+    await expect(page.getByRole('navigation', { name: 'Main' }).getByText('Opportunities6')).toBeVisible()
     // The next-ranked opportunity moves into the five-row preview; nothing else changes.
     await expect(page.getByTestId('shortlist-row')).toHaveCount(5)
     await expect(page.getByTestId('shortlist-row').nth(4)).toContainText('Snowflake')
