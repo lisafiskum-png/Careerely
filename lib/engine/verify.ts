@@ -1,11 +1,12 @@
 import type { EvidenceOutcome, EvidenceSignalType, EvidenceSourceType, ScoreDimensionType } from './schema'
-import { containsQuote, normalizeForMatch, tokens, unsupportedNumbers } from './text'
+import { containsQuote, lineSegments, normalizeForMatch, tokens, unsupportedNumbers } from './text'
 
 // Verification of the model's Stage 2–5 output against the sources.
 //
 // The model proposes evidence; only evidence that can be traced is kept:
 //   * resume_text / job_description / user_preference evidence must quote its
-//     source verbatim (after whitespace/case normalisation);
+//     source verbatim (after whitespace/case/Unicode normalisation), on word
+//     boundaries and within one line, bullet or resume field (text.ts);
 //   * agent_inference must also quote the resume or the posting, and is never
 //     "confirmed" (inferred claims are judgment, not fact);
 //   * numbers in a claim must appear in the sources (no invented metrics).
@@ -53,9 +54,9 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, Number.isFinite(n) ? n : 
 
 function sourceFor(type: EvidenceSourceType, s: Sources): string[] {
   if (type === 'resume_text') return [s.resume]
-  if (type === 'job_description') return [s.job]
-  if (type === 'user_preference') return [s.preferences]
-  return [s.resume, s.job]
+  if (type === 'job_description') return lineSegments(s.job)
+  if (type === 'user_preference') return lineSegments(s.preferences)
+  return [s.resume, ...lineSegments(s.job)]
 }
 
 export function verifyEvaluation(raw: RawEvaluation, s: Sources): VerifiedEvaluation {
@@ -65,7 +66,7 @@ export function verifyEvaluation(raw: RawEvaluation, s: Sources): VerifiedEvalua
 
   for (const e of raw.evidence) {
     if (!e.key || kept.has(e.key)) continue
-    const quoteOk = sourceFor(e.source_type, s).some(src => containsQuote(src, e.source_text))
+    const quoteOk = containsQuote(sourceFor(e.source_type, s), e.source_text)
     if (!quoteOk) {
       dropped.push({ key: e.key, why: `quote not found in ${e.source_type}` })
       continue
@@ -89,7 +90,7 @@ export function verifyEvaluation(raw: RawEvaluation, s: Sources): VerifiedEvalua
   for (const r of raw.requirements) {
     const text = r.requirement_text.trim()
     const norm = normalizeForMatch(text)
-    if (!text || seenReq.has(norm) || !containsQuote(s.job, text)) continue
+    if (!text || seenReq.has(norm) || !containsQuote(lineSegments(s.job), text)) continue
     seenReq.add(norm)
     const supporting = validKeys(r.evidence_keys)
     let outcome: EvidenceOutcome = r.outcome

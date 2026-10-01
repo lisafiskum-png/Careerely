@@ -98,6 +98,35 @@ describe('text helpers', () => {
     expect(containsQuote(resume, 'ok')).toBe(false)
   })
 
+  it('folds Unicode the way PDFs and job boards write it', () => {
+    const pdf = 'Certiﬁed AML specialist for Nordic Bank’s largest\u00a0clients — 2018–2021'
+    expect(containsQuote(pdf, 'Certified AML specialist')).toBe(true) // ligature
+    expect(containsQuote(pdf, "Nordic Bank's largest clients")).toBe(true) // curly apostrophe, no-break space
+    expect(containsQuote(pdf, 'clients - 2018-2021')).toBe(true) // dashes
+    expect(containsQuote(pdf, '“Certified AML specialist.”')).toBe(true) // wrapping quotes, end punctuation
+  })
+
+  it('only matches whole words', () => {
+    const resume = 'Excellent stakeholder skills. NoSQL databases. JavaScript. C++ and Go.'
+    expect(containsQuote(resume, 'Excel')).toBe(false)
+    expect(containsQuote(resume, 'SQL')).toBe(false)
+    expect(containsQuote(resume, 'Java')).toBe(false)
+    expect(containsQuote(resume, 'stakeholder skills')).toBe(true)
+    expect(containsQuote(resume, 'C++')).toBe(true)
+    expect(containsQuote(resume, 'NoSQL databases')).toBe(true)
+  })
+
+  it('never stitches a quote across bullets, paragraphs or structured fields', () => {
+    const text = 'Led due diligence on complex crypto cases\n• Worked with sales\n\nBuilt a pipeline\u2029Skills: AML, KYC\u2029Languages: English'
+    expect(containsQuote(text, 'crypto cases Worked with sales')).toBe(false) // bullet
+    expect(containsQuote(text, 'with sales Built a pipeline')).toBe(false) // blank line
+    expect(containsQuote(text, 'KYC Languages: English')).toBe(false) // structured fields
+    expect(containsQuote(['Requirements: SQL', 'Python'], 'SQL Python')).toBe(false) // separate lines
+    expect(containsQuote(text, 'Skills: AML, KYC')).toBe(true)
+    // A single line break inside a paragraph is a wrapped PDF line, not a boundary.
+    expect(containsQuote('Worked with sales on onboarding\nenterprise clients', 'onboarding enterprise clients')).toBe(true)
+  })
+
   it('flags numbers that do not appear in the sources', () => {
     expect(unsupportedNumbers('I bring 5 years and grew revenue 40%.', ['5 years of experience'])).toEqual(['40%'])
     expect(unsupportedNumbers('Built a pipeline of 1,200 partners', ['pipeline of 1200 partners'])).toEqual([])
