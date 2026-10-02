@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { COMPANY_BOARDS } from '../../lib/engine/companies'
-import { dedupeKey, extractRequirements, fetchBoard, parseAshby, parseGreenhouse, parseLever, workStyleFromText } from '../../lib/engine/sources'
+import { classifyStatus, dedupeKey, extractRequirements, fetchBoard, parseAshby, parseGreenhouse, parseLever, SourceError, workStyleFromText } from '../../lib/engine/sources'
 import { containsQuote, htmlToText, unsupportedNumbers } from '../../lib/engine/text'
 
 const fixture = (name: string) =>
@@ -141,5 +141,59 @@ describe('isWebUrl (posting links are opened from the app)', () => {
     for (const bad of ['javascript:alert(1)', 'JAVASCRIPT:alert(1)', 'data:text/html,x', '//evil.example', '', null, undefined, 42, 'https://x y']) {
       expect(isWebUrl(bad), String(bad)).toBe(false)
     }
+  })
+})
+
+describe('board fetch failures are classified (D8)', () => {
+  const board = { provider: 'ashby' as const, slug: 'acme', company: 'Acme' }
+  const respond = (body: string, status = 200) => (async () => new Response(body, { status })) as unknown as typeof fetch
+  const failure = async (f: typeof fetch) => {
+    try {
+      await fetchBoard(board, f)
+    } catch (err) {
+      return err as SourceError
+    }
+    throw new Error('expected a failure')
+  }
+
+  it('classifies HTTP statuses', () => {
+    expect([404, 410].map(classifyStatus)).toEqual(['not_found', 'not_found'])
+    expect(classifyStatus(429)).toBe('rate_limited')
+    expect([408, 500, 502, 503].map(classifyStatus)).toEqual(Array(4).fill('provider_error'))
+    expect([400, 401, 403, 422].map(classifyStatus)).toEqual(Array(4).fill('rejected'))
+  })
+
+  it('a successful board returns its jobs', async () => {
+    const jobs = await fetchBoard({ provider: 'ashby', slug: 'cohere', company: 'Cohere' }, respond(JSON.stringify(fixture('ashby'))))
+    expect(jobs).toHaveLength(2)
+  })
+
+  it('a missing board is permanent; the message is diagnostic and holds no response body', async () => {
+    const err = await failure(respond('<html>secret page body</html>', 404))
+    expect(err).toBeInstanceOf(SourceError)
+    expect(err).toMatchObject({ provider: 'ashby', slug: 'acme', kind: 'not_found', status: 404, permanent: true, retriable: false })
+    expect(err.message).toBe('ashby/acme: HTTP 404 (not_found)')
+  })
+
+  it('temporary provider failures are retriable', async () => {
+    expect(await failure(respond('busy', 503))).toMatchObject({ kind: 'provider_error', retriable: true, permanent: false })
+    expect(await failure(respond('slow down', 429))).toMatchObject({ kind: 'rate_limited', retriable: true })
+    const offline = (async () => {
+      throw new TypeError('fetch failed')
+    }) as unknown as typeof fetch
+    expect(await failure(offline)).toMatchObject({ kind: 'network', status: null, retriable: true, message: 'ashby/acme: (network)' })
+  })
+
+  it('a 403 is rejected for today, neither permanent nor retried now', async () => {
+    expect(await failure(respond('forbidden', 403))).toMatchObject({ kind: 'rejected', permanent: false, retriable: false })
+  })
+
+  it('a malformed response is an error, never "no jobs"', async () => {
+    expect(await failure(respond('<html>maintenance</html>'))).toMatchObject({ kind: 'malformed', retriable: false })
+    expect(await failure(respond(JSON.stringify({ success: false, errors: ['x'] })))).toMatchObject({ kind: 'malformed' })
+    const lever = { provider: 'lever' as const, slug: 'acme', company: 'Acme' }
+    await expect(fetchBoard(lever, respond(JSON.stringify({ ok: true })))).rejects.toMatchObject({ kind: 'malformed' })
+    // An empty but well-formed board is genuinely empty.
+    expect(await fetchBoard(lever, respond('[]'))).toEqual([])
   })
 })
