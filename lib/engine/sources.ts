@@ -27,6 +27,11 @@ type Fetch = typeof fetch
 
 const TIMEOUT_MS = 15_000
 
+/** Only http(s) posting links are kept: they are opened from the app. */
+export function isWebUrl(url: unknown): url is string {
+  return typeof url === 'string' && /^https?:\/\/[^\s]+$/i.test(url.trim())
+}
+
 async function getJson(fetchImpl: Fetch, url: string): Promise<unknown> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
@@ -70,7 +75,7 @@ type GreenhouseJob = {
 }
 
 export function parseGreenhouse(board: CompanyBoard, data: unknown): NormalizedJob[] {
-  const jobs = ((data as { jobs?: GreenhouseJob[] })?.jobs ?? []).filter(j => j?.id && j.title && j.absolute_url)
+  const jobs = ((data as { jobs?: GreenhouseJob[] })?.jobs ?? []).filter(j => j?.id && j.title && isWebUrl(j.absolute_url))
   return jobs.map(j => {
     const location = j.location?.name?.trim() || null
     const description = htmlToText(j.content ?? '')
@@ -107,7 +112,7 @@ type LeverJob = {
 }
 
 export function parseLever(board: CompanyBoard, data: unknown): NormalizedJob[] {
-  const jobs = (Array.isArray(data) ? (data as LeverJob[]) : []).filter(j => j?.id && j.text && j.hostedUrl)
+  const jobs = (Array.isArray(data) ? (data as LeverJob[]) : []).filter(j => j?.id && j.text && isWebUrl(j.hostedUrl))
   return jobs.map(j => {
     const location = j.categories?.location?.trim() || j.categories?.allLocations?.join(', ') || null
     const sections = (j.lists ?? [])
@@ -153,7 +158,7 @@ type AshbyJob = {
 
 export function parseAshby(board: CompanyBoard, data: unknown): NormalizedJob[] {
   const payload = data as { jobs?: AshbyJob[]; jobPostings?: AshbyJob[] }
-  const jobs = (payload?.jobs ?? payload?.jobPostings ?? []).filter(j => j?.id && j.title && j.jobUrl && j.isListed !== false)
+  const jobs = (payload?.jobs ?? payload?.jobPostings ?? []).filter(j => j?.id && j.title && isWebUrl(j.jobUrl) && j.isListed !== false)
   return jobs.map(j => {
     const location = (j.location ?? j.locationName ?? '').trim() || null
     const salary = j.compensation?.summaryComponents?.find(

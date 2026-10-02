@@ -53,6 +53,14 @@ export const PLANS: Plan[] = [
   },
 ]
 
+/**
+ * Safety cap (D8) on immediate scans started by Search actions (creating an
+ * active search, resuming one), per user per UTC day. Cost/abuse protection,
+ * not a plan entitlement shown to users. Mirrors public.immediate_scan_limit()
+ * in the database (a test keeps them in sync); the database enforces it.
+ */
+export const IMMEDIATE_SCANS_PER_DAY: Record<PlanId, number> = { basic: 1, pro: 5, max: 10 }
+
 /** Nightly automatic preparation: the top N opportunities, same on every plan. */
 export const NIGHTLY_AUTO_PREP = 2
 
