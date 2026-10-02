@@ -176,7 +176,9 @@ bodies:
   slug. One attempt, then `public.source_health` records it, and nightly runs
   skip it until a weekly recheck (one attempt) or until the source is
   corrected in `companies.ts` (a new provider/slug is synced immediately). A
-  successful sync removes the record.
+  successful sync removes the record. The migration backfills it from
+  boards whose latest finished sync already failed with HTTP 404/410
+  (production 2026-10-02: all 56 repeatedly failing boards were 404s).
 - `rejected` (other 4xx, e.g. 403) and `malformed` (not the provider's JSON
   shape): one attempt, tried again the next day. A malformed response never
   counts as "no jobs", so it can't expire a board's postings.

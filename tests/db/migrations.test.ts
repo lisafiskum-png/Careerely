@@ -723,3 +723,64 @@ describe('immediate scan cap (D8)', () => {
     await pg.close()
   })
 })
+
+describe('source_health backfill (D8)', () => {
+  it('records only boards whose latest finished sync failed with HTTP 404/410; idempotent; tasks untouched', async () => {
+    const pg = new PGlite()
+    await pg.exec(readFileSync(path.join(import.meta.dirname, 'supabase-stubs.sql'), 'utf8'))
+    const files = readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort()
+    const target = '20261005120000_source_health.sql'
+    for (const file of files.filter(f => f < target)) await pg.exec(readFileSync(path.join(migrationsDir, file), 'utf8'))
+
+    const task = (key: string, provider: string, slug: string, status: string, lastError: string | null, at: string) =>
+      pg.query(
+        `insert into public.engine_tasks (kind, dedupe_key, payload, status, attempts, last_error, created_at, updated_at)
+         values ('sync_source', $1, jsonb_build_object('provider', $2::text, 'slug', $3::text, 'company', 'X'), $4, 3, $5, $6, $6)`,
+        [key, provider, slug, status, lastError, at],
+      )
+    const d1 = '2026-10-01T02:10:00Z'
+    const d2 = '2026-10-02T02:10:00Z'
+    // Confirmed missing on both days (pre-D8 error format) → one row.
+    await task('a1', 'ashby', 'lucinity', 'failed', 'https://api.ashbyhq.com/posting-api/job-board/lucinity?includeCompensation=true → HTTP 404', d1)
+    await task('a2', 'ashby', 'lucinity', 'failed', 'https://api.ashbyhq.com/posting-api/job-board/lucinity?includeCompensation=true → HTTP 404', d2)
+    // D8 format, and a 410.
+    await task('g1', 'greenhouse', 'notion', 'failed', 'greenhouse/notion: HTTP 404 (not_found)', d2)
+    await task('l1', 'lever', 'loom', 'failed', 'https://api.lever.co/v0/postings/loom?mode=json → HTTP 410', d2)
+    // Not missing: other failures.
+    await task('g2', 'greenhouse', 'denied', 'failed', 'https://boards-api.greenhouse.io/v1/boards/denied/jobs → HTTP 403', d2)
+    await task('g3', 'greenhouse', 'busy', 'failed', 'greenhouse/busy: HTTP 503 (provider_error)', d2)
+    await task('g4', 'greenhouse', 'limited', 'failed', 'greenhouse/limited: HTTP 429 (rate_limited)', d2)
+    await task('g5', 'greenhouse', 'slow', 'failed', 'This operation was aborted', d2)
+    await task('g6', 'greenhouse', 'odd', 'failed', 'greenhouse/odd: HTTP 200 (malformed)', d2)
+    await task('g7', 'greenhouse', 'unknown', 'failed', null, d2)
+    await task('g8', 'greenhouse', 'similar', 'failed', 'greenhouse/similar: HTTP 4040 (rejected)', d2)
+    // Working: a 404 yesterday, then a successful sync today.
+    await task('s1', 'greenhouse', 'stripe', 'failed', 'https://boards-api.greenhouse.io/v1/boards/stripe/jobs → HTTP 404', d1)
+    await task('s2', 'greenhouse', 'stripe', 'done', null, d2)
+    // Still being retried (not finished) and other task kinds are ignored.
+    await task('q1', 'lever', 'retrying', 'queued', 'https://api.lever.co/v0/postings/retrying?mode=json → HTTP 404', d2)
+    await pg.query(`insert into public.engine_tasks (kind, dedupe_key, payload, status, last_error) values ('scan_search', 'x1', '{"provider":"ashby","slug":"scan"}', 'failed', 'HTTP 404')`)
+
+    const tasksBefore = (await pg.query(`select * from public.engine_tasks order by dedupe_key`)).rows
+    const rows = async () =>
+      (await pg.query<{ provider: string; slug: string; state: string; http_status: number; checked: string; recheck: string }>(
+        `select provider, slug, state, http_status, to_char(last_checked_at at time zone 'utc', 'YYYY-MM-DD') as checked, to_char(recheck_after at time zone 'utc', 'YYYY-MM-DD') as recheck
+         from public.source_health order by provider, slug`,
+      )).rows
+
+    await pg.exec(readFileSync(path.join(migrationsDir, target), 'utf8'))
+    const expected = [
+      { provider: 'ashby', slug: 'lucinity', state: 'not_found', http_status: 404, checked: '2026-10-02', recheck: '2026-10-09' },
+      { provider: 'greenhouse', slug: 'notion', state: 'not_found', http_status: 404, checked: '2026-10-02', recheck: '2026-10-09' },
+      { provider: 'lever', slug: 'loom', state: 'not_found', http_status: 410, checked: '2026-10-02', recheck: '2026-10-09' },
+    ]
+    expect(await rows()).toEqual(expected)
+
+    // Idempotent: a second run (or a later recheck already recorded) changes nothing.
+    await pg.query(`update public.source_health set recheck_after = '2026-12-01' where slug = 'notion'`)
+    await pg.exec(readFileSync(path.join(migrationsDir, target), 'utf8'))
+    expect((await rows()).map(r => `${r.slug}:${r.recheck}`)).toEqual(['lucinity:2026-10-09', 'notion:2026-12-01', 'loom:2026-10-09'])
+    expect((await pg.query(`select * from public.engine_tasks order by dedupe_key`)).rows).toEqual(tasksBefore)
+    await pg.close()
+  })
+})
