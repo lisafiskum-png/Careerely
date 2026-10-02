@@ -32,32 +32,99 @@ export function isWebUrl(url: unknown): url is string {
   return typeof url === 'string' && /^https?:\/\/[^\s]+$/i.test(url.trim())
 }
 
-async function getJson(fetchImpl: Fetch, url: string): Promise<unknown> {
+/**
+ * Why a board fetch failed (D8). Stored in the task's last_error as
+ * "<provider>/<slug>: HTTP <status> (<kind>)", never with response bodies.
+ *   not_found     404 / 410: the board doesn't exist on this provider
+ *                 (wrong or outdated slug, company moved ATS, board removed).
+ *                 Permanent: not retried, and skipped until rechecked.
+ *   rejected      other 4xx (400, 401, 403, 422…): not retried today.
+ *   malformed     2xx but not the provider's documented JSON shape: not
+ *                 retried today (and never treated as "no jobs").
+ *   rate_limited  429, provider_error 408 / 5xx, timeout, network: temporary,
+ *                 retried with backoff.
+ */
+export type SourceFailureKind = 'not_found' | 'rejected' | 'malformed' | 'rate_limited' | 'provider_error' | 'timeout' | 'network'
+
+export class SourceError extends Error {
+  constructor(
+    readonly provider: AtsProvider,
+    readonly slug: string,
+    readonly kind: SourceFailureKind,
+    readonly status: number | null,
+  ) {
+    super(`${provider}/${slug}: ${status !== null ? `HTTP ${status} ` : ''}(${kind})`)
+    this.name = 'SourceError'
+  }
+  /** The board itself is missing: don't retry, skip it until it is rechecked. */
+  get permanent(): boolean {
+    return this.kind === 'not_found'
+  }
+  /** Worth retrying later today. */
+  get retriable(): boolean {
+    return this.kind === 'rate_limited' || this.kind === 'provider_error' || this.kind === 'timeout' || this.kind === 'network'
+  }
+}
+
+export function classifyStatus(status: number): SourceFailureKind {
+  if (status === 404 || status === 410) return 'not_found'
+  if (status === 429) return 'rate_limited'
+  if (status === 408 || status >= 500) return 'provider_error'
+  return 'rejected'
+}
+
+async function getJson(fetchImpl: Fetch, board: CompanyBoard, url: string): Promise<unknown> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  let res: Response
   try {
-    const res = await fetchImpl(url, { headers: { Accept: 'application/json' }, signal: controller.signal })
-    if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`)
-    return await res.json()
+    res = await fetchImpl(url, { headers: { Accept: 'application/json' }, signal: controller.signal })
+  } catch {
+    clearTimeout(timer)
+    throw new SourceError(board.provider, board.slug, controller.signal.aborted ? 'timeout' : 'network', null)
+  }
+  try {
+    if (!res.ok) throw new SourceError(board.provider, board.slug, classifyStatus(res.status), res.status)
+    try {
+      return await res.json()
+    } catch {
+      if (controller.signal.aborted) throw new SourceError(board.provider, board.slug, 'timeout', res.status)
+      throw new SourceError(board.provider, board.slug, 'malformed', res.status)
+    }
   } finally {
     clearTimeout(timer)
   }
 }
 
-export async function fetchBoard(board: CompanyBoard, fetchImpl: Fetch = fetch): Promise<NormalizedJob[]> {
+/** The documented response shape for each provider; anything else is malformed, never "no jobs". */
+function hasExpectedShape(provider: AtsProvider, data: unknown): boolean {
+  if (provider === 'lever') return Array.isArray(data)
+  if (!data || typeof data !== 'object') return false
+  const d = data as { jobs?: unknown; jobPostings?: unknown }
+  return provider === 'greenhouse' ? Array.isArray(d.jobs) : Array.isArray(d.jobs) || Array.isArray(d.jobPostings)
+}
+
+export function boardUrl(board: CompanyBoard): string {
   switch (board.provider) {
     case 'greenhouse':
-      return parseGreenhouse(
-        board,
-        await getJson(fetchImpl, `https://boards-api.greenhouse.io/v1/boards/${board.slug}/jobs?content=true&pay_transparency=true`),
-      )
+      return `https://boards-api.greenhouse.io/v1/boards/${board.slug}/jobs?content=true&pay_transparency=true`
     case 'lever':
-      return parseLever(board, await getJson(fetchImpl, `https://api.lever.co/v0/postings/${board.slug}?mode=json`))
+      return `https://api.lever.co/v0/postings/${board.slug}?mode=json`
     case 'ashby':
-      return parseAshby(
-        board,
-        await getJson(fetchImpl, `https://api.ashbyhq.com/posting-api/job-board/${board.slug}?includeCompensation=true`),
-      )
+      return `https://api.ashbyhq.com/posting-api/job-board/${board.slug}?includeCompensation=true`
+  }
+}
+
+export async function fetchBoard(board: CompanyBoard, fetchImpl: Fetch = fetch): Promise<NormalizedJob[]> {
+  const data = await getJson(fetchImpl, board, boardUrl(board))
+  if (!hasExpectedShape(board.provider, data)) throw new SourceError(board.provider, board.slug, 'malformed', 200)
+  switch (board.provider) {
+    case 'greenhouse':
+      return parseGreenhouse(board, data)
+    case 'lever':
+      return parseLever(board, data)
+    case 'ashby':
+      return parseAshby(board, data)
   }
 }
 

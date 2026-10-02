@@ -10,7 +10,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
-    "remediate:reevaluate": "node scripts/run-ts.mjs scripts/reevaluate-opportunities.ts"
+    "remediate:reevaluate": "node scripts/run-ts.mjs scripts/reevaluate-opportunities.ts",
+    "sources:check": "node scripts/run-ts.mjs scripts/check-sources.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

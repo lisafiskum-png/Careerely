@@ -166,6 +166,28 @@ Hobby, so the ticks come from **Supabase Cron**, not Vercel Cron (there is no
 `vercel.json` cron). User actions (onboarding, new or resumed searches) also
 start the worker straight away.
 
+### Job-board sources and failures
+
+Boards are configured in `lib/engine/companies.ts`. Each failed sync records
+`last_error` as `<provider>/<slug>: HTTP <status> (<class>)`, never response
+bodies:
+
+- `not_found` (404 / 410): the board doesn't exist under that provider and
+  slug. One attempt, then `public.source_health` records it, and nightly runs
+  skip it until a weekly recheck (one attempt) or until the source is
+  corrected in `companies.ts` (a new provider/slug is synced immediately). A
+  successful sync removes the record.
+- `rejected` (other 4xx, e.g. 403) and `malformed` (not the provider's JSON
+  shape): one attempt, tried again the next day. A malformed response never
+  counts as "no jobs", so it can't expire a board's postings.
+- `rate_limited` (429), `provider_error` (408, 5xx), `timeout`, `network`:
+  retried with backoff, as before.
+
+`npm run sources:check` (optionally `-- greenhouse|lever|ashby`) probes every
+configured board with the engine's exact request and prints each outcome. It
+needs no database or secrets; run it from a machine that can reach
+`boards-api.greenhouse.io`, `api.lever.co` and `api.ashbyhq.com`.
+
 ### Supabase Cron setup (production, once)
 
 The secret lives in Supabase Vault, never in this repository, in SQL you

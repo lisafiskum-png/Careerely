@@ -1,7 +1,8 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { COMPANY_BOARDS } from './companies'
+import { COMPANY_BOARDS, type CompanyBoard } from './companies'
 import { syncBoard } from './ingest'
+import { SourceError } from './sources'
 import { decidePreparation, failPackage, generatePackage } from './prepare'
 import { evaluateBatch, finalizeRun, startScan } from './scan'
 
@@ -18,7 +19,7 @@ import { evaluateBatch, finalizeRun, startScan } from './scan'
 
 export type TaskKind = 'nightly' | 'sync_source' | 'scan_search' | 'decide_preparation' | 'prepare_package'
 
-type Task = {
+export type Task = {
   id: string
   kind: TaskKind
   dedupe_key: string | null
@@ -98,10 +99,54 @@ export async function startSearchScan(admin: SupabaseClient, userId: string, sea
   return true
 }
 
+/** A missing board (404 / 410) is rechecked once a week, with a single attempt. */
+export const MISSING_BOARD_RECHECK_DAYS = 7
+
+/** The configured boards to sync now: boards confirmed missing are skipped until their recheck is due. */
+export async function boardsToSync(admin: SupabaseClient, now = new Date()) {
+  const { data, error } = await admin.from('source_health').select('provider, slug').gt('recheck_after', now.toISOString())
+  if (error) throw error
+  const skip = new Set((data ?? []).map(r => `${r.provider}:${r.slug}`))
+  return COMPANY_BOARDS.filter(b => !skip.has(`${b.provider}:${b.slug}`))
+}
+
 async function enqueueSyncs(admin: SupabaseClient, tag: string) {
-  for (const board of COMPANY_BOARDS) {
+  for (const board of await boardsToSync(admin)) {
     await enqueue(admin, { kind: 'sync_source', dedupe_key: `sync:${board.provider}:${board.slug}:${tag}`, payload: { ...board } })
   }
+}
+
+/**
+ * One board sync (D8). Success clears any "missing" record. A missing board
+ * (404 / 410) is recorded and not retried; other non-retriable failures
+ * (4xx, malformed responses) fail once and are tried again tomorrow;
+ * temporary ones (429, 5xx, timeouts, network) are rethrown and retried with
+ * backoff. last_error always says provider/slug, HTTP status and failure class.
+ */
+async function runSyncTask(admin: SupabaseClient, task: Task, now = new Date()) {
+  const board = task.payload as unknown as CompanyBoard
+  try {
+    await syncBoard(admin, board)
+  } catch (err) {
+    if (!(err instanceof SourceError) || err.retriable) throw err
+    if (err.permanent) {
+      const { error } = await admin.from('source_health').upsert({
+        provider: board.provider,
+        slug: board.slug,
+        state: 'not_found',
+        http_status: err.status,
+        last_checked_at: now.toISOString(),
+        recheck_after: new Date(now.getTime() + MISSING_BOARD_RECHECK_DAYS * 86_400_000).toISOString(),
+      })
+      if (error) throw error
+    }
+    console.error('board sync failed', err.message)
+    const { error } = await admin.from('engine_tasks').update({ status: 'failed', last_error: err.message, locked_until: null }).eq('id', task.id)
+    if (error) throw error
+    return
+  }
+  await admin.from('source_health').delete().eq('provider', board.provider).eq('slug', board.slug)
+  return complete(admin, task)
 }
 
 async function runNightly(admin: SupabaseClient, now: Date) {
@@ -171,8 +216,7 @@ export async function runTask(admin: SupabaseClient, task: Task, now = new Date(
       await runNightly(admin, now)
       return complete(admin, task)
     case 'sync_source':
-      await syncBoard(admin, task.payload as unknown as Parameters<typeof syncBoard>[1])
-      return complete(admin, task)
+      return runSyncTask(admin, task, now)
     case 'scan_search':
       return runScanTask(admin, task)
     case 'decide_preparation':
@@ -183,7 +227,7 @@ export async function runTask(admin: SupabaseClient, task: Task, now = new Date(
   }
 }
 
-async function handleFailure(admin: SupabaseClient, task: Task, err: unknown) {
+export async function handleFailure(admin: SupabaseClient, task: Task, err: unknown) {
   const message = err instanceof Error ? err.message : String(err)
   console.error('engine task failed', task.kind, task.id, message)
   if (task.attempts >= task.max_attempts) {
