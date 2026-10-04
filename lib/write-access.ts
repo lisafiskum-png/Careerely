@@ -10,7 +10,10 @@ import { getAccessState, type SubscriptionState } from './plans'
 // accounts and don't use this.
 export async function readOnlyResponse(): Promise<Response | null> {
   const supabase = await createClient()
-  const { data } = await supabase.from('subscriptions').select('plan, status, current_period_end').maybeSingle<SubscriptionState>()
+  const { data } = await supabase
+    .from('subscriptions')
+    .select('plan, status, current_period_end, cancel_at')
+    .maybeSingle<SubscriptionState>()
   if (getAccessState(data).kind === 'active') return null
   return Response.json({ error: 'Your account is read-only.', code: 'read_only' }, { status: 403 })
 }
