@@ -43,10 +43,10 @@ async function signIn(page: Page, address: string) {
 test.describe.serial('settings', () => {
   test.beforeAll(async () => {
     seed = await seedDashboardUser(admin, { email, firstName: 'Lisa' })
-    await setSubscription(seed.userId, { stripe_customer_id: `cus_e2e_${stamp}`, stripe_subscription_id: `sub_e2e_${stamp}`, current_period_end: RENEWS, cancel_at_period_end: false })
+    await setSubscription(seed.userId, { stripe_customer_id: `cus_e2e_${stamp}`, stripe_subscription_id: `sub_e2e_${stamp}`, current_period_end: RENEWS, cancel_at_period_end: false, cancel_at: null })
     noPlanSeed = await seedDashboardUser(admin, { email: noPlanEmail, firstName: 'Lisa' })
     mobileSeed = await seedDashboardUser(admin, { email: mobileEmail, firstName: 'Lisa' })
-    await setSubscription(mobileSeed.userId, { stripe_customer_id: `cus_e2e_m_${stamp}`, current_period_end: RENEWS })
+    await setSubscription(mobileSeed.userId, { stripe_customer_id: `cus_e2e_m_${stamp}`, current_period_end: RENEWS, cancel_at: null })
   })
   test.afterAll(async () => {
     for (const s of [seed, noPlanSeed, mobileSeed]) if (s) await admin.auth.admin.deleteUser(s.userId)
@@ -65,7 +65,6 @@ test.describe.serial('settings', () => {
     await expect(page.getByRole('button', { name: 'Manage billing' })).toBeVisible()
     await expect(page.getByTestId('account-email')).toHaveText(email)
     await expect(page.getByRole('main').getByRole('button', { name: 'Sign out' })).toBeVisible()
-    // Stripe's portal owns prices, plan changes and account details.
     await expect(page.getByRole('main')).not.toContainText('$')
     await expect(page.getByText(/applications prepared this/i)).toHaveCount(0)
     await expect(page.getByText(/delete account|change email|password/i)).toHaveCount(0)
@@ -85,30 +84,36 @@ test.describe.serial('settings', () => {
     await expect(page.getByRole('heading', { name: 'Stripe Customer Portal (test)' })).toBeVisible()
   })
 
-  test('cancelling: ends on the stored date, full access until then', async ({ page }) => {
-    await setSubscription(seed.userId, { status: 'active', cancel_at_period_end: true })
+  test('cancelling: supports both Stripe representations and keeps full access until the end', async ({ page }) => {
+    await setSubscription(seed.userId, { status: 'active', cancel_at_period_end: true, cancel_at: null })
     await signIn(page, email)
     await page.goto('/settings')
     await expect(page.getByTestId('plan-status')).toHaveText('Ends on 14 March 2027. You keep full access until then.')
     await expect(page.getByTestId('plan-name')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Manage billing' })).toBeVisible()
+
+    // Stripe Customer Portal can instead send cancel_at with cancel_at_period_end=false.
+    await setSubscription(seed.userId, { status: 'active', cancel_at_period_end: false, cancel_at: RENEWS })
+    await page.reload()
+    await expect(page.getByTestId('plan-status')).toHaveText('Ends on 14 March 2027. You keep full access until then.')
     await page.goto('/searches')
     await expect(page.getByRole('button', { name: 'New search' })).toBeVisible()
+
+    // Keep later serial tests independent.
+    await setSubscription(seed.userId, { cancel_at: null })
   })
 
   test('past due: payment failed, access continues', async ({ page }) => {
-    await setSubscription(seed.userId, { status: 'past_due', cancel_at_period_end: false })
+    await setSubscription(seed.userId, { status: 'past_due', cancel_at_period_end: false, cancel_at: null })
     await signIn(page, email)
     await page.goto('/settings')
     await expect(page.getByTestId('plan-status')).toHaveText('Payment failed. Update your payment method in Manage billing to keep your plan.')
     await expect(page.getByRole('button', { name: 'Manage billing' })).toBeVisible()
-    // Full access while Stripe retries: no read-only wording, no second checkout.
     await expect(page.getByTestId('plan-status')).not.toContainText('read-only')
     await expect(page.getByRole('button', { name: /^(Basic|Pro|Max)/ })).toHaveCount(0)
     await page.waitForTimeout(400)
     await shot(page, 'settings-past-due', false)
 
-    // Normal signed-in product actions still work.
     await page.goto('/dashboard')
     await expect(page.getByRole('heading', { name: 'Choose a plan' })).toHaveCount(0)
     await page.goto('/searches')
@@ -127,7 +132,7 @@ test.describe.serial('settings', () => {
   })
 
   test('ended: read-only, end date, plan picker, and Manage billing for invoices', async ({ page }) => {
-    await setSubscription(seed.userId, { status: 'canceled', current_period_end: '2026-09-20T00:00:00Z' })
+    await setSubscription(seed.userId, { status: 'canceled', current_period_end: '2026-09-20T00:00:00Z', cancel_at: null })
     await signIn(page, email)
     await page.goto('/settings')
     await expect(page.getByTestId('plan-status')).toHaveText(`Your plan ended on 20 September 2026. ${READ_ONLY}`)
@@ -136,7 +141,6 @@ test.describe.serial('settings', () => {
     await expect(page.getByRole('button', { name: /^Pro/ })).toContainText('5 active searches · 50 applications prepared a month')
     await expect(page.getByRole('main')).not.toContainText('$')
     await expect(page.getByText('See your invoices and payment history in Stripe.')).toBeVisible()
-    // Read-only rules unchanged elsewhere.
     await page.goto('/searches')
     await expect(page.getByTestId('read-only-notice')).toBeVisible()
     await expect(page.getByRole('button', { name: 'New search' })).toHaveCount(0)
@@ -152,7 +156,6 @@ test.describe.serial('settings', () => {
     await expect(page.getByTestId('plan-status')).toHaveText('No plan')
     await expect(page.getByRole('button', { name: 'Manage billing' })).toHaveCount(0)
     await expect(page.getByRole('button', { name: /^Basic/ })).toBeVisible()
-    // The customer is never taken from the request.
     const res = await page.request.post('/api/billing/portal', { data: { customer: `cus_e2e_${stamp}` } })
     expect(res.status()).toBe(404)
     await page.waitForTimeout(400)
@@ -161,7 +164,7 @@ test.describe.serial('settings', () => {
   })
 
   test('searches paused by a plan change: named on Searches, noted on Settings; dismissing keeps them paused', async ({ page }) => {
-    await setSubscription(seed.userId, { status: 'active', plan: 'basic', current_period_end: RENEWS, cancel_at_period_end: false })
+    await setSubscription(seed.userId, { status: 'active', plan: 'basic', current_period_end: RENEWS, cancel_at_period_end: false, cancel_at: null })
     const { data: extra, error } = await admin
       .from('searches')
       .insert([
@@ -181,7 +184,6 @@ test.describe.serial('settings', () => {
     const banner = page.getByTestId('plan-change-banner')
     await expect(banner).toContainText('Careerely paused “Fintech partnerships” when your plan changed, to fit its active-search limit.')
     await expect(banner).not.toContainText('Paused by me')
-    // "Manage plan →" now leads to Settings; "Upgrade →" stays hidden.
     await expect(page.getByRole('link', { name: 'Manage plan →' })).toHaveAttribute('href', '/settings')
     await expect(page.getByText('Upgrade →')).toHaveCount(0)
     await page.waitForTimeout(600)
@@ -192,7 +194,6 @@ test.describe.serial('settings', () => {
     const before = await searchRow(fintech.id)
     await banner.getByRole('button', { name: 'Dismiss' }).click()
     await expect(banner).toHaveCount(0)
-    // Dismissing changes no search: still paused, still marked as paused by the plan change.
     expect(await searchRow(fintech.id)).toEqual(before)
     expect(before.paused_by_plan_change_at).not.toBeNull()
     expect((await searchRow(manual.id)).paused_by_plan_change_at).toBeNull()
@@ -202,7 +203,6 @@ test.describe.serial('settings', () => {
     await page.goto('/settings')
     await expect(page.getByTestId('plan-change-notice')).toHaveCount(0)
 
-    // Resuming the search (after making room) clears its marker; the manual one never had it.
     await page.goto('/searches')
     const options = (name: string) => page.getByTestId('search-card').filter({ has: page.getByRole('heading', { name, exact: true }) }).getByRole('button', { name: `Options for ${name}` })
     await options('Business Development Manager').click()
