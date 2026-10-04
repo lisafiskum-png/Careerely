@@ -162,7 +162,7 @@ export const getAccount = cache(async (userId: string): Promise<{ firstName: str
   const supabase = await createClient()
   const [{ data: profile }, { data: subscription }] = await Promise.all([
     supabase.from('profiles').select('first_name, last_name').eq('id', userId).maybeSingle(),
-    supabase.from('subscriptions').select('plan, status, current_period_end').maybeSingle<SubscriptionState>(),
+    supabase.from('subscriptions').select('plan, status, current_period_end, cancel_at').maybeSingle<SubscriptionState>(),
   ])
   return { firstName: profile?.first_name ?? null, lastName: profile?.last_name ?? null, access: getAccessState(subscription) }
 })
