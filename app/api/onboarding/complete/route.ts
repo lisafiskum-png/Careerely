@@ -82,7 +82,7 @@ export async function POST(request: Request) {
 
     const { data: subscription } = await admin
       .from('subscriptions')
-      .select('plan, status, current_period_end')
+      .select('plan, status, current_period_end, cancel_at')
       .eq('user_id', user.id)
       .maybeSingle<SubscriptionState>()
     const access = getAccessState(subscription)
