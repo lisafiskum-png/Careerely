@@ -31,7 +31,7 @@ export async function syncSubscription(
   // Never let an older, ended subscription overwrite a different one that still grants access.
   const { data: current } = await admin
     .from('subscriptions')
-    .select('stripe_subscription_id, plan, status, current_period_end')
+    .select('stripe_subscription_id, plan, status, current_period_end, cancel_at')
     .eq('user_id', userId)
     .maybeSingle()
   if (

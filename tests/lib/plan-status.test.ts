@@ -8,6 +8,7 @@ const sub = (o: Partial<StoredSubscription> = {}): StoredSubscription => ({
   status: 'active',
   current_period_end: '2026-11-12T08:00:00Z',
   cancel_at_period_end: false,
+  cancel_at: null,
   stripe_customer_id: 'cus_123',
   ...o,
 })
@@ -35,9 +36,23 @@ describe('describePlan (approved wording)', () => {
     }
   })
 
-  it('cancelling: ends on the stored date, full access until then', () => {
+  it('cancelling via cancel_at_period_end: ends on the stored date, full access until then', () => {
     expect(describePlan(sub({ cancel_at_period_end: true }), now)).toMatchObject({ kind: 'cancelling', status: 'Ends on 12 November 2026. You keep full access until then.', readOnly: false })
     expect(describePlan(sub({ status: 'canceled' }), now)).toMatchObject({ kind: 'cancelling', readOnly: false })
+  })
+
+  it('cancelling via explicit Stripe cancel_at: uses the actual cancellation date even when the flag is false', () => {
+    expect(describePlan(sub({ cancel_at_period_end: false, cancel_at: '2026-11-02T10:27:27Z' }), now)).toMatchObject({
+      kind: 'cancelling',
+      status: 'Ends on 2 November 2026. You keep full access until then.',
+      readOnly: false,
+    })
+  })
+
+  it('explicit cancel_at also ends access on that date if it is earlier than the billing period end', () => {
+    const scheduled = sub({ current_period_end: '2026-11-12T08:00:00Z', cancel_at: '2026-11-02T10:27:27Z' })
+    expect(getAccessState(scheduled, new Date('2026-11-02T10:27:26Z')).kind).toBe('active')
+    expect(getAccessState(scheduled, new Date('2026-11-02T10:27:28Z')).kind).toBe('read_only')
   })
 
   it('past due: access continues while Stripe retries', () => {
@@ -70,7 +85,6 @@ describe('describePlan (approved wording)', () => {
 
   it('never subscribed: "No plan"; Manage billing only with a Stripe customer', () => {
     expect(describePlan(null, now)).toEqual({ kind: 'none', plan: null, status: 'No plan', readOnly: true, canSubscribe: true, canManageBilling: false })
-    // Checkout was started (customer created) but never completed.
     expect(describePlan(sub({ plan: null, status: 'incomplete', current_period_end: null }), now)).toMatchObject({ kind: 'none', canManageBilling: true })
   })
 })

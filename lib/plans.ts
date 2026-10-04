@@ -77,11 +77,22 @@ export type SubscriptionState = {
   plan: PlanId | null
   status: string
   current_period_end: string | null
+  /** Stripe can schedule cancellation with cancel_at even when cancel_at_period_end is false. */
+  cancel_at?: string | null
 }
 
 export type AccessState =
   | { kind: 'active'; plan: PlanId }
   | { kind: 'read_only'; reason: 'no_subscription' | 'ended' | 'payment_required' }
+
+/** Effective end of already-paid access, using Stripe's explicit cancel_at when earlier. */
+export function subscriptionAccessEnd(sub: SubscriptionState | null): Date | null {
+  if (!sub?.current_period_end) return null
+  const periodEnd = new Date(sub.current_period_end)
+  if (!sub.cancel_at) return periodEnd
+  const cancelAt = new Date(sub.cancel_at)
+  return cancelAt < periodEnd ? cancelAt : periodEnd
+}
 
 /**
  * Same rule as public.has_active_access() in the database. Without an active
@@ -91,7 +102,8 @@ export type AccessState =
 export function getAccessState(sub: SubscriptionState | null, now: Date = new Date()): AccessState {
   if (!sub || !sub.plan) return { kind: 'read_only', reason: 'no_subscription' }
   if (!ACCESS_STATUSES.has(sub.status)) return { kind: 'read_only', reason: 'payment_required' }
-  if (!sub.current_period_end || new Date(sub.current_period_end) <= now) {
+  const accessEnd = subscriptionAccessEnd(sub)
+  if (!accessEnd || accessEnd <= now) {
     return { kind: 'read_only', reason: 'ended' }
   }
   return { kind: 'active', plan: sub.plan }
