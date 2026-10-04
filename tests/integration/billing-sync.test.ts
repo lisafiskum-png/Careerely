@@ -4,9 +4,8 @@ import type Stripe from 'stripe'
 
 // Subscription sync (Phase D6) against the local Supabase stack: a downgrade
 // below the active-search count pauses only the excess once it takes effect,
-// repeated deliveries change nothing, and upgrading never resumes searches.
-// Stripe is a stub returning the subscription as Stripe would. Skipped when
-// the local stack isn't running.
+// repeated deliveries change nothing, upgrading never resumes searches, and
+// Stripe's explicit cancel_at representation is stored faithfully.
 
 const SUPABASE_URL = 'http://127.0.0.1:54321'
 const SERVICE_KEY =
@@ -32,6 +31,7 @@ function stripeReturning(price: string, extra: Partial<Stripe.Subscription> = {}
     customer: customerId,
     status: 'active',
     cancel_at_period_end: false,
+    cancel_at: null,
     ended_at: null,
     metadata: { user_id: userId },
     schedule: null,
@@ -66,8 +66,21 @@ describe.skipIf(!reachable)('subscription sync and plan limits (D6)', () => {
     if (userId) await admin.auth.admin.deleteUser(userId)
   })
 
+  it('stores Stripe cancel_at when the portal schedules cancellation with the period-end flag false', async () => {
+    const cancelAt = now + 20 * DAY
+    await syncSubscription(admin, stripeReturning('price_pro', { cancel_at: cancelAt, cancel_at_period_end: false }), subId, null)
+    const { data, error } = await admin.from('subscriptions').select('cancel_at, cancel_at_period_end').eq('user_id', userId).single()
+    if (error) throw error
+    expect(data.cancel_at_period_end).toBe(false)
+    expect(data.cancel_at).toBe(new Date(cancelAt * 1000).toISOString())
+
+    // Undoing a scheduled cancellation clears the stored timestamp on the next sync.
+    await syncSubscription(admin, stripeReturning('price_pro'), subId, null)
+    const cleared = (await admin.from('subscriptions').select('cancel_at').eq('user_id', userId).single()).data!
+    expect(cleared.cancel_at).toBeNull()
+  })
+
   it('a downgrade scheduled for the period end changes nothing early', async () => {
-    // Stripe keeps the current price on the subscription until the scheduled change applies.
     await syncSubscription(admin, stripeReturning('price_pro', { schedule: 'sub_sched_123' } as Partial<Stripe.Subscription>), subId, null)
     expect(await plan()).toBe('pro')
     expect((await searches()).map(s => s.status)).toEqual(['active', 'active', 'active'])
@@ -98,7 +111,6 @@ describe.skipIf(!reachable)('subscription sync and plan limits (D6)', () => {
       ['B · oldest', 'paused', true],
       ['C · newest', 'paused', true],
     ])
-    // No scans were queued for the paused searches.
     const { data: tasks } = await admin.from('engine_tasks').select('id, search_id').eq('user_id', userId)
     expect(tasks ?? []).toEqual([])
   })
