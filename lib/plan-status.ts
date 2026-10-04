@@ -3,7 +3,7 @@
 // Prices are never shown here: the exact amount, currency, taxes and proration
 // belong to Stripe's Customer Portal. Entitlements come from lib/plans.ts.
 
-import { getAccessState, PLAN_LIMITS, PLANS, type PlanId, type SubscriptionState } from './plans'
+import { getAccessState, PLAN_LIMITS, PLANS, subscriptionAccessEnd, type PlanId, type SubscriptionState } from './plans'
 
 export type StoredSubscription = SubscriptionState & {
   cancel_at_period_end: boolean | null
@@ -41,14 +41,16 @@ export function planEntitlements(plan: PlanId): string {
 export function describePlan(sub: StoredSubscription | null, now: Date = new Date()): PlanStatus {
   const access = getAccessState(sub, now)
   const canManageBilling = Boolean(sub?.stripe_customer_id)
-  const end = sub?.current_period_end ? formatPlanDate(sub.current_period_end) : null
+  const accessEnd = subscriptionAccessEnd(sub)
+  const end = accessEnd ? formatPlanDate(accessEnd.toISOString()) : null
 
   if (access.kind === 'active') {
     const plan = planEntitlements(access.plan)
     const base = { plan, readOnly: false, canSubscribe: false, canManageBilling }
-    // Access implies a stored period end (see getAccessState), so dates are never invented.
     if (sub!.status === 'past_due') return { ...base, kind: 'past_due', status: PAYMENT_FAILED }
-    if (sub!.cancel_at_period_end || sub!.status === 'canceled') {
+    // Stripe Customer Portal may represent a scheduled cancellation either as
+    // cancel_at_period_end=true or as an explicit cancel_at timestamp.
+    if (sub!.cancel_at_period_end || sub!.cancel_at || sub!.status === 'canceled') {
       return { ...base, kind: 'cancelling', status: `Ends on ${end}. You keep full access until then.` }
     }
     return { ...base, kind: 'active', status: `Renews on ${end}` }
@@ -57,7 +59,6 @@ export function describePlan(sub: StoredSubscription | null, now: Date = new Dat
   const readOnly = { plan: null, readOnly: true, canManageBilling }
   if (access.reason === 'no_subscription') return { ...readOnly, kind: 'none', status: 'No plan', readOnly: true, canSubscribe: true }
   if (access.reason === 'payment_required') {
-    // An unpaid subscription is settled in the portal, not by starting another one.
     return { ...readOnly, kind: 'payment_required', status: `${PAYMENT_FAILED} ${READ_ONLY_NOTE}`, canSubscribe: false }
   }
   return {
