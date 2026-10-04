@@ -61,19 +61,43 @@ This plan converts the read-only audit into ordered implementation batches. It l
 40. Add CI and protect `main` with required checks once this fix series is stable.
 41. Restore reliable production runtime-log access/observability and remove confirmed-unused Vercel env variables after dependency review.
 
+## Final-pass additions to fold into the batches
+
+### Security/configuration — fold into Batch 1 and the final launch cutover
+
+- **Separate Preview from Production secrets before LIVE Stripe cutover.** Vercel currently scopes `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `ANTHROPIC_API_KEY` to both Preview and Production. Production must get LIVE Stripe credentials only; Preview must stay on sandbox/test Stripe. Prefer a separate Preview Anthropic key/budget as well.
+- **Harden mutable function search paths.** Set an explicit safe `search_path` for `set_updated_at`, `plan_limits` and `immediate_scan_limit` while doing the RPC/grant migration.
+- **Classify advisor warnings rather than blindly changing them.** Service-only RLS tables with no client policies are intentionally closed; keep them closed.
+
+### Engine correctness/cost — fold into Batch 2
+
+- **Bound failed-evaluation retries per input hash.** Production already shows an unchanged job failing structured-output validation on consecutive nights. After a small retry budget, quarantine it until resume/search/posting inputs change instead of spending one of the 20 AI slots forever.
+- **Remove the fixed 20,000-history assumption before scale.** `startScan()` should not silently forget older terminal decisions once a search accumulates more than the helper's hard cap.
+
+### Privacy/storage/legal — fold into Batch 6
+
+- **Make product behavior match the legal promises.** Terms say a user can delete their account at any time; Privacy says deletion/data-rights can be exercised through Settings or support. Implement the workflow or revise the copy before public launch.
+- **Clean superseded/abandoned resume uploads.** The current browser flow uploads timestamped objects before parsing, while UI “remove” only clears local state. Production is clean today, but failed/abandoned/replaced uploads can accumulate.
+
+### Performance — address while touching the same schema, but do not block the current audit on every lint
+
+- Review the 23 unindexed foreign keys and add covering indexes to actual hot paths first (`candidate_evaluations`, `engine_tasks`, `opportunities`, `rejections`, `search_runs`, `applications`, activity/evidence joins) after checking query patterns.
+- Rewrite the 22 RLS policies flagged for repeated `auth.uid()` evaluation to use the recommended init-plan form `(select auth.uid())` when those policies are next migrated.
+- Do not remove the three currently-unused indexes solely because production is tiny and young; re-check usage after realistic traffic.
+
 ## Recommended implementation order
 
 Do not merge one giant change. Use small PRs with production-safe migrations and rollback/recovery notes:
 
-- PR A: security grants/RLS + DB constraints
-- PR B: package queue/finalization/recovery
+- PR A: security grants/RLS + DB constraints + function search-path hardening
+- PR B: package queue/finalization/recovery + failed-evaluation retry policy
 - PR C: scan/rejection/evaluation reuse + concurrency guards
 - PR D: work style/location/compensation correctness
 - PR E: AI grounding/prompt hardening/cost limits
-- PR F: Stripe checkout/access consistency
+- PR F: Stripe checkout/access consistency + Preview/Production secret separation plan
 - PR G: source ingestion resilience
-- PR H: auth/storage/privacy/deletion
-- PR I: dependency upgrades + CI/branch protection
-- Final: sandbox smoke suite, then LIVE Stripe cutover and launch checklist
+- PR H: auth/storage/privacy/deletion + legal-copy reconciliation
+- PR I: dependency upgrades + CI/branch protection + targeted DB performance indexes/RLS init-plan cleanup
+- Final: sandbox smoke suite, isolate Preview from LIVE credentials, then LIVE Stripe cutover and launch checklist
 
 User-facing design/UI changes are intentionally excluded from this technical plan and can be handled in the final UI round.
