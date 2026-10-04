@@ -13,6 +13,7 @@ export type SubscriptionRow = {
   current_period_start: string | null
   current_period_end: string | null
   cancel_at_period_end: boolean
+  cancel_at: string | null
 }
 
 const toIso = (seconds: number | null | undefined) =>
@@ -42,5 +43,6 @@ export function subscriptionToRow(
     current_period_start: toIso(item?.current_period_start),
     current_period_end: toIso(periodEnd),
     cancel_at_period_end: sub.cancel_at_period_end,
+    cancel_at: toIso(sub.cancel_at),
   }
 }
