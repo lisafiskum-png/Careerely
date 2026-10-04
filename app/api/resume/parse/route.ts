@@ -4,7 +4,7 @@ import { createClient } from '../../../../lib/supabase/server'
 import { createAdminClient } from '../../../../lib/supabase/admin'
 import { detectResumeKind, extractResumeText, MAX_RESUME_BYTES } from '../../../../lib/resume/extract'
 import { parseResume, ResumeParseError } from '../../../../lib/resume/parse'
-import { isOverLimit, recordUsage } from '../../../../lib/usage'
+import { claimUsage } from '../../../../lib/usage'
 
 export const maxDuration = 60
 
@@ -27,14 +27,9 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminClient()
-    if (await isOverLimit(admin, user.id, 'resume_parse')) {
-      return Response.json(
-        { error: 'You’ve uploaded a lot of resumes today. Please try again tomorrow.' },
-        { status: 429 },
-      )
-    }
 
-    // Download as the user, so storage row level security applies.
+    // Download as the user, so storage row level security applies. Cheap file
+    // validation happens before an AI allowance slot is consumed.
     const supabase = await createClient()
     const { data: file, error: downloadError } = await supabase.storage.from('resumes').download(path)
     if (downloadError || !file) return Response.json({ error: 'We couldn’t find that file. Please upload it again.' }, { status: 404 })
@@ -54,7 +49,15 @@ export async function POST(request: Request) {
       return Response.json({ error: 'We couldn’t read any text in this file. Try a PDF export of your resume.' }, { status: 422 })
     }
 
-    await recordUsage(admin, user.id, 'resume_parse')
+    // Claim and record the rolling-window slot in one database transaction.
+    // Parallel requests for the same account cannot overshoot the AI limit.
+    if (!(await claimUsage(admin, user.id, 'resume_parse'))) {
+      return Response.json(
+        { error: 'You’ve uploaded a lot of resumes today. Please try again tomorrow.' },
+        { status: 429 },
+      )
+    }
+
     const result = await parseResume({ text, pdf: kind === 'pdf' ? bytes : undefined })
 
     const { error: saveError } = await admin.from('career_profiles').upsert(
