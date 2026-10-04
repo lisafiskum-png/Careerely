@@ -15,7 +15,7 @@ import { evaluateBatch, finalizeRun, startScan } from './scan'
 //   sync_source        → one company board (Greenhouse / Lever / Ashby)
 //   scan_search        → one search: start → evaluate (in batches) → finalize
 //   decide_preparation → Stage 6 for one user, after their scans finish
-//   prepare_package    → Stage 7 for one opportunity
+//   prepare_package    → Stage 7 for one opportunity/package reservation
 
 export type TaskKind = 'nightly' | 'sync_source' | 'scan_search' | 'decide_preparation' | 'prepare_package'
 
@@ -145,7 +145,8 @@ async function runSyncTask(admin: SupabaseClient, task: Task, now = new Date()) 
     if (error) throw error
     return
   }
-  await admin.from('source_health').delete().eq('provider', board.provider).eq('slug', board.slug)
+  const { error: healthError } = await admin.from('source_health').delete().eq('provider', board.provider).eq('slug', board.slug)
+  if (healthError) throw healthError
   return complete(admin, task)
 }
 
@@ -172,7 +173,8 @@ async function requeue(admin: SupabaseClient, task: Task, payload: object, delay
 }
 
 async function complete(admin: SupabaseClient, task: Task) {
-  await admin.from('engine_tasks').update({ status: 'done', locked_until: null, last_error: null }).eq('id', task.id)
+  const { error } = await admin.from('engine_tasks').update({ status: 'done', locked_until: null, last_error: null }).eq('id', task.id)
+  if (error) throw error
 }
 
 async function runScanTask(admin: SupabaseClient, task: Task) {
@@ -193,6 +195,12 @@ async function runScanTask(admin: SupabaseClient, task: Task) {
   await enqueue(admin, { kind: 'decide_preparation', dedupe_key: key, user_id: userId })
 }
 
+function reservedIds(payload: Record<string, unknown>): string[] | null {
+  const value = payload.reserved_opportunity_ids
+  if (!Array.isArray(value)) return null
+  return value.filter((id): id is string => typeof id === 'string')
+}
+
 async function runDecideTask(admin: SupabaseClient, task: Task) {
   // Wait until the user's other scans are finished, so "top 2" is across all their searches.
   const { count } = await admin
@@ -202,12 +210,42 @@ async function runDecideTask(admin: SupabaseClient, task: Task) {
     .eq('user_id', task.user_id!)
     .in('status', ['queued', 'running'])
   if (count) return requeue(admin, task, task.payload, 2 * 60_000)
-  const { data: access } = await admin.rpc('has_active_access', { uid: task.user_id })
-  const reserved = access ? await decidePreparation(admin, task.user_id!) : []
-  await complete(admin, task)
-  for (const id of reserved) {
-    await enqueue(admin, { kind: 'prepare_package', dedupe_key: `prepare:${id}`, user_id: task.user_id!, opportunity_id: id })
+
+  let reserved = reservedIds(task.payload)
+  if (reserved === null) {
+    const { data: access } = await admin.rpc('has_active_access', { uid: task.user_id })
+    reserved = access ? await decidePreparation(admin, task.user_id!) : []
+    if (!reserved.length) return complete(admin, task)
+
+    // Persist the reservation list before queueing package work. If the worker
+    // dies while queueing, its retry reuses exactly these reservations instead
+    // of selecting and reserving another set.
+    return requeue(admin, task, { ...task.payload, reserved_opportunity_ids: reserved })
   }
+
+  if (!reserved.length) return complete(admin, task)
+  const { data: packages, error } = await admin
+    .from('application_packages')
+    .select('id, opportunity_id')
+    .in('opportunity_id', reserved)
+    .eq('status', 'preparing')
+  if (error) throw error
+  const byOpportunity = new Map((packages ?? []).map(p => [p.opportunity_id as string, p.id as string]))
+
+  for (const id of reserved) {
+    const packageId = byOpportunity.get(id)
+    // A reservation may already have been finalized by a previous worker
+    // attempt. In that case there is intentionally nothing left to enqueue.
+    if (!packageId) continue
+    await enqueue(admin, {
+      kind: 'prepare_package',
+      dedupe_key: `prepare:${id}:${packageId}`,
+      user_id: task.user_id!,
+      opportunity_id: id,
+      payload: { package_id: packageId },
+    })
+  }
+  return complete(admin, task)
 }
 
 export async function runTask(admin: SupabaseClient, task: Task, now = new Date()): Promise<void> {
@@ -221,9 +259,11 @@ export async function runTask(admin: SupabaseClient, task: Task, now = new Date(
       return runScanTask(admin, task)
     case 'decide_preparation':
       return runDecideTask(admin, task)
-    case 'prepare_package':
-      await generatePackage(admin, task.opportunity_id!)
+    case 'prepare_package': {
+      const packageId = typeof task.payload.package_id === 'string' ? task.payload.package_id : undefined
+      await generatePackage(admin, task.opportunity_id!, packageId)
       return complete(admin, task)
+    }
   }
 }
 
@@ -231,18 +271,28 @@ export async function handleFailure(admin: SupabaseClient, task: Task, err: unkn
   const message = err instanceof Error ? err.message : String(err)
   console.error('engine task failed', task.kind, task.id, message)
   if (task.attempts >= task.max_attempts) {
-    await admin.from('engine_tasks').update({ status: 'failed', last_error: message.slice(0, 2000), locked_until: null }).eq('id', task.id)
-    if (task.kind === 'prepare_package' && task.opportunity_id) await failPackage(admin, task.opportunity_id, message)
+    const { error } = await admin.from('engine_tasks').update({ status: 'failed', last_error: message.slice(0, 2000), locked_until: null }).eq('id', task.id)
+    if (error) throw error
+    if (task.kind === 'prepare_package' && task.opportunity_id) {
+      const packageId = typeof task.payload.package_id === 'string' ? task.payload.package_id : undefined
+      await failPackage(admin, task.opportunity_id, message, packageId)
+    }
     if (task.kind === 'scan_search' && task.payload.run_id) {
-      await admin.from('search_runs').update({ status: 'failed', error: message.slice(0, 2000), finished_at: new Date().toISOString() }).eq('id', task.payload.run_id as string)
+      const { error: runError } = await admin
+        .from('search_runs')
+        .update({ status: 'failed', error: message.slice(0, 2000), finished_at: new Date().toISOString() })
+        .eq('id', task.payload.run_id as string)
+        .eq('status', 'running')
+      if (runError) throw runError
     }
     return
   }
   // Retry with backoff; keeps its progress (phase/run id) in the payload.
-  await admin
+  const { error } = await admin
     .from('engine_tasks')
     .update({ status: 'queued', last_error: message.slice(0, 2000), locked_until: null, run_after: new Date(Date.now() + task.attempts * 5 * 60_000).toISOString() })
     .eq('id', task.id)
+  if (error) throw error
 }
 
 export type WorkerResult = { processed: number; failed: number }
