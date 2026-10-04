@@ -10,6 +10,7 @@ function subscription(overrides: Partial<Stripe.Subscription> = {}, priceId = 'p
     customer: 'cus_123',
     status: 'active',
     cancel_at_period_end: false,
+    cancel_at: null,
     ended_at: null,
     items: {
       data: [{ price: { id: priceId }, current_period_start: 1_790_000_000, current_period_end: 1_792_592_000 }],
@@ -29,6 +30,7 @@ describe('subscriptionToRow', () => {
       current_period_start: new Date(1_790_000_000 * 1000).toISOString(),
       current_period_end: new Date(1_792_592_000 * 1000).toISOString(),
       cancel_at_period_end: false,
+      cancel_at: null,
     })
   })
 
@@ -40,6 +42,13 @@ describe('subscriptionToRow', () => {
     const row = subscriptionToRow(subscription({ cancel_at_period_end: true }), 'user-1', priceToPlan)
     expect(row.cancel_at_period_end).toBe(true)
     expect(row.current_period_end).toBe(new Date(1_792_592_000 * 1000).toISOString())
+  })
+
+  it('stores an explicit Stripe cancel_at even when cancel_at_period_end is false', () => {
+    const cancelAt = 1_792_592_000
+    const row = subscriptionToRow(subscription({ cancel_at: cancelAt, cancel_at_period_end: false }), 'user-1', priceToPlan)
+    expect(row.cancel_at_period_end).toBe(false)
+    expect(row.cancel_at).toBe(new Date(cancelAt * 1000).toISOString())
   })
 
   it('ends access at the cancellation time for an immediate cancellation', () => {
