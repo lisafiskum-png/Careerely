@@ -130,6 +130,8 @@ export async function fetchBoard(board: CompanyBoard, fetchImpl: Fetch = fetch):
 
 // ── Greenhouse ──────────────────────────────────────────────────────────────
 
+type GreenhousePayRange = { min_cents?: number; max_cents?: number; currency_type?: string }
+
 type GreenhouseJob = {
   id: number | string
   title?: string
@@ -138,7 +140,48 @@ type GreenhouseJob = {
   content?: string
   updated_at?: string
   first_published?: string
-  pay_input_ranges?: { min_cents?: number; max_cents?: number; currency_type?: string }[]
+  pay_input_ranges?: GreenhousePayRange[]
+}
+
+const MAJOR_SALARY_CURRENCIES = new Set(['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'CHF', 'NOK', 'SEK', 'DKK'])
+const GREENHOUSE_MIN_PLAUSIBLE_ANNUAL = 1_000
+const GREENHOUSE_MAX_PLAUSIBLE_MAJOR_ANNUAL = 50_000_000
+const NON_ANNUAL_PAY_WORDING = /\b(?:hourly|daily|weekly|monthly)\b|(?:per|\/)\s*(?:hour|hr|day|week|month)\b/i
+
+/**
+ * Greenhouse's public `pay_input_ranges` response does not include a pay
+ * interval. Some boards put hourly/monthly values in the same min/max fields
+ * as annual salary. Unknown compensation must never become a hard negative, so
+ * clearly non-annual or corrupt ranges are discarded rather than guessed.
+ */
+export function greenhouseAnnualPay(
+  pay: GreenhousePayRange | undefined,
+  description = '',
+): { salary_min: number | null; salary_max: number | null; salary_currency: string | null } {
+  if (!pay) return { salary_min: null, salary_max: null, salary_currency: null }
+  const amount = (cents: number | undefined) =>
+    typeof cents === 'number' && Number.isFinite(cents) && cents > 0 ? Math.round(cents / 100) : null
+  const salaryMin = amount(pay.min_cents)
+  const salaryMax = amount(pay.max_cents)
+  const currency = pay.currency_type?.trim().toUpperCase() || null
+
+  if (salaryMin === null && salaryMax === null) return { salary_min: null, salary_max: null, salary_currency: null }
+  if (salaryMin !== null && salaryMax !== null && salaryMin > salaryMax) {
+    return { salary_min: null, salary_max: null, salary_currency: null }
+  }
+
+  const highest = salaryMax ?? salaryMin!
+  if (highest < GREENHOUSE_MIN_PLAUSIBLE_ANNUAL) {
+    return { salary_min: null, salary_max: null, salary_currency: null }
+  }
+  if (highest < 20_000 && NON_ANNUAL_PAY_WORDING.test(description)) {
+    return { salary_min: null, salary_max: null, salary_currency: null }
+  }
+  if (currency && MAJOR_SALARY_CURRENCIES.has(currency) && highest > GREENHOUSE_MAX_PLAUSIBLE_MAJOR_ANNUAL) {
+    return { salary_min: null, salary_max: null, salary_currency: null }
+  }
+
+  return { salary_min: salaryMin, salary_max: salaryMax, salary_currency: currency }
 }
 
 export function parseGreenhouse(board: CompanyBoard, data: unknown): NormalizedJob[] {
@@ -146,7 +189,9 @@ export function parseGreenhouse(board: CompanyBoard, data: unknown): NormalizedJ
   return jobs.map(j => {
     const location = j.location?.name?.trim() || null
     const description = htmlToText(j.content ?? '')
-    const pay = j.pay_input_ranges?.[0]
+    const pay = (j.pay_input_ranges ?? [])
+      .map(range => greenhouseAnnualPay(range, description))
+      .find(range => range.salary_min !== null || range.salary_max !== null) ?? greenhouseAnnualPay(undefined)
     return finalize(board, {
       source_job_id: String(j.id),
       url: j.absolute_url!,
@@ -154,9 +199,9 @@ export function parseGreenhouse(board: CompanyBoard, data: unknown): NormalizedJ
       location,
       work_style: workStyleFromText(location),
       description,
-      salary_min: pay?.min_cents ? Math.round(pay.min_cents / 100) : null,
-      salary_max: pay?.max_cents ? Math.round(pay.max_cents / 100) : null,
-      salary_currency: pay?.currency_type ?? null,
+      salary_min: pay.salary_min,
+      salary_max: pay.salary_max,
+      salary_currency: pay.salary_currency,
       posted_at: j.first_published ?? j.updated_at ?? null,
     })
   })
