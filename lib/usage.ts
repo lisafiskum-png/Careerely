@@ -1,8 +1,9 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-// Simple rolling-window rate limits for metered actions (AI calls).
-// Uses the service-role client: usage_events is not visible to users.
+// Rolling-window rate limits for metered actions (AI calls). The database RPC
+// serializes claims per user/kind, so parallel requests cannot all pass the
+// same count check and overspend the allowance.
 
 export const LIMITS = {
   resume_parse: { max: 10, windowHours: 24 },
@@ -10,20 +11,15 @@ export const LIMITS = {
 
 export type UsageKind = keyof typeof LIMITS
 
-export async function isOverLimit(admin: SupabaseClient, userId: string, kind: UsageKind): Promise<boolean> {
+/** Atomically consumes one allowance slot. False means the rolling limit is full. */
+export async function claimUsage(admin: SupabaseClient, userId: string, kind: UsageKind): Promise<boolean> {
   const { max, windowHours } = LIMITS[kind]
-  const since = new Date(Date.now() - windowHours * 3600_000).toISOString()
-  const { count, error } = await admin
-    .from('usage_events')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('kind', kind)
-    .gte('created_at', since)
+  const { data, error } = await admin.rpc('claim_usage_event', {
+    p_user: userId,
+    p_kind: kind,
+    p_max: max,
+    p_window_hours: windowHours,
+  })
   if (error) throw error
-  return (count ?? 0) >= max
-}
-
-export async function recordUsage(admin: SupabaseClient, userId: string, kind: UsageKind): Promise<void> {
-  const { error } = await admin.from('usage_events').insert({ user_id: userId, kind })
-  if (error) throw error
+  return data === true
 }
