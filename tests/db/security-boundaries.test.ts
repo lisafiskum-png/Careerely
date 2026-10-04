@@ -26,6 +26,13 @@ beforeAll(async () => {
     create table public.profiles (id uuid primary key, email text, plan text default 'standard', voice_sample text);
     alter table public.profiles enable row level security;
     create policy legacy_all on public.profiles for all using (true) with check (true);
+
+    -- These two tables came from the pre-migration prototype and deliberately
+    -- do not exist on a clean install. Recreate that legacy state here so this
+    -- suite proves the security migration hardens them when they are present.
+    create table public.cover_letters (id uuid primary key default gen_random_uuid(), body text);
+    create table public.waitlist (id uuid primary key default gen_random_uuid(), email text);
+    grant select on public.cover_letters, public.waitlist to anon, authenticated;
   `)
   const files = readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort()
   for (const file of files) await db.exec(readFileSync(path.join(migrationsDir, file), 'utf8'))
