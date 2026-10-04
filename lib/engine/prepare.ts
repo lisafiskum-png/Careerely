@@ -58,7 +58,8 @@ export async function decidePreparation(admin: SupabaseClient, userId: string, n
       reason: selected ? 'top_ranked_auto' : i < NIGHTLY_AUTO_PREP ? 'quota_exceeded' : 'score_insufficient',
       decidedAt,
     }
-    await admin.from('opportunities').update({ preparation_decision: decision }).eq('id', o.id)
+    const { error: decisionError } = await admin.from('opportunities').update({ preparation_decision: decision }).eq('id', o.id)
+    if (decisionError) throw decisionError
   }
   return [...reserved]
 }
@@ -183,88 +184,96 @@ async function callGenerator(ctx: SearchContext, jobDoc: string, evidence: Packa
 
 const GENERATION_ATTEMPTS = 2
 
-/** Generates and stores the package; the opportunity becomes Ready and an application is created. */
-export async function generatePackage(admin: SupabaseClient, opportunityId: string): Promise<void> {
+/**
+ * Generates and atomically finalizes one specific package reservation.
+ * packageId is embedded in new queue tasks so an obsolete task can never
+ * mutate a later reservation for the same opportunity.
+ */
+export async function generatePackage(admin: SupabaseClient, opportunityId: string, packageId?: string): Promise<void> {
   const { data: opp, error } = await admin
     .from('opportunities')
     .select(`id, user_id, search_id, run_id, job_id, state, jobs(title, company, location, salary_min, salary_max, salary_currency, description)`)
     .eq('id', opportunityId)
     .single()
   if (error) throw error
-  if (opp.state !== 'preparing') return
 
-  const { data: pkg } = await admin.from('application_packages').select('id, attempts').eq('opportunity_id', opportunityId).single()
-  if (!pkg) throw new PackageError('No reserved package')
+  let packageQuery = admin.from('application_packages').select('id, status, attempts').eq('opportunity_id', opportunityId)
+  if (packageId) packageQuery = packageQuery.eq('id', packageId)
+  const { data: pkg, error: packageError } = await packageQuery.maybeSingle()
+  if (packageError) throw packageError
+  if (!pkg) {
+    // A task tied to a reservation that no longer exists is stale; completing
+    // it is safer than retrying it against a newer package.
+    if (packageId) return
+    throw new PackageError('No reserved package')
+  }
+  if (pkg.status === 'ready' || pkg.status === 'failed') return
+  if (opp.state !== 'preparing') return
 
   const ctx = await loadSearchContext(admin, opp.search_id)
   const jobDoc = jobDocument(opp.jobs as unknown as Parameters<typeof jobDocument>[0])
-  const { data: evidence } = await admin
+  const { data: evidence, error: evidenceError } = await admin
     .from('evidence')
     .select('id, claim, source_text, outcome')
     .eq('opportunity_id', opportunityId)
     .neq('outcome', 'unknown')
+  if (evidenceError) throw evidenceError
   const list = (evidence ?? []) as PackageEvidence[]
   const refs = new Map(list.map((e, i) => [`E${i + 1}`, e.id]))
 
   let feedback: string | null = null
   for (let attempt = 1; attempt <= GENERATION_ATTEMPTS; attempt++) {
-    await admin.from('application_packages').update({ attempts: (pkg.attempts ?? 0) + attempt }).eq('id', pkg.id)
+    const { error: attemptError } = await admin
+      .from('application_packages')
+      .update({ attempts: (pkg.attempts ?? 0) + attempt })
+      .eq('id', pkg.id)
+      .eq('status', 'preparing')
+    if (attemptError) throw attemptError
+
     const raw = await callGenerator(ctx, jobDoc, list, feedback)
     const result = validatePackage(raw, ctx, jobDoc, refs)
     if (result.problems.length) {
       feedback = result.problems.join('\n')
       continue
     }
-    const now = new Date().toISOString()
+
     const coverLetterText = result.segments.map(s => s.text).join('\n\n')
-    const { error: pkgError } = await admin
-      .from('application_packages')
-      .update({
-        status: 'ready',
-        resume_changes: result.changes,
-        tailored_resume_text: result.tailored,
-        tailored_resume: { text: result.tailored },
-        has_changes: result.changes.length > 0,
-        cover_letter_segments: result.segments,
-        cover_letter_text: coverLetterText,
-        generation_model: CLAUDE_MODEL,
-        completed_at: now,
-        error: null,
-      })
-      .eq('id', pkg.id)
-    if (pkgError) throw pkgError
-    await admin.from('opportunities').update({ state: 'ready', ready_at: now }).eq('id', opportunityId)
-    const { data: application, error: appError } = await admin
-      .from('applications')
-      .upsert(
-        { user_id: opp.user_id, opportunity_id: opportunityId, package_id: pkg.id, job_id: opp.job_id, status: 'ready_to_apply' },
-        { onConflict: 'user_id,opportunity_id', ignoreDuplicates: true },
-      )
-      .select('id')
-      .maybeSingle()
-    if (appError) throw appError
-    if (opp.run_id) {
-      const { error: countError } = await admin.rpc('record_prepared', { p_run: opp.run_id, p_opportunity: opportunityId })
-      if (countError) throw countError
-    }
-    await admin.from('activity').insert({
-      user_id: opp.user_id,
-      kind: 'application_prepared',
-      opportunity_id: opportunityId,
-      application_id: application?.id ?? null,
-      payload: {},
+    const { error: finalizeError } = await admin.rpc('finalize_application_package', {
+      p_opportunity: opportunityId,
+      p_package: pkg.id,
+      p_resume_changes: result.changes,
+      p_tailored_resume_text: result.tailored,
+      p_tailored_resume: { text: result.tailored },
+      p_has_changes: result.changes.length > 0,
+      p_cover_letter_segments: result.segments,
+      p_cover_letter_text: coverLetterText,
+      p_generation_model: CLAUDE_MODEL,
     })
+    if (finalizeError) throw finalizeError
     return
   }
   throw new PackageError(`Generated package failed validation: ${feedback}`)
 }
 
-/** After the final failed attempt: release the quota and return the opportunity to Shortlisted. */
-export async function failPackage(admin: SupabaseClient, opportunityId: string, reason: string): Promise<void> {
-  await admin.from('application_packages').update({ status: 'failed', error: reason.slice(0, 1000) }).eq('opportunity_id', opportunityId)
-  await admin
-    .from('opportunities')
-    .update({ state: 'shortlisted', preparing_started_at: null })
-    .eq('id', opportunityId)
-    .eq('state', 'preparing')
+/** After the final failed queue attempt: atomically release this reservation's quota. */
+export async function failPackage(admin: SupabaseClient, opportunityId: string, reason: string, packageId?: string): Promise<void> {
+  let id = packageId
+  if (!id) {
+    const { data, error } = await admin
+      .from('application_packages')
+      .select('id')
+      .eq('opportunity_id', opportunityId)
+      .eq('status', 'preparing')
+      .maybeSingle()
+    if (error) throw error
+    id = data?.id
+  }
+  if (!id) return
+
+  const { error } = await admin.rpc('fail_application_package', {
+    p_opportunity: opportunityId,
+    p_package: id,
+    p_reason: reason,
+  })
+  if (error) throw error
 }
