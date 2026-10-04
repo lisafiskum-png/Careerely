@@ -14,7 +14,7 @@ export default async function SettingsPage() {
   if (!user) redirect('/login?next=/settings')
   const supabase = await createClient()
   const [{ data: sub }, { data: paused }, { data: profile }] = await Promise.all([
-    supabase.from('subscriptions').select('plan, status, current_period_end, cancel_at_period_end, stripe_customer_id').maybeSingle<StoredSubscription>(),
+    supabase.from('subscriptions').select('plan, status, current_period_end, cancel_at_period_end, cancel_at, stripe_customer_id').maybeSingle<StoredSubscription>(),
     supabase.from('searches').select('status, paused_by_plan_change_at').eq('status', 'paused').not('paused_by_plan_change_at', 'is', null),
     supabase.from('profiles').select('plan_change_notice_dismissed_at').eq('id', user.id).maybeSingle(),
   ])
