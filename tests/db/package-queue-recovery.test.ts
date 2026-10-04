@@ -8,7 +8,6 @@ const migrationsDir = path.join(root, 'supabase/migrations')
 const USER = '71111111-1111-1111-1111-111111111111'
 
 let db: PGlite
-let jobId = ''
 let searchId = ''
 
 beforeAll(async () => {
@@ -33,10 +32,6 @@ beforeAll(async () => {
      values ($1, 'pro', 'active', now() - interval '1 day', now() + interval '20 days')`,
     [USER],
   )
-  jobId = (await db.query<{ id: string }>(
-    `insert into public.jobs (source, source_job_id, url, title)
-     values ('greenhouse', 'queue-test', 'https://example.com/job', 'Account Executive') returning id`,
-  )).rows[0].id
   searchId = (await db.query<{ id: string }>(
     `insert into public.searches (user_id, name, status) values ($1, 'Queue test', 'active') returning id`,
     [USER],
@@ -46,6 +41,11 @@ beforeAll(async () => {
 afterAll(async () => db.close())
 
 async function reservation(tag: string) {
+  const jobId = (await db.query<{ id: string }>(
+    `insert into public.jobs (source, source_job_id, url, title)
+     values ('greenhouse', $1, $2, 'Account Executive') returning id`,
+    [`queue-${tag}`, `https://example.com/job/${tag}`],
+  )).rows[0].id
   const runId = (await db.query<{ id: string }>(
     `insert into public.search_runs (user_id, search_id, status) values ($1, $2, 'running') returning id`,
     [USER, searchId],
