@@ -12,30 +12,28 @@ Production currently contains:
 - `cover_letters`: 6 rows
 - `waitlist`: 5 rows
 
-The current app does not reference `cover_letters`; the landing `JoinForm` routes users to signup and does not use `waitlist`. Treat both as legacy until proven otherwise. Before launch either remove/archive them or enable RLS and revoke unnecessary client privileges.
+`cover_letters` contains user/job/cover-letter fields (`user_id`, job URL/description, generated cover letter, title/company). `waitlist` contains email addresses. The current app does not reference `cover_letters`; the landing `JoinForm` routes users to signup and does not use `waitlist`. Treat both as legacy until proven otherwise. Before launch either remove/archive them or enable RLS and revoke unnecessary client privileges.
 
 ### 2. Internal SECURITY DEFINER RPCs have overly broad EXECUTE grants
 
 Several internal functions are executable by `anon` and/or `authenticated`, despite being intended for service-role/trigger use. The most important examples are:
 
-- `claim_engine_tasks` — anon + authenticated can execute; mutates queue state and increments attempts.
-- `reserve_preparations` — anon + authenticated can execute; creates package reservations and consumes preparation quota.
+- `claim_engine_tasks` — anon + authenticated can execute; mutates queue state, increments attempts and leases work. This can interfere with the Opportunity Engine.
+- `reserve_preparations` — anon + authenticated can execute; creates package reservations, deletes failed reservations and changes opportunity state.
 - `record_prepared` — anon + authenticated can execute; mutates search-run counters.
-- `current_plan`, `has_active_access`, `preparations_used` — expose internal account state for arbitrary supplied UUIDs.
-- trigger functions `enforce_active_search_limit` and `handle_new_user` also retain broad EXECUTE grants that are not required for triggers.
+- `preparations_used` and `current_plan` — accept an arbitrary user UUID and expose internal account state.
+- `has_active_access` — also accepts an arbitrary UUID. It is legitimately used by RLS policies, so authenticated execution may be needed, but user calls should be constrained to `auth.uid()` rather than leaking arbitrary-user state.
+- trigger helpers such as `enforce_active_search_limit` and `handle_new_user` retain broad EXECUTE grants that are unnecessary for direct clients.
 
-Keep user-facing RPCs such as `mark_application_applied`, `set_application_status`, and `dismiss_plan_change_notice` available to `authenticated` as intended. Internal engine/billing helpers should be explicitly revoked from `PUBLIC`, `anon`, and `authenticated`, then granted only to `service_role` where direct RPC execution is needed.
+`apply_plan_search_limit` and `claim_immediate_scan` are already service-role-only, which is the desired pattern for engine-only RPCs.
+
+Keep user-facing RPCs such as `mark_application_applied`, `set_application_status`, and `dismiss_plan_change_notice` available to `authenticated` as intended. Internal engine/billing helpers should be explicitly revoked from `PUBLIC`, `anon`, and `authenticated`, then granted only to `service_role` where direct RPC execution is needed. Helpers used by RLS should enforce self-only semantics for normal authenticated callers.
 
 ## High priority correctness issues
 
 ### 3. Failed package retry can become permanently stuck in `preparing`
 
-Two production packages are currently stuck:
-
-- Adyen — Enterprise Business Development Representative
-- Wintermute — Business Development & Partnerships — All Levels
-
-Both have a new `application_packages.status = preparing`, but their corresponding `prepare_package` task is already `done` from an earlier reservation. The task dedupe key is only `prepare:<opportunity_id>`.
+Two production packages are currently stuck in `preparing`. Both have a fresh `application_packages.status = preparing`, but their corresponding `prepare_package` task is an older task already in `done` state. The task dedupe key is only `prepare:<opportunity_id>`.
 
 Confirmed sequence:
 1. Original package reservation creates `prepare:<opportunity_id>` task.
@@ -58,15 +56,41 @@ However several server reads still select only `plan, status, current_period_end
 
 For the current Customer Portal end-of-period cancellation, `cancel_at == current_period_end`, so this does not change the observed result. But an earlier explicit `cancel_at` can make UI/API access disagree with database enforcement. All access-state selects should include `cancel_at`.
 
-## Medium priority / launch hygiene
+### 5. Database `is_my_pick` can point at an opportunity already moved to Applications
 
-### 5. Production migration history is not aligned with repository migrations
+`rerankUser()` ranks every non-dismissed opportunity for the user. It does not exclude jobs that are no longer active or opportunities whose application has already moved beyond `ready_to_apply`.
+
+The UI does exclude those rows in `getLiveOpportunities()` and then visually treats the first remaining row as My Pick. Production currently has one `is_my_pick = true` opportunity whose application has already moved into Applications.
+
+This creates two definitions of My Pick: the database points at a hidden/submitted opportunity while the UI displays another live opportunity as the pick. Today the UI still looks sensible because it uses the remaining rank order, but the stored canonical state is inconsistent and any future code using `is_my_pick` can be wrong.
+
+Fix by making reranking use the same live-opportunity definition as the UI (not dismissed, posting active, not moved beyond ready-to-apply), or make `is_my_pick` derived rather than persisted.
+
+## Medium priority / launch hardening
+
+### 6. AI source content is not explicitly marked as untrusted against prompt injection
+
+Job postings are third-party ATS content and resumes are user-provided content. Both are inserted into Claude prompts. The system prompts contain strong evidence/invention rules, and `verifyEvaluation()` materially reduces risk by requiring quoted, traceable evidence and downgrading unsupported findings to unknown. Package validation also rejects unsupported numbers and dropped employers.
+
+However the prompts do not explicitly tell the model that instructions found inside `<job_posting>`, `<candidate_resume>` or evidence/source text are data and must never override Careerely's system instructions. A malicious job description could contain prompt-injection text intended to alter scoring or generated application content.
+
+Add explicit untrusted-source instructions to evaluation and package-generation system prompts and regression tests with malicious source text. Keep the deterministic evidence verification as the primary integrity backstop.
+
+### 7. Resume extraction has upload limits but no decompressed/document-complexity cap
+
+The `resumes` bucket is private, allows PDF/DOC/DOCX only and caps uploaded bytes at 10 MB. The parse route checks magic bytes, user ownership and rate-limits parsing to 10 per 24 hours.
+
+`extractResumeText()` does not currently cap PDF page count, decompressed DOCX size, extracted text length or parser complexity before processing/sending the content to Claude. A small but highly compressed or pathological document can consume disproportionate memory/CPU even though the uploaded file is under 10 MB.
+
+Add pragmatic resource limits (for example extracted-text ceiling and document/page/decompression guards where supported), fail cleanly, and test oversized/pathological inputs. Auth + rate limiting lowers the exposure, so this is hardening rather than a known production exploit.
+
+### 8. Production migration history is not aligned with repository migrations
 
 Most schema changes were applied manually in SQL, so `supabase_migrations.schema_migrations` does not contain the repository migration versions. The only recorded migration is the connector-applied `subscription_cancel_at` migration, with a generated production version different from the repository filename.
 
 Before adopting automated `supabase db push`/CI migrations, reconcile or repair migration history so already-applied migrations are not treated as pending.
 
-### 6. ATS source coverage is healthy operationally but incomplete
+### 9. ATS source coverage is healthy operationally but incomplete
 
 Current source state:
 - 56 configured boards are `not_found` and skipped until weekly recheck.
@@ -76,21 +100,30 @@ Current source state:
 
 The skip/recheck mechanism is working. Replacing stale board slugs is a coverage improvement, not an engine-stability blocker.
 
-### 7. Duplicate job dedupe keys exist in storage
+### 10. Duplicate job dedupe keys exist in storage
 
-There are 55 duplicate `jobs.dedupe_key` groups. Stage 1 already uses the dedupe key to reject repeated company/title/location combinations during a scan, so this is not currently producing duplicate shortlist entries. It does add storage/review overhead and may be worth cleaning up post-launch.
+There are 55 duplicate `jobs.dedupe_key` groups. The database uniqueness constraint is `(source, source_job_id)`, while `dedupe_key` has only a non-unique index. Stage 1 already uses the dedupe key to reject repeated company/title/location combinations during a scan, so this is not currently producing duplicate shortlist entries. It does add storage/review overhead and can make source-level duplication noisier.
 
-### 8. `main` has no branch protection / required CI checks
+### 11. `main` has no branch protection / required CI checks
 
-`main` is unprotected and no GitHub Actions workflow is present in the repository. Vercel deployment status is green, but tests are not automatically required before merge. Add branch protection / required checks once the launch-fix branch is ready.
+`main` is unprotected and no GitHub Actions workflow is present in the repository. Vercel deployment status is green, but typecheck/lint/unit/browser tests are not automatically required before merge. Add CI and required checks once the launch-fix branch is ready.
 
-### 9. Vercel connector scope needs re-authorization for deeper audit
+### 12. Vercel runtime observability remains inaccessible to the connector
 
-The connected Vercel API can discover the `careerely` project, but project/runtime access returns 403 for the team scope. GitHub still reports the current Vercel deployment check as successful. Re-authorize the Vercel connection before the final production runtime-log/environment audit.
+The Vercel connector can now read the Careerely project, deployments and environment-variable metadata, and production deployment state is confirmed. Runtime log/error-cluster endpoints still return `403 Forbidden` for the correct project/team scope.
+
+This does not block the database/code audit, but runtime-error review should be available before launch if possible (connector re-authorization or direct Vercel review).
+
+### 13. Production Vercel still contains obsolete configuration variables
+
+The production environment contains legacy Stripe variables (`STANDARD`/old `PRO`/`PREMIUM` monthly/annual names) and `SERPAPI_KEY`; code search found no current references to those variables. V1 intentionally uses only company ATS sources, not SerpAPI. `RESEND_API_KEY` is also present while current code search found no Resend usage.
+
+Do not delete anything blindly during the audit. After confirming no external workflow depends on them, remove unused variables to reduce configuration drift and secret surface.
 
 ## Verified healthy
 
 - Current `main` commit has a successful Vercel status check.
+- The production Vercel deployment is `READY` and is aliased to `www.careerely.ai` / `careerely.ai`.
 - Supabase cron is active every 5 minutes.
 - Latest observed `net._http_response`: 72/72 responses were HTTP 200.
 - Recent engine tasks and recent search runs are succeeding.
@@ -101,6 +134,8 @@ The connected Vercel API can discover the `careerely` project, but project/runti
 - No owner mismatches between applications/packages and opportunities.
 - No ready packages missing applications.
 - No ready applications pointing at a non-ready package.
+- Application status/outcome columns are not directly writable by authenticated clients; status transitions go through the atomic RPCs.
+- Search plan-change provenance columns are not directly writable by authenticated clients.
 - Storage buckets `resumes` and `documents` are private.
 - Resume bucket enforces a 10 MB size limit and PDF/DOC/DOCX MIME allowlist.
 - Auth confirmation redirects are constrained to same-site relative paths.
@@ -108,6 +143,9 @@ The connected Vercel API can discover the `careerely` project, but project/runti
 - Engine tick endpoint requires `Authorization: Bearer CRON_SECRET`.
 - Stripe webhook verifies signatures and re-reads subscription state from Stripe before persisting, which protects against out-of-order event payloads.
 - Security headers include frame denial, nosniff, referrer policy, and a permissions policy.
+- All current Auth users have matching `profiles`, `career_profiles` and `subscriptions`; no orphan/missing-profile inconsistency was found.
+- Database plan limits match application plan limits: Basic 1/10, Pro 5/50, Max unlimited/200 (active searches / monthly preparations).
+- `verifyEvaluation()` requires traceable quoted evidence, blocks unsupported numeric claims, and converts unsupported findings to unknown rather than negative.
 
 ## Known final-launch operational items already tracked
 
