@@ -17,7 +17,7 @@ export async function POST(request) {
     const admin = createAdminClient()
     const { data: existing, error: readError } = await admin
       .from('subscriptions')
-      .select('stripe_customer_id, plan, status, current_period_end')
+      .select('stripe_customer_id, plan, status, current_period_end, cancel_at')
       .eq('user_id', user.id)
       .maybeSingle()
     if (readError) throw readError
