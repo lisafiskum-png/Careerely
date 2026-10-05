@@ -56,14 +56,30 @@ create index if not exists rejections_search_id_idx
 create index if not exists search_runs_search_id_idx
   on public.search_runs (search_id);
 
--- Prototype-only tables still exist in the production project. Index them when
--- present, but do not make clean installs depend on those tables.
+-- Prototype-only tables still exist in the production project. Index them only
+-- when both the table and expected legacy column exist. This keeps synthetic
+-- security fixtures and clean migration replays valid.
 do $$
 begin
-  if to_regclass('public.cover_letters') is not null then
+  if exists (
+    select 1
+    from pg_attribute
+    where attrelid = to_regclass('public.cover_letters')
+      and attname = 'user_id'
+      and attnum > 0
+      and not attisdropped
+  ) then
     execute 'create index if not exists cover_letters_user_id_idx on public.cover_letters (user_id)';
   end if;
-  if to_regclass('public.dream_companies') is not null then
+
+  if exists (
+    select 1
+    from pg_attribute
+    where attrelid = to_regclass('public.dream_companies')
+      and attname = 'user_id'
+      and attnum > 0
+      and not attisdropped
+  ) then
     execute 'create index if not exists dream_companies_user_id_idx on public.dream_companies (user_id)';
   end if;
 end
@@ -165,10 +181,19 @@ alter policy searches_update_own on public.searches
 alter policy subscriptions_select_own on public.subscriptions
   using (user_id = (select auth.uid()));
 
--- Same optimization for the prototype-only policy when that table exists.
+-- Same optimization for the prototype-only policy, only if that exact legacy
+-- policy still exists. Production has it; clean installs do not.
 do $$
 begin
-  if to_regclass('public.dream_companies') is not null then
+  if exists (
+    select 1
+    from pg_policy p
+    join pg_class c on c.oid = p.polrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relname = 'dream_companies'
+      and p.polname = 'Users manage own companies'
+  ) then
     execute 'alter policy "Users manage own companies" on public.dream_companies using ((select auth.uid()) = user_id)';
   end if;
 end
