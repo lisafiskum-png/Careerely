@@ -1,6 +1,7 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { COMPANY_BOARDS, type CompanyBoard } from './companies'
+import { discoverGlobalJobs, globalDiscoveryEnabled, globalDiscoverySlot } from './global-source'
 import { syncBoard } from './ingest'
 import { SourceError } from './sources'
 import { decidePreparation, failPackage, generatePackage } from './prepare'
@@ -13,12 +14,13 @@ import { evaluateBatch, finalizeRun, startScan } from './scan'
 // source refreshes follow shortly after so they can feed the next cycle without
 // forcing a user to sit behind dozens of ATS requests.
 //   market_cycle       → enqueues active-search scans and source refreshes
-//   sync_source        → one company board (Greenhouse / Lever / Ashby)
+//   sync_source        → one direct company board (Greenhouse / Lever / Ashby)
+//   discover_search    → optional global Google Jobs discovery for one Search
 //   scan_search        → one search: start → evaluate (in batches) → finalize
 //   decide_preparation → Stage 6 after fresh scan results land
 //   prepare_package    → Stage 7 for one opportunity/package reservation
 
-export type TaskKind = 'market_cycle' | 'sync_source' | 'scan_search' | 'decide_preparation' | 'prepare_package'
+export type TaskKind = 'market_cycle' | 'sync_source' | 'discover_search' | 'scan_search' | 'decide_preparation' | 'prepare_package'
 
 export type Task = {
   id: string
@@ -131,12 +133,17 @@ async function enqueueSyncs(admin: SupabaseClient, tag: string, runAfter?: Date)
 
 /**
  * Queue one fresh-market pass. Active searches use the already-fresh job index
- * immediately. ATS refreshes start one minute later and feed subsequent scans.
+ * immediately. Direct ATS refreshes start one minute later. Optional global
+ * discovery is independently deduped to its configured interval and, when it
+ * finds jobs, schedules another scan immediately after ingestion.
  */
 async function runMarketCycle(admin: SupabaseClient, task: Task) {
   const cycle = typeof task.payload.cycle === 'string' ? task.payload.cycle : marketCycleKey(new Date())
   const { data: searches, error } = await admin.from('searches').select('id, user_id').eq('status', 'active')
   if (error) throw error
+  const discoverySlot = globalDiscoverySlot()
+  const discoveryOn = globalDiscoveryEnabled()
+
   for (const s of searches ?? []) {
     const { data: access } = await admin.rpc('has_active_access', { uid: s.user_id })
     if (!access) continue
@@ -147,6 +154,15 @@ async function runMarketCycle(admin: SupabaseClient, task: Task) {
       search_id: s.id,
       payload: { phase: 'start', trigger: 'continuous', cycle },
     })
+    if (discoveryOn) {
+      await enqueue(admin, {
+        kind: 'discover_search',
+        dedupe_key: `discover:${s.id}:${discoverySlot}`,
+        user_id: s.user_id,
+        search_id: s.id,
+        payload: { discovery_slot: discoverySlot },
+      })
+    }
   }
   await enqueueSyncs(admin, cycle, new Date(Date.now() + SOURCE_REFRESH_DELAY_MS))
 }
@@ -176,6 +192,22 @@ async function runSyncTask(admin: SupabaseClient, task: Task, now = new Date()) 
   const { error: healthError } = await admin.from('source_health').delete().eq('provider', board.provider).eq('slug', board.slug)
   if (healthError) throw healthError
   return complete(admin, task)
+}
+
+async function runDiscoveryTask(admin: SupabaseClient, task: Task) {
+  if (!task.search_id || !task.user_id) return complete(admin, task)
+  const result = await discoverGlobalJobs(admin, task.search_id)
+  await complete(admin, task)
+  if (!result.upserted) return
+
+  const slot = typeof task.payload.discovery_slot === 'string' ? task.payload.discovery_slot : globalDiscoverySlot()
+  await enqueue(admin, {
+    kind: 'scan_search',
+    dedupe_key: `scan:${task.search_id}:global:${slot}`,
+    user_id: task.user_id,
+    search_id: task.search_id,
+    payload: { phase: 'start', trigger: 'global_discovery', discovery_slot: slot },
+  })
 }
 
 async function requeue(admin: SupabaseClient, task: Task, payload: object, delayMs = 0) {
@@ -263,6 +295,8 @@ export async function runTask(admin: SupabaseClient, task: Task, now = new Date(
       return complete(admin, task)
     case 'sync_source':
       return runSyncTask(admin, task, now)
+    case 'discover_search':
+      return runDiscoveryTask(admin, task)
     case 'scan_search':
       return runScanTask(admin, task)
     case 'decide_preparation':
