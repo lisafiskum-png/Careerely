@@ -6,21 +6,20 @@ import { isWorkStyle, type WorkStyle } from './onboarding'
 import type { Suggestions } from './resume/schema'
 import { planChangeNotice } from './plan-status'
 
-// Searches page (Master Brief §12): what Careerely is hunting for on the
-// user's behalf. Read through the user's session; the engine queue, which
-// users cannot read, is looked up with the service role filtered by the
-// session's user id. Both numbers on a card come from the latest completed
-// scan of that search (decision 2026-10-01): never summed, never live counts.
+// Searches page: what Careerely is hunting for on the user's behalf. Reads go
+// through the user's session; the private engine queue is looked up with the
+// service role filtered to the signed-in user. Card metrics always come from
+// the latest completed scan rather than being accumulated across scans.
 
-const RUNNING_RUN_MAX_AGE_MS = 6 * 3600_000
+const RUNNING_RUN_MAX_AGE_MS = 30 * 60_000
 
 export type SearchScan =
   /** A scan of this search is running, or queued for a search scanned before. */
   | { state: 'scanning'; lastScanAt: string | null }
   /** Never completed a scan; its first scan is queued (a real task exists). */
   | { state: 'first' }
-  /** Never completed a scan and nothing is queued (e.g. over the daily immediate-scan cap): the next nightly run scans it. */
-  | { state: 'nightly' }
+  /** Active and waiting for the next continuous market cycle. */
+  | { state: 'continuous' }
   | { state: 'idle'; lastScanAt: string }
 
 export type SearchCard = {
@@ -34,7 +33,7 @@ export type SearchCard = {
   minCompensation: number | null
   compensationCurrency: string | null
   createdFromProfile: boolean
-  /** Paused automatically when a lower plan took effect (decision 2026-10-02); cleared only on resume. */
+  /** Paused automatically when a lower plan took effect; cleared only on resume. */
   pausedByPlanChange: boolean
   /** From the latest completed scan of this search; null when it has never completed one. */
   latest: { reviewed: number; shortlisted: number; finishedAt: string } | null
@@ -145,7 +144,7 @@ export async function loadSearches(userId: string, access: AccessState): Promise
       : !last
         ? pending.has(s.id)
           ? { state: 'first' }
-          : { state: 'nightly' }
+          : { state: 'continuous' }
         : queued.has(s.id)
           ? { state: 'scanning', lastScanAt: last.finishedAt }
           : { state: 'idle', lastScanAt: last.finishedAt }
@@ -165,7 +164,6 @@ export async function loadSearches(userId: string, access: AccessState): Promise
       scan,
     }
   })
-  // Active first, then paused; each in creation order.
   cards.sort((a, b) => Number(a.status === 'paused') - Number(b.status === 'paused'))
 
   const suggestions = (career?.suggestions ?? {}) as Partial<Suggestions>
