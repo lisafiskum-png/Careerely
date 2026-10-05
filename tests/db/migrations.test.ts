@@ -782,7 +782,7 @@ describe('source_health backfill (D8)', () => {
     expect(await rows()).toEqual(expected)
 
     // Idempotent: a second run (or a later recheck already recorded) changes nothing.
-    await pg.query(`update public.source_health set recheck_after = '2026-12-01' where slug = 'notion'`)
+    await pg.query(`update public.source_health set recheck_after = '2026-12-01T00:00:00Z' where slug = 'notion'`)
     await pg.exec(readFileSync(path.join(migrationsDir, target), 'utf8'))
     expect((await rows()).map(r => `${r.slug}:${r.recheck}`)).toEqual(['lucinity:2026-10-09', 'notion:2026-12-01', 'loom:2026-10-09'])
     expect((await pg.query(`select * from public.engine_tasks order by dedupe_key`)).rows).toEqual(tasksBefore)

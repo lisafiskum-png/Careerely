@@ -1,5 +1,6 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { AIRequestError, AI_REQUEST_TIMEOUT_MS } from '../ai'
 import { COMPANY_BOARDS, type CompanyBoard } from './companies'
 import { discoverGlobalJobs, globalDiscoveryEnabled, globalDiscoverySlot } from './global-source'
 import { syncBoard } from './ingest'
@@ -38,6 +39,21 @@ export const MARKET_CYCLE_MINUTES = 5
 export const MARKET_CYCLE_MS = MARKET_CYCLE_MINUTES * 60_000
 /** Leave the first minute of a cycle free for user-facing scan/prep work. */
 export const SOURCE_REFRESH_DELAY_MS = 60_000
+export const AI_FAILURE_COOLDOWN_MS = 30 * 60_000
+
+/** Shared across workers/deployments; failed queue rows are the cooldown record. */
+export async function preparationBlockedUntil(admin: SupabaseClient, now = new Date()): Promise<string | null> {
+  const { data, error } = await admin.from('engine_tasks')
+    .select('run_after')
+    .eq('kind', 'prepare_package')
+    .eq('status', 'failed')
+    .like('last_error', 'AI unavailable (%)%')
+    .gt('run_after', now.toISOString())
+    .order('run_after', { ascending: false })
+    .limit(1)
+  if (error) throw error
+  return data?.[0]?.run_after ?? null
+}
 
 export const utcDate = (d: Date) => d.toISOString().slice(0, 10)
 export const marketCycleKey = (d: Date) => String(Math.floor(d.getTime() / MARKET_CYCLE_MS))
@@ -61,7 +77,8 @@ export async function ensureMarketCycle(admin: SupabaseClient, now = new Date())
 
 /** First scan right after onboarding (and after a search is created later). */
 export async function enqueueFirstScan(admin: SupabaseClient, userId: string, searchId: string, now = new Date()): Promise<void> {
-  const { count } = await admin.from('jobs').select('id', { count: 'exact', head: true }).eq('is_active', true)
+  const { count, error } = await admin.from('jobs').select('id', { count: 'exact', head: true }).eq('is_active', true)
+  if (error) throw error
   if (!count) {
     // Only a truly fresh deployment needs source data before its first scan.
     // There is no fixed sleep: sync work and the scan are immediately queued.
@@ -94,13 +111,14 @@ export async function enqueueResumeScan(admin: SupabaseClient, userId: string, s
  * active search still joins the next continuous market cycle within minutes.
  */
 export async function startSearchScan(admin: SupabaseClient, userId: string, searchId: string, action: 'create' | 'resume', now = new Date()): Promise<boolean> {
-  const { data: existing } = await admin
+  const { data: existing, error: existingError } = await admin
     .from('engine_tasks')
     .select('status')
     .eq('kind', 'scan_search')
     .eq('search_id', searchId)
     .in('status', ['queued', 'running'])
     .limit(1)
+  if (existingError) throw existingError
   if (existing?.length) return true
 
   const { data: allowed, error } = await admin.rpc('claim_immediate_scan', { uid: userId })
@@ -145,7 +163,8 @@ async function runMarketCycle(admin: SupabaseClient, task: Task) {
   const discoveryOn = globalDiscoveryEnabled()
 
   for (const s of searches ?? []) {
-    const { data: access } = await admin.rpc('has_active_access', { uid: s.user_id })
+    const { data: access, error: accessError } = await admin.rpc('has_active_access', { uid: s.user_id })
+    if (accessError) throw accessError
     if (!access) continue
     await enqueue(admin, {
       kind: 'scan_search',
@@ -197,8 +216,7 @@ async function runSyncTask(admin: SupabaseClient, task: Task, now = new Date()) 
 async function runDiscoveryTask(admin: SupabaseClient, task: Task) {
   if (!task.search_id || !task.user_id) return complete(admin, task)
   const result = await discoverGlobalJobs(admin, task.search_id)
-  await complete(admin, task)
-  if (!result.upserted) return
+  if (!result.upserted) return complete(admin, task)
 
   const slot = typeof task.payload.discovery_slot === 'string' ? task.payload.discovery_slot : globalDiscoverySlot()
   await enqueue(admin, {
@@ -208,6 +226,7 @@ async function runDiscoveryTask(admin: SupabaseClient, task: Task) {
     search_id: task.search_id,
     payload: { phase: 'start', trigger: 'global_discovery', discovery_slot: slot },
   })
+  return complete(admin, task)
 }
 
 async function requeue(admin: SupabaseClient, task: Task, payload: object, delayMs = 0) {
@@ -236,10 +255,10 @@ async function runScanTask(admin: SupabaseClient, task: Task) {
     return requeue(admin, task, { ...task.payload, phase: remaining ? 'evaluate' : 'finalize' })
   }
   const { userId } = await finalizeRun(admin, runId)
-  await complete(admin, task)
   const cycle = typeof task.payload.cycle === 'string' ? task.payload.cycle : null
   const key = cycle ? `decide:${userId}:${cycle}` : `decide:${userId}:${runId}`
   await enqueue(admin, { kind: 'decide_preparation', dedupe_key: key, user_id: userId, payload: cycle ? { cycle } : {} })
+  return complete(admin, task)
 }
 
 function reservedIds(payload: Record<string, unknown>): string[] | null {
@@ -249,17 +268,20 @@ function reservedIds(payload: Record<string, unknown>): string[] | null {
 }
 
 async function runDecideTask(admin: SupabaseClient, task: Task) {
-  const { count } = await admin
+  const { count, error: scanError } = await admin
     .from('engine_tasks')
     .select('id', { count: 'exact', head: true })
     .eq('kind', 'scan_search')
     .eq('user_id', task.user_id!)
     .eq('status', 'running')
+  if (scanError) throw scanError
   if (count) return requeue(admin, task, task.payload, 5_000)
 
   let reserved = reservedIds(task.payload)
   if (reserved === null) {
-    const { data: access } = await admin.rpc('has_active_access', { uid: task.user_id })
+    if (await preparationBlockedUntil(admin)) return complete(admin, task)
+    const { data: access, error: accessError } = await admin.rpc('has_active_access', { uid: task.user_id })
+    if (accessError) throw accessError
     reserved = access ? await decidePreparation(admin, task.user_id!) : []
     if (!reserved.length) return complete(admin, task)
     return requeue(admin, task, { ...task.payload, reserved_opportunity_ids: reserved })
@@ -302,6 +324,15 @@ export async function runTask(admin: SupabaseClient, task: Task, now = new Date(
     case 'decide_preparation':
       return runDecideTask(admin, task)
     case 'prepare_package': {
+      const blockedUntil = await preparationBlockedUntil(admin, now)
+      if (blockedUntil) {
+        const { error } = await admin.from('engine_tasks').update({
+          status: 'queued', run_after: blockedUntil, locked_until: null,
+          attempts: Math.max(0, task.attempts - 1),
+        }).eq('id', task.id)
+        if (error) throw error
+        return
+      }
       const packageId = typeof task.payload.package_id === 'string' ? task.payload.package_id : undefined
       await generatePackage(admin, task.opportunity_id!, packageId)
       return complete(admin, task)
@@ -312,9 +343,9 @@ export async function runTask(admin: SupabaseClient, task: Task, now = new Date(
 export async function handleFailure(admin: SupabaseClient, task: Task, err: unknown) {
   const message = err instanceof Error ? err.message : String(err)
   console.error('engine task failed', task.kind, task.id, message)
-  if (task.attempts >= task.max_attempts) {
-    const { error } = await admin.from('engine_tasks').update({ status: 'failed', last_error: message.slice(0, 2000), locked_until: null }).eq('id', task.id)
-    if (error) throw error
+  const permanentAIError = err instanceof AIRequestError && !err.retriable
+  if (permanentAIError || task.attempts >= task.max_attempts) {
+    // Cleanup first: if it fails, keep the task leased for database recovery.
     if (task.kind === 'prepare_package' && task.opportunity_id) {
       const packageId = typeof task.payload.package_id === 'string' ? task.payload.package_id : undefined
       await failPackage(admin, task.opportunity_id, message, packageId)
@@ -327,6 +358,11 @@ export async function handleFailure(admin: SupabaseClient, task: Task, err: unkn
         .eq('status', 'running')
       if (runError) throw runError
     }
+    const { error } = await admin.from('engine_tasks').update({
+      status: 'failed', last_error: message.slice(0, 2000), locked_until: null,
+      ...(permanentAIError ? { run_after: new Date(Date.now() + AI_FAILURE_COOLDOWN_MS).toISOString() } : {}),
+    }).eq('id', task.id)
+    if (error) throw error
     return
   }
   const { error } = await admin
@@ -343,12 +379,15 @@ export async function runWorker(admin: SupabaseClient, opts: { budgetMs: number;
   const concurrency = opts.concurrency ?? 4
   let processed = 0
   let failed = 0
-  while (Date.now() < deadline) {
+  // A package can make two validation calls. Leave room for both before
+  // claiming another batch in production's four-minute worker window.
+  const headroom = opts.budgetMs >= 2 * AI_REQUEST_TIMEOUT_MS + 10_000 ? 2 * AI_REQUEST_TIMEOUT_MS + 10_000 : 0
+  while (Date.now() <= deadline - headroom) {
     const { data, error } = await admin.rpc('claim_engine_tasks', { p_limit: concurrency, p_lease_seconds: opts.leaseSeconds ?? 600 })
     if (error) throw error
     const tasks = (data ?? []) as Task[]
     if (!tasks.length) break
-    await Promise.all(
+    const outcomes = await Promise.allSettled(
       tasks.map(async task => {
         try {
           await runTask(admin, task)
@@ -359,6 +398,8 @@ export async function runWorker(admin: SupabaseClient, opts: { budgetMs: number;
         }
       }),
     )
+    const cleanupErrors = outcomes.flatMap(result => result.status === 'rejected' ? [result.reason] : [])
+    if (cleanupErrors.length) throw new AggregateError(cleanupErrors, 'Engine task failure cleanup failed')
   }
   return { processed, failed }
 }

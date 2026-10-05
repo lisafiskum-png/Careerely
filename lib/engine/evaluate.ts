@@ -2,7 +2,7 @@ import 'server-only'
 import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod'
-import { CLAUDE_MODEL, getAnthropic } from '../ai'
+import { AIRequestError, CLAUDE_MODEL, getAnthropic } from '../ai'
 import { EVIDENCE_SIGNAL_TYPES, EVIDENCE_SOURCE_TYPES } from './schema'
 import type { RawEvaluation, Sources } from './verify'
 
@@ -90,7 +90,7 @@ export async function evaluateJob(input: EvaluationInput): Promise<RawEvaluation
       output_config: { format: zodOutputFormat(EvaluationOutput) },
     })
   } catch (err) {
-    if (err instanceof Anthropic.APIError) throw new EvaluationError(`Claude API error ${err.status}: ${err.message}`)
+    if (err instanceof Anthropic.APIError) throw new AIRequestError(err)
     throw err
   }
   if (response.stop_reason === 'refusal' || response.stop_reason === 'max_tokens' || !response.parsed_output) {

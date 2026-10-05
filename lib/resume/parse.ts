@@ -45,10 +45,10 @@ export async function parseResume(input: { text: string; pdf?: Uint8Array }): Pr
       system: INSTRUCTIONS,
       messages: [{ role: 'user', content }],
       output_config: { format: zodOutputFormat(ParseResultSchema) },
-    })
+    }, { timeout: 45_000 })
   } catch (err) {
     if (err instanceof Anthropic.APIError) {
-      console.error('resume parse: Claude API error', err.status, err.message)
+      console.error('resume parse: Claude API error', err.status)
       throw new ResumeParseError('We couldn’t read your resume right now. Please try again in a moment.')
     }
     throw err

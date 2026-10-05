@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
-import { CLAUDE_MODEL, getAnthropic } from '../ai'
+import { AIRequestError, CLAUDE_MODEL, getAnthropic } from '../ai'
 import { AUTO_PREP_BATCH } from '../plans'
 import { jobDocument, loadSearchContext, type SearchContext } from './context'
 import {
@@ -171,7 +171,7 @@ async function callGenerator(ctx: SearchContext, jobDoc: string, evidence: Packa
       output_config: { format: zodOutputFormat(PackageOutput) },
     })
   } catch (err) {
-    if (err instanceof Anthropic.APIError) throw new PackageError(`Claude API error ${err.status}: ${err.message}`)
+    if (err instanceof Anthropic.APIError) throw new AIRequestError(err)
     throw err
   }
   if (response.stop_reason === 'refusal' || response.stop_reason === 'max_tokens' || !response.parsed_output) {
