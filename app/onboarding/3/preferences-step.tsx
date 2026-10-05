@@ -453,6 +453,8 @@ function SummaryRow({ label, values, empty }: { label: string; values: string[];
   )
 }
 
+type GlobalLocationResult = { query: string; items: string[] }
+
 function ChipField({
   id,
   labelledBy,
@@ -472,23 +474,27 @@ function ChipField({
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
-  const [globalLocations, setGlobalLocations] = useState<string[]>([])
+  const [globalResult, setGlobalResult] = useState<GlobalLocationResult>({ query: '', items: [] })
   const limit = LIMITS[id]
   const full = limit !== undefined && values.length >= limit
+  const q = query.trim()
+  const globalLocations = globalResult.query === q ? globalResult.items : []
 
   useEffect(() => {
     if (id !== 'loc') return
-    const q = query.trim()
-    setGlobalLocations([])
-    if (q.length < 2) return
+    const requested = query.trim()
+    if (requested.length < 2) return
 
     const controller = new AbortController()
     const timer = window.setTimeout(async () => {
-      const response = await fetch(`/api/locations?q=${encodeURIComponent(q)}`, { signal: controller.signal }).catch(() => null)
+      const response = await fetch(`/api/locations?q=${encodeURIComponent(requested)}`, { signal: controller.signal }).catch(() => null)
       if (!response?.ok) return
       const data = (await response.json().catch(() => null)) as { suggestions?: unknown } | null
       if (Array.isArray(data?.suggestions)) {
-        setGlobalLocations(data.suggestions.filter((value): value is string => typeof value === 'string'))
+        setGlobalResult({
+          query: requested,
+          items: data.suggestions.filter((value): value is string => typeof value === 'string'),
+        })
       }
     }, 180)
 
@@ -498,7 +504,6 @@ function ChipField({
     }
   }, [id, query])
 
-  const q = query.trim()
   const items: { value: string; custom?: boolean }[] = []
   let heading: string | null = null
   if (!full) {
@@ -524,7 +529,6 @@ function ChipField({
     if (!v || full) return
     if (!values.some(x => x.toLowerCase() === v.toLowerCase())) onChange([...values, v])
     setQuery('')
-    setGlobalLocations([])
     setHighlight(-1)
     setOpen(false)
   }
