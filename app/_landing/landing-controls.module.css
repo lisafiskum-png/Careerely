@@ -1,0 +1,43 @@
+.navActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.navLogin {
+  font-size: 13px;
+  font-weight: 520;
+  color: #6b7280;
+  transition: color 0.2s ease;
+  white-space: nowrap;
+}
+
+.navLogin:hover {
+  color: #111111;
+}
+
+.signedInJoin {
+  align-items: center;
+}
+
+.sessionNote {
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.35;
+  align-self: center;
+}
+
+@media (max-width: 479px) {
+  .navActions {
+    gap: 8px;
+  }
+
+  .navLogin {
+    font-size: 12px;
+  }
+
+  .sessionNote {
+    display: none;
+  }
+}

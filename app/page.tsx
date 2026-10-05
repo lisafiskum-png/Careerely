@@ -7,18 +7,13 @@ import { LandingNav } from './_landing/nav'
 import { Reveal, RevealGroup } from './_landing/reveal'
 import s from './landing.module.css'
 
-// Public landing page: design/landing-final.html (LOCKED). Copy and layout
-// follow the reference; "Get Started" leads into onboarding Step 1.
-
 export const metadata: Metadata = {
   title: 'Careerely',
-  description: 'Upload your resume once. We find the jobs, tailor your resume, and write your cover letter. Automatically.',
+  description: 'Upload your resume once. Careerely continuously finds relevant jobs, tailors your resume, and writes your cover letter.',
 }
 
 export const viewport = { themeColor: '#FAFAFA' }
 
-// Reference PLANS copy. Prices and limits come from lib/plans.ts so the page
-// always matches billing.
 const PLAN_COPY: Record<PlanId, { desc: string }> = {
   basic: { desc: 'For a focused search' },
   pro: { desc: 'For an active job search' },
@@ -50,7 +45,7 @@ export default function Home() {
               powered by AI
             </h1>
             <p className={s.lead}>
-              Careerely helps ambitious professionals discover opportunities, tailor applications, and land roles at leading tech companies.
+              Careerely helps ambitious professionals discover opportunities across industries, tailor applications, and land roles at great companies worldwide.
             </p>
             <JoinForm className={s.joinrow} />
           </div>
@@ -60,7 +55,7 @@ export default function Home() {
       <section id="demo" className={s.demo}>
         <Reveal className={`${s.wrap} ${s.demoIntro}`}>
           <p className={s.demoEyebrow}>Live product demo</p>
-          <h2 className={`${s.h2} ${s.demoTitle}`}>This is what Careerely does while you sleep.</h2>
+          <h2 className={`${s.h2} ${s.demoTitle}`}>This is what Careerely does around the clock.</h2>
         </Reveal>
         <ProductDemo />
       </section>
@@ -103,11 +98,11 @@ export default function Home() {
           </Reveal>
           <RevealGroup className={s.whyGrid} stagger={120}>
             <div className={s.whyRow}>
-              <div className={s.whyN}>Nightly</div>
+              <div className={s.whyN}>24/7</div>
               <div>
-                <div className={s.whyTitle}>Roles reviewed while you sleep</div>
+                <div className={s.whyTitle}>Always looking for what&apos;s new</div>
                 <div className={s.whyBody}>
-                  Every night, Careerely checks new listings against your experience and goals. You only see the ones that actually fit.
+                  Careerely continuously checks new listings against your experience and goals, so strong new opportunities can surface as they appear.
                 </div>
               </div>
             </div>
@@ -173,7 +168,7 @@ export default function Home() {
           <div className={s.footCta}>
             <div>
               <h2 className={s.footTitle}>Ready to start?</h2>
-              <p className={s.footSub}>Upload your resume and let us do the rest</p>
+              <p className={s.footSub}>Upload your resume and let Careerely keep looking</p>
             </div>
             <JoinForm className={s.footForm} />
           </div>
