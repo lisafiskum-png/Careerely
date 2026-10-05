@@ -21,6 +21,8 @@ export const DIMENSION_WEIGHTS: Record<ScoreDimensionType, number> = {
 export const SHORTLIST_MIN_SCORE = 60
 /** Maximum newly shortlisted roles from one search scan. */
 export const SHORTLIST_MAX_PER_SCAN = 10
+/** @deprecated Compatibility name for older tests/docs; engine behavior is per scan. */
+export const SHORTLIST_MAX_PER_NIGHT = SHORTLIST_MAX_PER_SCAN
 /** At least this many AI-judged dimensions must have evidence to produce a score. */
 export const MIN_SCORED_DIMENSIONS = 2
 
