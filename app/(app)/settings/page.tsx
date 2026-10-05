@@ -4,11 +4,11 @@ import { getUser } from '../../../lib/auth'
 import { createClient } from '../../../lib/supabase/server'
 import { describePlan, planChangeNotice, type StoredSubscription } from '../../../lib/plan-status'
 import { SubscribeButtons } from '../_components/subscribe-buttons'
-import { ManageBillingButton, SignOutButton } from './settings-actions'
+import { DeleteAccountButton, ManageBillingButton, SignOutButton } from './settings-actions'
 
-// Settings (Phase D6, kept minimal): current plan and its renewal or end date,
-// "Manage billing" through Stripe's Customer Portal, the account email and
-// sign out. No price, usage meter or account management here.
+// Settings: billing, account identity and privacy controls. Destructive account
+// deletion is deliberately separated from ordinary sign-out and requires a
+// fresh password check plus explicit confirmation.
 export default async function SettingsPage() {
   const user = await getUser()
   if (!user) redirect('/login?next=/settings')
@@ -83,6 +83,23 @@ export default async function SettingsPage() {
           </div>
           <div className="set-row">
             <SignOutButton />
+          </div>
+        </div>
+      </section>
+
+      <section className="set-section" aria-label="Data and privacy">
+        <div className="op-section">
+          <span className="section-label">Data & privacy</span>
+        </div>
+        <div className="set-card">
+          <div className="set-row">
+            <div>
+              <div className="set-label">Delete account</div>
+              <div className="set-value">
+                Permanently remove your Careerely account and personal data.
+              </div>
+              <DeleteAccountButton />
+            </div>
           </div>
         </div>
       </section>
