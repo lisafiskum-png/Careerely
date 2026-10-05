@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '../../lib/supabase/client'
 import s from '../landing.module.css'
+import x from './landing-controls.module.css'
 
 // Transparent → frosted glass on scroll. Signed-out visitors always get an
 // explicit Log in action; signed-in visitors get a clear way back to the app
@@ -43,13 +44,13 @@ export function LandingNav() {
           <a href="#how">How it works</a>
           <a href="#pricing">Pricing</a>
         </div>
-        <div className={s.navActions}>
+        <div className={x.navActions}>
           {signedIn ? (
-            <Link href="/dashboard" className={s.navLogin}>
+            <Link href="/dashboard" className={x.navLogin}>
               Dashboard
             </Link>
           ) : (
-            <Link href="/login" className={s.navLogin}>
+            <Link href="/login" className={x.navLogin}>
               Log in
             </Link>
           )}
