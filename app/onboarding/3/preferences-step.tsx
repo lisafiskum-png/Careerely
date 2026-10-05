@@ -28,7 +28,7 @@ const LIMITS: Partial<Record<ChipFieldId, number>> = { fn: MAX_ROLES, ai: MAX_IN
 const PLACEHOLDERS: Record<ChipFieldId, string> = {
   fn: 'Add a role…',
   ai: 'Add another industry or domain…',
-  loc: 'Search for a city, country, or region…',
+  loc: 'Search any city, country, or region…',
 }
 const TRANSITION_STEPS = [
   'Building your profile',
@@ -62,7 +62,6 @@ export function PreferencesStep({
   const [notice, setNotice] = useState(
     checkout === 'cancelled' ? 'Checkout was cancelled. Your preferences are saved — choose a plan when you’re ready.' : '',
   )
-  // Analysing sequence + staggered chip reveal on first load.
   const [analyzingRows, setAnalyzingRows] = useState(0)
   const [analyzingVisible, setAnalyzingVisible] = useState(initial.animateIn && initial.highlights.length > 0)
   const [analyzingFading, setAnalyzingFading] = useState(false)
@@ -124,7 +123,6 @@ export function PreferencesStep({
     [],
   )
 
-  // Returning from Stripe Checkout: confirm the payment, then start.
   const confirmedRef = useRef(false)
   const confirmPayment = useCallback(async () => {
     setError('')
@@ -132,8 +130,6 @@ export function PreferencesStep({
     try {
       const result = await complete({ sessionId })
       if (result.status === 'started') {
-        // Drop ?checkout=…&session_id=… without a server round trip (which would
-        // redirect a finished user to the dashboard mid-sequence).
         window.history.replaceState(null, '', '/onboarding/3')
         await runTransition()
       } else {
@@ -183,7 +179,6 @@ export function PreferencesStep({
       })
       const data = await res.json().catch(() => ({}))
       if (res.status === 409) {
-        // Already subscribed (e.g. paid in another tab): just start.
         const result = await complete({})
         if (result.status === 'started') {
           setPending(false)
@@ -206,7 +201,6 @@ export function PreferencesStep({
     })
   }
 
-  // Chips appear one by one after the analysing sequence (roles first, then industries).
   const visibleRoles = roles.slice(0, Math.min(roles.length, revealed))
   const visibleIndustries = industries.slice(0, Math.max(0, Math.min(industries.length, revealed - roles.length)))
   const workStyleLabels = WORK_STYLES.filter(w => workStyles.includes(w.value)).map(w => w.label)
@@ -459,8 +453,6 @@ function SummaryRow({ label, values, empty }: { label: string; values: string[];
   )
 }
 
-// Search-and-select chip input with custom values (prototype behaviour:
-// popular list on focus, fuzzy search, aliases, "Add "…"", keyboard support).
 function ChipField({
   id,
   labelledBy,
@@ -480,8 +472,31 @@ function ChipField({
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
+  const [globalLocations, setGlobalLocations] = useState<string[]>([])
   const limit = LIMITS[id]
   const full = limit !== undefined && values.length >= limit
+
+  useEffect(() => {
+    if (id !== 'loc') return
+    const q = query.trim()
+    setGlobalLocations([])
+    if (q.length < 2) return
+
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      const response = await fetch(`/api/locations?q=${encodeURIComponent(q)}`, { signal: controller.signal }).catch(() => null)
+      if (!response?.ok) return
+      const data = (await response.json().catch(() => null)) as { suggestions?: unknown } | null
+      if (Array.isArray(data?.suggestions)) {
+        setGlobalLocations(data.suggestions.filter((value): value is string => typeof value === 'string'))
+      }
+    }, 180)
+
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [id, query])
 
   const q = query.trim()
   const items: { value: string; custom?: boolean }[] = []
@@ -489,10 +504,14 @@ function ChipField({
   if (!full) {
     if (!q) {
       const popular = (POPULAR[id] || []).filter(p => !values.includes(p)).slice(0, 8)
-      if (popular.length) heading = 'Popular'
+      if (popular.length) heading = id === 'loc' ? 'Popular locations' : 'Popular'
       popular.forEach(p => items.push({ value: p }))
     } else {
-      searchOptions(id, q, values).forEach(v => items.push({ value: v }))
+      const matches = id === 'loc' && globalLocations.length > 0 ? globalLocations : searchOptions(id, q, values)
+      if (id === 'loc' && globalLocations.length > 0) heading = 'Locations worldwide'
+      matches
+        .filter(v => !values.some(chosen => chosen.toLowerCase() === v.toLowerCase()))
+        .forEach(v => items.push({ value: v }))
       const exact =
         items.some(i => i.value.toLowerCase() === q.toLowerCase()) || values.some(v => v.toLowerCase() === q.toLowerCase())
       if (!exact && q.length > 1) items.push({ value: q, custom: true })
@@ -505,9 +524,8 @@ function ChipField({
     if (!v || full) return
     if (!values.some(x => x.toLowerCase() === v.toLowerCase())) onChange([...values, v])
     setQuery('')
+    setGlobalLocations([])
     setHighlight(-1)
-    // Close after a pick so the list can't cover the sticky "Find my matches"
-    // button; typing, clicking the field or ArrowDown opens it again.
     setOpen(false)
   }
 
