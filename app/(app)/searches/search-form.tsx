@@ -5,10 +5,10 @@ import { MAX_INDUSTRIES, MAX_LOCATIONS, MAX_ROLES, WORK_STYLES, type WorkStyle }
 import { AREAS, FUNCTIONS, LOCATIONS } from '../../../lib/onboarding-options'
 import { CURRENCIES, currencyLabel, formatMoney, parseAmount, validateSearch } from '../../../lib/search-input'
 
-// Create / edit a search (Master Brief §12). Career Profile values and resume
-// suggestions come first as chips; the user can add their own roles,
-// industries and locations. Work style stays a fixed choice. The form only
-// ever writes the search: it never changes the Career Profile.
+// Create / edit a search. Career Profile values and resume suggestions come
+// first as chips; the user can add their own roles, industries and locations.
+// Work style stays a fixed choice. The form only writes the search: it never
+// changes the Career Profile.
 
 function uniq(values: string[]): string[] {
   const seen = new Set<string>()
@@ -21,6 +21,7 @@ function uniq(values: string[]): string[] {
 }
 
 type Chips = { options: string[]; selected: string[] }
+type RemoteLocations = { query: string; items: string[] }
 
 function ChipField({
   label,
@@ -30,6 +31,7 @@ function ChipField({
   placeholder,
   addLabel,
   suggestions,
+  globalLocations = false,
   onChange,
 }: {
   label: string
@@ -39,12 +41,40 @@ function ChipField({
   placeholder: string
   addLabel: string
   suggestions: string[]
+  globalLocations?: boolean
   onChange: (next: Chips) => void
 }) {
   const [draft, setDraft] = useState('')
   const [full, setFull] = useState(false)
+  const [remote, setRemote] = useState<RemoteLocations>({ query: '', items: [] })
   const id = useId()
   const isOn = (v: string) => value.selected.some(s => s.toLowerCase() === v.toLowerCase())
+  const query = draft.trim()
+  const remoteSuggestions = remote.query === query ? remote.items : []
+
+  useEffect(() => {
+    if (!globalLocations) return
+    const requested = draft.trim()
+    if (requested.length < 2) return
+
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      const response = await fetch(`/api/locations?q=${encodeURIComponent(requested)}`, { signal: controller.signal }).catch(() => null)
+      if (!response?.ok) return
+      const data = (await response.json().catch(() => null)) as { suggestions?: unknown } | null
+      if (Array.isArray(data?.suggestions)) {
+        setRemote({
+          query: requested,
+          items: data.suggestions.filter((item): item is string => typeof item === 'string'),
+        })
+      }
+    }, 180)
+
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [draft, globalLocations])
 
   function toggle(v: string) {
     setFull(false)
@@ -54,15 +84,19 @@ function ChipField({
   }
 
   function add() {
-    const v = draft.trim().slice(0, 80)
+    const v = draft.trim().slice(0, 160)
     if (!v) return
-    const existing = value.options.find(o => o.toLowerCase() === v.toLowerCase())
+    const currentRemote = remote.query === v ? remote.items : []
+    const existing = [...value.options, ...currentRemote].find(o => o.toLowerCase() === v.toLowerCase())
     if (existing && isOn(existing)) return setDraft('')
     if (value.selected.length >= max) return setFull(true)
     setDraft('')
     setFull(false)
-    onChange({ options: existing ? value.options : [...value.options, v], selected: [...value.selected, existing ?? v] })
+    const picked = existing ?? v
+    onChange({ options: value.options.some(o => o.toLowerCase() === picked.toLowerCase()) ? value.options : [...value.options, picked], selected: [...value.selected, picked] })
   }
+
+  const datalist = globalLocations && remoteSuggestions.length > 0 ? remoteSuggestions : suggestions
 
   return (
     <div className="sf-group" role="group" aria-labelledby={`${id}-l`}>
@@ -88,7 +122,7 @@ function ChipField({
           placeholder={placeholder}
           aria-label={addLabel}
           list={`${id}-opts`}
-          maxLength={80}
+          maxLength={160}
           onChange={e => setDraft(e.target.value)}
           onKeyDown={e => {
             if (e.key === 'Enter') {
@@ -98,7 +132,7 @@ function ChipField({
           }}
         />
         <datalist id={`${id}-opts`}>
-          {suggestions.map(s => (
+          {datalist.map(s => (
             <option key={s} value={s} />
           ))}
         </datalist>
@@ -124,7 +158,7 @@ export function SearchForm({
   limit: number | null
   atLimit: boolean
   onClose: () => void
-  /** For a new search: whether its scan started now (false = it waits for tonight). */
+  /** For a new active search: whether an immediate scan was queued. */
   onSaved: (result: { status?: string; immediateScan?: boolean }) => void
 }) {
   const editing = search !== null
@@ -150,7 +184,6 @@ export function SearchForm({
   const nameRef = useRef<HTMLInputElement>(null)
   const titleId = useId()
 
-  // Creating at the plan's limit saves the search as paused, and says so first.
   const pausedMode = !editing && (atLimit || forcedPaused)
 
   useEffect(() => {
@@ -186,7 +219,6 @@ export function SearchForm({
     if (res?.ok) return onSaved(((await res.json().catch(() => null)) ?? {}) as { status?: string; immediateScan?: boolean })
     const data = (await res?.json().catch(() => null)) as { error?: string } | null
     if (res?.status === 409 && data?.error === 'active_search_limit') {
-      // Never pause silently: nothing was saved; the user chooses "Save as paused".
       setForcedPaused(true)
       return
     }
@@ -223,14 +255,14 @@ export function SearchForm({
               className="sf-input"
               value={name}
               maxLength={80}
-              placeholder="e.g. Fintech Business Development"
+              placeholder="e.g. Business Development in Madrid"
               onChange={e => setName(e.target.value)}
             />
           </div>
 
           <ChipField label="Target roles" hint={`1–${MAX_ROLES}`} value={roles} max={MAX_ROLES} placeholder="Add a role…" addLabel="Add a role" suggestions={FUNCTIONS} onChange={setRoles} />
           <ChipField label="Industries" hint={`Up to ${MAX_INDUSTRIES}`} value={industries} max={MAX_INDUSTRIES} placeholder="Add an industry…" addLabel="Add an industry" suggestions={AREAS} onChange={setIndustries} />
-          <ChipField label="Locations" hint={`Up to ${MAX_LOCATIONS}`} value={locations} max={MAX_LOCATIONS} placeholder="Add a location…" addLabel="Add a location" suggestions={LOCATIONS} onChange={setLocations} />
+          <ChipField label="Locations" hint={`Up to ${MAX_LOCATIONS}`} value={locations} max={MAX_LOCATIONS} placeholder="Search any city, country, or region…" addLabel="Add a location" suggestions={LOCATIONS} globalLocations onChange={setLocations} />
 
           <div className="sf-group" role="group" aria-labelledby={`${titleId}-ws`}>
             <div className="sf-label-row">
