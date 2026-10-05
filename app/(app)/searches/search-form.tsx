@@ -21,6 +21,7 @@ function uniq(values: string[]): string[] {
 }
 
 type Chips = { options: string[]; selected: string[] }
+type RemoteLocations = { query: string; items: string[] }
 
 function ChipField({
   label,
@@ -45,23 +46,27 @@ function ChipField({
 }) {
   const [draft, setDraft] = useState('')
   const [full, setFull] = useState(false)
-  const [remoteSuggestions, setRemoteSuggestions] = useState<string[]>([])
+  const [remote, setRemote] = useState<RemoteLocations>({ query: '', items: [] })
   const id = useId()
   const isOn = (v: string) => value.selected.some(s => s.toLowerCase() === v.toLowerCase())
+  const query = draft.trim()
+  const remoteSuggestions = remote.query === query ? remote.items : []
 
   useEffect(() => {
     if (!globalLocations) return
-    const query = draft.trim()
-    setRemoteSuggestions([])
-    if (query.length < 2) return
+    const requested = draft.trim()
+    if (requested.length < 2) return
 
     const controller = new AbortController()
     const timer = window.setTimeout(async () => {
-      const response = await fetch(`/api/locations?q=${encodeURIComponent(query)}`, { signal: controller.signal }).catch(() => null)
+      const response = await fetch(`/api/locations?q=${encodeURIComponent(requested)}`, { signal: controller.signal }).catch(() => null)
       if (!response?.ok) return
       const data = (await response.json().catch(() => null)) as { suggestions?: unknown } | null
       if (Array.isArray(data?.suggestions)) {
-        setRemoteSuggestions(data.suggestions.filter((item): item is string => typeof item === 'string'))
+        setRemote({
+          query: requested,
+          items: data.suggestions.filter((item): item is string => typeof item === 'string'),
+        })
       }
     }, 180)
 
@@ -81,11 +86,11 @@ function ChipField({
   function add() {
     const v = draft.trim().slice(0, 160)
     if (!v) return
-    const existing = [...value.options, ...remoteSuggestions].find(o => o.toLowerCase() === v.toLowerCase())
+    const currentRemote = remote.query === v ? remote.items : []
+    const existing = [...value.options, ...currentRemote].find(o => o.toLowerCase() === v.toLowerCase())
     if (existing && isOn(existing)) return setDraft('')
     if (value.selected.length >= max) return setFull(true)
     setDraft('')
-    setRemoteSuggestions([])
     setFull(false)
     const picked = existing ?? v
     onChange({ options: value.options.some(o => o.toLowerCase() === picked.toLowerCase()) ? value.options : [...value.options, picked], selected: [...value.selected, picked] })
