@@ -8,17 +8,7 @@ import { RelTime } from './rel-time'
 
 type Tab = { label: string; href: string; built: boolean; badge?: number }
 
-export function TopNav({
-  initials,
-  email,
-  badges,
-  scan,
-}: {
-  initials: string
-  email: string
-  badges: { opportunities: number; applications: number }
-  scan: ScanStatus
-}) {
+export function TopNav({ initials, email, badges, scan }: { initials: string; email: string; badges: { opportunities: number; applications: number }; scan: ScanStatus }) {
   const pathname = usePathname()
   const tabs: Tab[] = [
     { label: 'Dashboard', href: '/dashboard', built: true },
@@ -36,22 +26,18 @@ export function TopNav({
             <path d="m12 3 1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3Z" />
           </svg>
         </span>
-        <span className="nav-wm">
-          Career<em>ely</em>
-        </span>
+        <span className="nav-wm">Career<em>ely</em></span>
       </Link>
       <div className="nav-pipe" />
       <div className="nav-status" aria-live="polite">
-        <span className={`sdot ${scan.state === 'scanning' ? 'live' : scan.state === 'never' ? 'idle' : ''}`} aria-hidden />
+        <span className={`sdot ${scan.state === 'scanning' ? 'live' : ''}`} aria-hidden />
         <span className="stext" data-testid="scan-status">
           {scan.state === 'scanning' ? (
-            'Scanning the market'
+            'Scanning the market now'
           ) : scan.lastScanAt ? (
-            <>
-              Last scan <RelTime iso={scan.lastScanAt} />
-            </>
+            <>Monitoring 24/7 · last scan <RelTime iso={scan.lastScanAt} /></>
           ) : (
-            'No scans yet'
+            'Monitoring 24/7 · first scan starting soon'
           )}
         </span>
       </div>
@@ -62,14 +48,10 @@ export function TopNav({
           const badge = tab.badge ? <span className="nbadge">{tab.badge}</span> : null
           return tab.built ? (
             <Link key={tab.href} href={tab.href} className={`ntab${on ? ' on' : ''}`} aria-current={on ? 'page' : undefined}>
-              {tab.label}
-              {badge}
+              {tab.label}{badge}
             </Link>
           ) : (
-            <span key={tab.href} className="ntab soon" aria-disabled="true">
-              {tab.label}
-              {badge}
-            </span>
+            <span key={tab.href} className="ntab soon" aria-disabled="true">{tab.label}{badge}</span>
           )
         })}
       </div>
@@ -107,15 +89,11 @@ function AccountMenu({ initials, email }: { initials: string; email: string }) {
 
   return (
     <div className="av-wrap" ref={ref}>
-      <button className="nav-av" aria-label="Account" aria-expanded={open} onClick={() => setOpen(o => !o)}>
-        {initials}
-      </button>
+      <button className="nav-av" aria-label="Account" aria-expanded={open} onClick={() => setOpen(o => !o)}>{initials}</button>
       {open && (
         <div className="av-menu" role="menu">
           <div className="av-email">{email}</div>
-          <button className="av-item" role="menuitem" onClick={signOut} disabled={pending}>
-            {pending ? 'Signing out…' : 'Sign out'}
-          </button>
+          <button className="av-item" role="menuitem" onClick={signOut} disabled={pending}>{pending ? 'Signing out…' : 'Sign out'}</button>
         </div>
       )}
     </div>
