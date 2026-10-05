@@ -205,7 +205,7 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
               <div className="op-pick-inner">
                 <div className="op-pick-left">
                   <div className="op-pick-top">
-                    <LogoTile letter={pickTile.letter} color={pickTile.color} size={44} />
+                    <LogoTile company={pick.company} letter={pickTile.letter} color={pickTile.color} size={44} />
                     <div style={{ minWidth: 0 }}>
                       <div className="op-pick-badge">My pick</div>
                       <div className="op-pick-role">{pick.title}</div>
@@ -277,7 +277,7 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
                     onClick={() => openPanel(o.id, false)}
                     onKeyDown={e => onKey(e, () => openPanel(o.id, false))}
                   >
-                    <LogoTile letter={tile.letter} color={tile.color} size={34} />
+                    <LogoTile company={o.company} letter={tile.letter} color={tile.color} size={34} />
                     <div className="opp-body">
                       <div className="opp-role">{o.title}</div>
                       <div className="opp-meta">
@@ -333,3 +333,4 @@ export function OpportunitiesView({ data, readOnly }: { data: OpportunitiesData;
     </>
   )
 }
+

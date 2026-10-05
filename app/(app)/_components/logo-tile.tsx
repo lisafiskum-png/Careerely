@@ -1,6 +1,7 @@
-// Letter tile with the company's brand colour (Master Brief → Company logos).
-// No external logo service is used.
-export function LogoTile({ letter, color, size }: { letter: string; color: string; size: 34 | 44 | 48 }) {
+import { CompanyLogo } from '../../../components/company-logo'
+
+export function LogoTile({ company, letter, color, size }: { company?: string; letter: string; color: string; size: 34 | 44 | 48 }) {
+  if (company) return <CompanyLogo company={company} className={`logo logo-${size}`} size={size} />
   return (
     <span className={`logo logo-${size}`} style={{ background: color }} aria-hidden>
       {letter}

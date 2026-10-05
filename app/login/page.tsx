@@ -22,7 +22,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         </p>
       }
     >
-      <LoginForm next={safeNextPath(next)} notice={notice ? NOTICES[notice] : undefined} />
+      <LoginForm next={safeNextPath(next, '/dashboard')} notice={notice ? NOTICES[notice] : undefined} />
     </OnboardingShell>
   )
 }
