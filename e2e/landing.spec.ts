@@ -1,17 +1,19 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('landing page', () => {
-  test('matches the reference sections and leads into signup', async ({ page }) => {
+  test('is globally positioned, has explicit login, and leads into signup', async ({ page }) => {
     await page.goto('/')
     await expect(page.getByRole('heading', { name: /Career growth,\s*powered by AI/ })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'This is what Careerely does while you sleep.' })).toBeAttached()
+    await expect(page.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login')
+    await expect(page.getByRole('heading', { name: 'This is what Careerely does around the clock.' })).toBeAttached()
     await expect(page.getByRole('heading', { name: 'Three steps' })).toBeAttached()
     await expect(page.getByRole('heading', { name: 'Not another job board.' })).toBeAttached()
 
-    // No invented metrics; locked vocabulary in the demo.
     const body = await page.locator('body').innerText()
-    for (const claim of ['5,000+', '3 min', '100%', 'while you were away', 'Review & apply']) expect(body).not.toContain(claim)
-    await expect(page.getByText('Roles reviewed while you sleep')).toBeAttached()
+    for (const obsolete of ['leading tech companies', 'Nightly', 'Every night', 'Roles reviewed while you sleep', 'This is what Careerely does while you sleep.']) {
+      expect(body).not.toContain(obsolete)
+    }
+    await expect(page.getByText('Always looking for what’s new')).toBeAttached()
     await expect(page.getByText('Recent activity')).toBeAttached()
     await expect(page.getByText('Review application')).toBeAttached()
 
@@ -28,12 +30,12 @@ test.describe('landing page', () => {
     await page.getByRole('link', { name: 'Get Started' }).nth(2).click()
     await expect(page).toHaveURL(/\/signup\?plan=pro$/)
 
-    // Email entered on the landing page pre-fills signup.
+    // The landing email is only a sign-up prefill; it never authenticates a user.
     await page.goto('/')
-    await page.getByLabel('Email address').first().fill('lisa@example.com')
+    await page.getByLabel('Email address').first().fill('new-person@example.com')
     await page.getByRole('button', { name: 'Get Started' }).first().click()
-    await expect(page).toHaveURL(/\/signup\?email=lisa%40example\.com/)
-    await expect(page.getByLabel('Email')).toHaveValue('lisa@example.com')
+    await expect(page).toHaveURL(/\/signup\?email=new-person%40example\.com/)
+    await expect(page.getByLabel('Email')).toHaveValue('new-person@example.com')
   })
 
   test('has no horizontal scroll on a phone', async ({ page }) => {
