@@ -18,9 +18,9 @@ const TIMELINE: [number, Flag][] = [
 ]
 
 function greetingFor(hour: number) {
-  if (hour >= 5 && hour < 12) return 'Good morning, Alex.'
-  if (hour >= 12 && hour < 18) return 'Good afternoon, Alex.'
-  return 'Good evening, Alex.'
+  if (hour >= 5 && hour < 12) return 'Good morning, John.'
+  if (hour >= 12 && hour < 18) return 'Good afternoon, John.'
+  return 'Good evening, John.'
 }
 
 function Check({ size }: { size: number }) {
@@ -34,7 +34,7 @@ function Check({ size }: { size: number }) {
 export function ProductDemo() {
   const winRef = useRef<HTMLDivElement>(null)
   const [on, setOn] = useState<Set<Flag>>(new Set())
-  const [greeting, setGreeting] = useState('Good morning, Alex.')
+  const [greeting, setGreeting] = useState('Good morning, John.')
   const [counts, setCounts] = useState({ reviewed: 0, shortlisted: 0, ready: 0 })
 
   useEffect(() => {
@@ -120,7 +120,7 @@ export function ProductDemo() {
             <div className={s.appTab}>Opportunities</div>
             <div className={s.appTab}>Applications</div>
           </div>
-          <div className={s.avatar}>AM</div>
+          <div className={s.avatar}>JM</div>
         </div>
 
         {/* App body */}
