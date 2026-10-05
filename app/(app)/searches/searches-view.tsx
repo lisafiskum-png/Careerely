@@ -8,9 +8,8 @@ import { formatMoney } from '../../../lib/search-input'
 import { RelTime } from '../_components/rel-time'
 import { SearchForm } from './search-form'
 
-// Layout from design/searches-wip.html (reference) with the Master Brief §12
-// fixes; visual language from the locked dashboard. Card numbers come from the
-// latest completed scan of each search (decision 2026-10-01).
+// Search controls and latest-scan metrics. Active searches are monitored by the
+// continuous market engine; users never need to wait for a scheduled overnight run.
 
 const WORK_STYLE_LABEL = Object.fromEntries(WORK_STYLES.map(w => [w.value, w.label])) as Record<string, string>
 
@@ -42,19 +41,20 @@ function ScanLine({ search, readOnly }: { search: SearchCard; readOnly: boolean 
     main = 'Paused'
     sub = lastLine
   } else if (readOnly) {
-    // The engine doesn't scan for read-only accounts.
     main = lastLine
-    sub = 'Not scanning while read-only'
+    sub = 'Monitoring resumes with an active plan'
   } else if (search.scan.state === 'scanning') {
     main = 'Scanning now…'
+    sub = last ? lastLine : 'Careerely is checking the market now'
   } else if (search.scan.state === 'first') {
-    main = 'First scan queued'
-  } else if (search.scan.state === 'nightly') {
-    // Nothing queued (e.g. over the daily cap on immediate scans).
-    main = 'First scan at next nightly run'
+    main = 'Starting first scan…'
+    sub = 'Queued for immediate processing'
+  } else if (search.scan.state === 'continuous') {
+    main = 'Monitoring 24/7'
+    sub = 'Next market refresh within a few minutes'
   } else {
-    main = lastLine
-    sub = 'Scans nightly'
+    main = 'Monitoring 24/7'
+    sub = lastLine
   }
   return (
     <div className="sc-stat sc-scan" data-testid="scan-line">
@@ -134,7 +134,6 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
     setError(null)
     setScanNotice(null)
     const next = search.status === 'active' ? 'paused' : 'active'
-    // Resume is blocked at the plan's limit until another search is paused.
     if (next === 'active' && atLimit) {
       setLimitHit(true)
       return
@@ -147,8 +146,7 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
     else if (!res?.ok) setError(search.id)
     else if (next === 'active') {
       const body = (await res.json().catch(() => null)) as { immediateScan?: boolean } | null
-      // Over the daily allowance of immediate scans: resumed, but not scanning now.
-      setScanNotice(body?.immediateScan === false ? 'Search resumed. Its next scan will run at the next nightly run.' : null)
+      setScanNotice(body?.immediateScan === false ? 'Search resumed. Careerely is monitoring it continuously and will pick it up within a few minutes.' : null)
     }
     router.refresh()
   }
@@ -156,7 +154,11 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
   function saved(result: { status?: string; immediateScan?: boolean }) {
     setForm(null)
     setLimitHit(false)
-    setScanNotice(result.status === 'active' && result.immediateScan === false ? 'Search saved. Its first scan will run at the next nightly run.' : null)
+    setScanNotice(
+      result.status === 'active' && result.immediateScan === false
+        ? 'Search saved. Careerely is monitoring it continuously and will pick it up within a few minutes.'
+        : null,
+    )
     router.refresh()
   }
 
@@ -165,7 +167,7 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
       <header className={`op-header seq${shown ? ' in' : ''}`}>
         <div>
           <h1 className="op-title">Searches</h1>
-          <div className="op-subtitle">What Careerely is hunting for on your behalf.</div>
+          <div className="op-subtitle">What Careerely is hunting for on your behalf, around the clock.</div>
         </div>
         {!readOnly && (
           <button className="btn-create" onClick={() => setForm({ mode: 'create' })}>
@@ -241,7 +243,7 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
 
       {searches.length > 0 && activeCount === 0 && !readOnly && (
         <div className="sc-banner" role="status" data-testid="all-paused-banner">
-          Careerely isn’t currently searching. Resume a search below to start scanning the market again.
+          Careerely isn’t currently searching. Resume a search below to start monitoring the market again.
         </div>
       )}
 
@@ -251,7 +253,7 @@ export function SearchesView({ data, readOnly }: { data: SearchesData; readOnly:
             <SearchIcon size={22} />
           </div>
           <h2 className="empty-title">No searches yet</h2>
-          <p className="empty-desc">Careerely isn’t searching the market right now. Create a search to tell Careerely what to look for.</p>
+          <p className="empty-desc">Careerely isn’t monitoring the market right now. Create a search to tell Careerely what to look for.</p>
           {!readOnly && (
             <button className="btn-create" style={{ margin: '20px auto 0' }} onClick={() => setForm({ mode: 'create' })}>
               Create search
