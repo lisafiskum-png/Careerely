@@ -40,7 +40,8 @@ export async function POST(request) {
         await syncSubscription(admin, stripe, subscriptionId, session.client_reference_id)
       }
     } else if (SUBSCRIPTION_EVENTS.has(event.type)) {
-      await syncSubscription(admin, stripe, event.data.object.id, null)
+      const subscription = event.data.object
+      await syncSubscription(admin, stripe, subscription.id, subscription.metadata?.user_id || null)
     }
 
     const { error } = await admin.from('stripe_events').insert({ id: event.id, type: event.type })
