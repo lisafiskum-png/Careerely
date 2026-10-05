@@ -5,6 +5,12 @@ import { priceIdToPlanMap } from './stripe'
 import { subscriptionToRow } from './billing'
 import { getAccessState } from './plans'
 
+async function careerelyUserExists(admin: SupabaseClient, userId: string): Promise<boolean> {
+  const { data, error } = await admin.from('profiles').select('id').eq('id', userId).maybeSingle()
+  if (error) throw error
+  return Boolean(data)
+}
+
 /**
  * Re-reads a subscription from Stripe and stores it in public.subscriptions.
  * Used by the webhook and by the checkout return (so onboarding does not have
@@ -16,6 +22,11 @@ export async function syncSubscription(
   subscriptionId: string,
   userIdHint: string | null,
 ): Promise<void> {
+  // Account deletion removes the Auth/Profile row after deleting the Stripe
+  // customer. A late Stripe event must be acknowledged without trying to
+  // recreate a subscription row for a user who no longer exists.
+  if (userIdHint && !(await careerelyUserExists(admin, userIdHint))) return
+
   const subscription = await stripe.subscriptions.retrieve(subscriptionId)
   const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id
 
@@ -25,6 +36,7 @@ export async function syncSubscription(
     userId = data?.user_id
   }
   if (!userId) throw new Error(`No Careerely user for Stripe subscription ${subscription.id}`)
+  if (!(await careerelyUserExists(admin, userId))) return
 
   const row = subscriptionToRow(subscription, userId, priceIdToPlanMap())
 
