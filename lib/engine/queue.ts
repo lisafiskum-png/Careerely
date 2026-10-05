@@ -8,16 +8,16 @@ import { evaluateBatch, finalizeRun, startScan } from './scan'
 
 // Work queue for the Opportunity Engine (public.engine_tasks).
 //
-// A cron tick (every few minutes) runs the worker for a bounded time. Work is
-// split into small tasks so a nightly run for many users never depends on one
-// long function invocation:
-//   nightly            → enqueues tonight's source syncs and search scans
+// Supabase Cron calls the worker frequently. A small idempotent market cycle is
+// created every few minutes; it refreshes job boards and scans every active
+// search without an artificial overnight window or post-sync delay.
+//   market_cycle       → enqueues source syncs and active-search scans
 //   sync_source        → one company board (Greenhouse / Lever / Ashby)
 //   scan_search        → one search: start → evaluate (in batches) → finalize
-//   decide_preparation → Stage 6 for one user, after their scans finish
+//   decide_preparation → Stage 6 for one user after fresh scan results land
 //   prepare_package    → Stage 7 for one opportunity/package reservation
 
-export type TaskKind = 'nightly' | 'sync_source' | 'scan_search' | 'decide_preparation' | 'prepare_package'
+export type TaskKind = 'market_cycle' | 'sync_source' | 'scan_search' | 'decide_preparation' | 'prepare_package'
 
 export type Task = {
   id: string
@@ -31,11 +31,12 @@ export type Task = {
   max_attempts: number
 }
 
-/** [DERIVED] Nightly run start, in UTC. Scans start after the source syncs. */
-export const NIGHTLY_HOUR_UTC = Number(process.env.ENGINE_NIGHTLY_HOUR_UTC ?? 2)
-export const SCAN_DELAY_MINUTES = 30
+/** Fresh-market cadence. Worker ticks can run more often than this. */
+export const MARKET_CYCLE_MINUTES = 5
+export const MARKET_CYCLE_MS = MARKET_CYCLE_MINUTES * 60_000
 
 export const utcDate = (d: Date) => d.toISOString().slice(0, 10)
+export const marketCycleKey = (d: Date) => String(Math.floor(d.getTime() / MARKET_CYCLE_MS))
 
 export async function enqueue(
   admin: SupabaseClient,
@@ -48,61 +49,70 @@ export async function enqueue(
   if (error) throw error
 }
 
-/** Makes sure tonight's run is queued (idempotent; called on every tick). */
-export async function ensureNightly(admin: SupabaseClient, now = new Date()): Promise<void> {
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), NIGHTLY_HOUR_UTC))
-  if (now < start) return
-  await enqueue(admin, { kind: 'nightly', dedupe_key: `nightly:${utcDate(now)}`, run_after: start })
+/** Queue the current five-minute market cycle once. Called on every worker tick. */
+export async function ensureMarketCycle(admin: SupabaseClient, now = new Date()): Promise<void> {
+  const cycle = marketCycleKey(now)
+  await enqueue(admin, { kind: 'market_cycle', dedupe_key: `market:${cycle}`, payload: { cycle } })
 }
 
 /** First scan right after onboarding (and after a search is created later). */
-export async function enqueueFirstScan(admin: SupabaseClient, userId: string, searchId: string): Promise<void> {
+export async function enqueueFirstScan(admin: SupabaseClient, userId: string, searchId: string, now = new Date()): Promise<void> {
   const { count } = await admin.from('jobs').select('id', { count: 'exact', head: true }).eq('is_active', true)
-  let runAfter = new Date()
   if (!count) {
-    // Fresh deployment with no postings yet: sync the boards first.
-    await enqueueSyncs(admin, `bootstrap:${utcDate(runAfter)}`)
-    runAfter = new Date(Date.now() + 10 * 60_000)
+    // Fresh deployment with no postings yet: queue board syncs first. Because
+    // they are created before the scan, the FIFO worker naturally services the
+    // syncs first without making the user wait a fixed ten minutes.
+    await enqueueSyncs(admin, `bootstrap:${marketCycleKey(now)}`)
   }
-  await enqueue(admin, { kind: 'scan_search', dedupe_key: `scan:${searchId}:first`, user_id: userId, search_id: searchId, payload: { phase: 'start', trigger: 'first' }, run_after: runAfter })
+  await enqueue(admin, {
+    kind: 'scan_search',
+    dedupe_key: `scan:${searchId}:first`,
+    user_id: userId,
+    search_id: searchId,
+    payload: { phase: 'start', trigger: 'first' },
+  })
 }
 
-/**
- * Scan right after a paused search is resumed (decision 2026-10-01). It shares
- * the nightly scan's dedupe key, so a search gets at most one scan per UTC day
- * however often it is paused and resumed.
- */
+/** Queue a scan immediately after a paused search is resumed. */
 export async function enqueueResumeScan(admin: SupabaseClient, userId: string, searchId: string, now = new Date()): Promise<void> {
-  const day = utcDate(now)
-  await enqueue(admin, { kind: 'scan_search', dedupe_key: `scan:${searchId}:${day}`, user_id: userId, search_id: searchId, payload: { phase: 'start', trigger: 'resume', day } })
+  const cycle = marketCycleKey(now)
+  await enqueue(admin, {
+    kind: 'scan_search',
+    dedupe_key: `scan:${searchId}:resume:${cycle}`,
+    user_id: userId,
+    search_id: searchId,
+    payload: { phase: 'start', trigger: 'resume', cycle },
+  })
 }
 
 /**
- * Immediate scan for a Search action (D8): a new active search ('create') or a
- * resumed one ('resume'). Within the user's daily allowance
- * (public.claim_immediate_scan) the scan is queued now; beyond it nothing is
- * queued and the active search waits for the nightly scan. A resumed search
- * that already has today's scan queued or running uses no allowance; one
- * already scanned today keeps the per-search daily guard. Returns whether a
- * scan is queued or running now.
+ * Immediate scan for an explicit Search action. The existing plan-specific
+ * daily allowance still protects the expensive manual create/resume path, but
+ * an active search is never stranded until an overnight run: the continuous
+ * market cycle will pick it up within minutes even when this returns false.
  */
 export async function startSearchScan(admin: SupabaseClient, userId: string, searchId: string, action: 'create' | 'resume', now = new Date()): Promise<boolean> {
-  if (action === 'resume') {
-    const { data: today } = await admin.from('engine_tasks').select('status').eq('dedupe_key', `scan:${searchId}:${utcDate(now)}`).maybeSingle()
-    if (today) return today.status === 'queued' || today.status === 'running'
-  }
+  const { data: existing } = await admin
+    .from('engine_tasks')
+    .select('status')
+    .eq('kind', 'scan_search')
+    .eq('search_id', searchId)
+    .in('status', ['queued', 'running'])
+    .limit(1)
+  if (existing?.length) return true
+
   const { data: allowed, error } = await admin.rpc('claim_immediate_scan', { uid: userId })
   if (error) throw error
   if (!allowed) return false
-  if (action === 'create') await enqueueFirstScan(admin, userId, searchId)
+  if (action === 'create') await enqueueFirstScan(admin, userId, searchId, now)
   else await enqueueResumeScan(admin, userId, searchId, now)
   return true
 }
 
-/** A missing board (404 / 410) is rechecked once a week, with a single attempt. */
+/** A missing board (404 / 410) is rechecked once a week. */
 export const MISSING_BOARD_RECHECK_DAYS = 7
 
-/** The configured boards to sync now: boards confirmed missing are skipped until their recheck is due. */
+/** Configured boards to sync now: known missing boards are skipped until recheck. */
 export async function boardsToSync(admin: SupabaseClient, now = new Date()) {
   const { data, error } = await admin.from('source_health').select('provider, slug').gt('recheck_after', now.toISOString())
   if (error) throw error
@@ -116,12 +126,30 @@ async function enqueueSyncs(admin: SupabaseClient, tag: string) {
   }
 }
 
+/** Queue one fresh-market pass. Source tasks are inserted before scan tasks. */
+async function runMarketCycle(admin: SupabaseClient, task: Task) {
+  const cycle = typeof task.payload.cycle === 'string' ? task.payload.cycle : marketCycleKey(new Date())
+  await enqueueSyncs(admin, cycle)
+
+  const { data: searches, error } = await admin.from('searches').select('id, user_id').eq('status', 'active')
+  if (error) throw error
+  for (const s of searches ?? []) {
+    const { data: access } = await admin.rpc('has_active_access', { uid: s.user_id })
+    if (!access) continue
+    await enqueue(admin, {
+      kind: 'scan_search',
+      dedupe_key: `scan:${s.id}:cycle:${cycle}`,
+      user_id: s.user_id,
+      search_id: s.id,
+      payload: { phase: 'start', trigger: 'continuous', cycle },
+    })
+  }
+}
+
 /**
- * One board sync (D8). Success clears any "missing" record. A missing board
- * (404 / 410) is recorded and not retried; other non-retriable failures
- * (4xx, malformed responses) fail once and are tried again tomorrow;
- * temporary ones (429, 5xx, timeouts, network) are rethrown and retried with
- * backoff. last_error always says provider/slug, HTTP status and failure class.
+ * One board sync. Success clears any missing-board record. A missing board
+ * (404 / 410) is recorded and rechecked weekly; other non-retriable failures
+ * fail this cycle; temporary failures use the normal queue backoff.
  */
 async function runSyncTask(admin: SupabaseClient, task: Task, now = new Date()) {
   const board = task.payload as unknown as CompanyBoard
@@ -150,20 +178,6 @@ async function runSyncTask(admin: SupabaseClient, task: Task, now = new Date()) 
   return complete(admin, task)
 }
 
-async function runNightly(admin: SupabaseClient, now: Date) {
-  const day = utcDate(now)
-  await enqueueSyncs(admin, day)
-
-  const { data: searches, error } = await admin.from('searches').select('id, user_id').eq('status', 'active')
-  if (error) throw error
-  const scanAt = new Date(now.getTime() + SCAN_DELAY_MINUTES * 60_000)
-  for (const s of searches ?? []) {
-    const { data: access } = await admin.rpc('has_active_access', { uid: s.user_id })
-    if (!access) continue // read-only accounts: no searching, no preparing
-    await enqueue(admin, { kind: 'scan_search', dedupe_key: `scan:${s.id}:${day}`, user_id: s.user_id, search_id: s.id, payload: { phase: 'start', trigger: 'nightly', day }, run_after: scanAt })
-  }
-}
-
 async function requeue(admin: SupabaseClient, task: Task, payload: object, delayMs = 0) {
   const { error } = await admin
     .from('engine_tasks')
@@ -181,7 +195,7 @@ async function runScanTask(admin: SupabaseClient, task: Task) {
   const phase = task.payload.phase as string
   if (phase === 'start') {
     const started = await startScan(admin, task.search_id!)
-    if (!started) return complete(admin, task) // search paused or account read-only
+    if (!started) return complete(admin, task)
     return requeue(admin, task, { ...task.payload, phase: started.pending ? 'evaluate' : 'finalize', run_id: started.runId })
   }
   const runId = task.payload.run_id as string
@@ -191,8 +205,9 @@ async function runScanTask(admin: SupabaseClient, task: Task) {
   }
   const { userId } = await finalizeRun(admin, runId)
   await complete(admin, task)
-  const key = task.payload.trigger === 'nightly' ? `decide:${userId}:${task.payload.day}` : `decide:${userId}:${runId}`
-  await enqueue(admin, { kind: 'decide_preparation', dedupe_key: key, user_id: userId })
+  const cycle = typeof task.payload.cycle === 'string' ? task.payload.cycle : null
+  const key = cycle ? `decide:${userId}:${cycle}` : `decide:${userId}:${runId}`
+  await enqueue(admin, { kind: 'decide_preparation', dedupe_key: key, user_id: userId, payload: cycle ? { cycle } : {} })
 }
 
 function reservedIds(payload: Record<string, unknown>): string[] | null {
@@ -202,14 +217,15 @@ function reservedIds(payload: Record<string, unknown>): string[] | null {
 }
 
 async function runDecideTask(admin: SupabaseClient, task: Task) {
-  // Wait until the user's other scans are finished, so "top 2" is across all their searches.
+  // Only wait for scans that are actively executing right now. Future/queued
+  // continuous scans must never hold application preparation for minutes.
   const { count } = await admin
     .from('engine_tasks')
     .select('id', { count: 'exact', head: true })
     .eq('kind', 'scan_search')
     .eq('user_id', task.user_id!)
-    .in('status', ['queued', 'running'])
-  if (count) return requeue(admin, task, task.payload, 2 * 60_000)
+    .eq('status', 'running')
+  if (count) return requeue(admin, task, task.payload, 5_000)
 
   let reserved = reservedIds(task.payload)
   if (reserved === null) {
@@ -218,8 +234,7 @@ async function runDecideTask(admin: SupabaseClient, task: Task) {
     if (!reserved.length) return complete(admin, task)
 
     // Persist the reservation list before queueing package work. If the worker
-    // dies while queueing, its retry reuses exactly these reservations instead
-    // of selecting and reserving another set.
+    // dies while queueing, its retry reuses exactly these reservations.
     return requeue(admin, task, { ...task.payload, reserved_opportunity_ids: reserved })
   }
 
@@ -234,8 +249,6 @@ async function runDecideTask(admin: SupabaseClient, task: Task) {
 
   for (const id of reserved) {
     const packageId = byOpportunity.get(id)
-    // A reservation may already have been finalized by a previous worker
-    // attempt. In that case there is intentionally nothing left to enqueue.
     if (!packageId) continue
     await enqueue(admin, {
       kind: 'prepare_package',
@@ -250,8 +263,8 @@ async function runDecideTask(admin: SupabaseClient, task: Task) {
 
 export async function runTask(admin: SupabaseClient, task: Task, now = new Date()): Promise<void> {
   switch (task.kind) {
-    case 'nightly':
-      await runNightly(admin, now)
+    case 'market_cycle':
+      await runMarketCycle(admin, task)
       return complete(admin, task)
     case 'sync_source':
       return runSyncTask(admin, task, now)
@@ -287,10 +300,10 @@ export async function handleFailure(admin: SupabaseClient, task: Task, err: unkn
     }
     return
   }
-  // Retry with backoff; keeps its progress (phase/run id) in the payload.
+  // Retry quickly enough to feel live while still backing off transient faults.
   const { error } = await admin
     .from('engine_tasks')
-    .update({ status: 'queued', last_error: message.slice(0, 2000), locked_until: null, run_after: new Date(Date.now() + task.attempts * 5 * 60_000).toISOString() })
+    .update({ status: 'queued', last_error: message.slice(0, 2000), locked_until: null, run_after: new Date(Date.now() + task.attempts * 60_000).toISOString() })
     .eq('id', task.id)
   if (error) throw error
 }
