@@ -250,6 +250,21 @@
 .footLinks a { font-size: 12px; color: var(--mut); transition: color 0.3s; }
 .footLinks a:hover { color: var(--fg); }
 .footCopy { font-size: 12px; color: var(--faint); }
+.footBottom { flex-wrap: wrap; gap: 24px; }
+.socialLinks { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; }
+.socialLinks a, .socialPending { display: inline-flex; gap: 7px; align-items: center; font-size: 12px; color: var(--mut); }
+.socialLinks a:hover { color: var(--fg); }
+.socialPending { color: var(--faint); }
+.faq { padding: 96px 0; border-top: 1px solid var(--border); }
+.faqList { max-width: 800px; margin-top: 40px; }
+.faqItem { border-bottom: 1px solid var(--border); }
+.faqItem summary { cursor: pointer; padding: 24px 0; display: flex; justify-content: space-between; gap: 24px; list-style: none; font-size: 16px; font-weight: 500; }
+.faqItem summary::-webkit-details-marker { display: none; }
+.faqItem summary span { color: var(--mut); font-size: 22px; font-weight: 400; transition: transform .2s; }
+.faqItem[open] summary span { transform: rotate(45deg); }
+.faqItem p { color: var(--mut); font-size: 15px; line-height: 1.75; max-width: 720px; padding: 0 32px 24px 0; }
+.faqItem summary:focus-visible, .socialLinks a:focus-visible { outline: 2px solid var(--fg); outline-offset: 5px; }
+@media (max-width: 639px) { .faq { padding: 64px 0; } .faqItem summary { font-size: 15px; } }
 
 /* responsive: in the stacked (phone) layout the reference's flex:1 collapses
    the email field's height; only let it grow when the row is horizontal. */

@@ -149,7 +149,7 @@ export function ApplicationsView({ data, readOnly }: { data: ApplicationsData; r
                 <div key={a.id} className="ap-ready" role="button" tabIndex={0} data-testid="ready-card" onClick={() => setPanel(a.opportunityId)} onKeyDown={e => onKey(e, () => setPanel(a.opportunityId))}>
                   <div className="ap-ready-left">
                     <div className="op-pick-top" style={{ marginBottom: 14 }}>
-                      <LogoTile letter={tile.letter} color={tile.color} size={44} />
+                      <LogoTile company={a.company} letter={tile.letter} color={tile.color} size={44} />
                       <div style={{ minWidth: 0 }}>
                         <div className="opp-role" style={{ fontSize: 15 }}>
                           {a.title}
@@ -232,7 +232,7 @@ export function ApplicationsView({ data, readOnly }: { data: ApplicationsData; r
                     onClick={() => setPanel(a.opportunityId)}
                     onKeyDown={e => onKey(e, () => setPanel(a.opportunityId))}
                   >
-                    <LogoTile letter={tile.letter} color={tile.color} size={34} />
+                    <LogoTile company={a.company} letter={tile.letter} color={tile.color} size={34} />
                     <div className="opp-body">
                       <div className="opp-role">{a.title}</div>
                       <div className="opp-meta">
@@ -278,3 +278,4 @@ export function ApplicationsView({ data, readOnly }: { data: ApplicationsData; r
     </>
   )
 }
+

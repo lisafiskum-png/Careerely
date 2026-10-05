@@ -28,6 +28,6 @@ export async function GET(request: NextRequest) {
 
   if (!ok) return NextResponse.redirect(new URL('/login?notice=link_invalid', origin))
 
-  const destination = isRecovery ? '/reset-password' : safeNextPath(searchParams.get('next'), '/onboarding')
+  const destination = isRecovery ? '/reset-password' : safeNextPath(searchParams.get('next'), '/dashboard')
   return NextResponse.redirect(new URL(destination, origin))
 }

@@ -4,6 +4,8 @@ import { PLAN_LIMITS, PLANS, type PlanId } from '../lib/plans'
 import { ProductDemo } from './_landing/demo'
 import { JoinForm } from './_landing/join-form'
 import { LandingNav } from './_landing/nav'
+import { Faq } from './_landing/faq'
+import { SocialLinks } from './_landing/social-links'
 import { Reveal, RevealGroup } from './_landing/reveal'
 import s from './landing.module.css'
 
@@ -163,6 +165,8 @@ export default function Home() {
         </div>
       </section>
 
+      <Faq />
+
       <footer className={s.footer}>
         <div className={s.wrap}>
           <div className={s.footCta}>
@@ -176,6 +180,10 @@ export default function Home() {
             <span className={s.footLogo}>
               Career<span className={s.ely}>ely</span>
             </span>
+            <div className={s.footLinks}>
+              <a href="#faq">FAQ</a>
+            </div>
+            <SocialLinks />
             <span className={s.footCopy}>© {new Date().getFullYear()} Careerely</span>
           </div>
         </div>

@@ -149,7 +149,7 @@ function PanelContent({ opportunityId, isMyPick, readOnly, onClose, onDismiss, o
       <aside className="panel" role="dialog" aria-modal="true" aria-label={d ? `${d.title} at ${d.company}` : 'Opportunity'}>
         <div className="p-hd">
           <div className="p-bar">
-            {d ? <LogoTile letter={tile.letter} color={tile.color} size={44} /> : <span className="logo logo-44" style={{ background: 'var(--bg)' }} />}
+            {d ? <LogoTile company={d.company} letter={tile.letter} color={tile.color} size={44} /> : <span className="logo logo-44" style={{ background: 'var(--bg)' }} />}
             <div className="p-info">
               <div className="p-company">{d?.company ?? ''}</div>
               <div className="p-role">{d?.title ?? (error ? 'This opportunity isn’t available.' : '')}</div>
@@ -425,3 +425,4 @@ function Chip({ kind, children }: { kind: 'g' | 'v' | 'gray'; children: React.Re
     </span>
   )
 }
+

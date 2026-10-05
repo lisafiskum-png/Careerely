@@ -6,7 +6,7 @@ import { createServerClient } from '@supabase/ssr'
 // (lib/auth.ts), so they are excluded here.
 
 const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/opportunities', '/applications', '/searches', '/settings']
-// Signed-in users skip these and continue where they left off.
+// Existing sessions open the app; new registrations enter onboarding explicitly.
 const GUEST_ONLY = ['/signup', '/login']
 
 export async function proxy(request: NextRequest) {
@@ -45,10 +45,10 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user && GUEST_ONLY.includes(pathname)) {
-    const onboarding = request.nextUrl.clone()
-    onboarding.pathname = '/onboarding'
-    onboarding.search = ''
-    return redirectWithCookies(onboarding, response)
+    const dashboard = request.nextUrl.clone()
+    dashboard.pathname = '/dashboard'
+    dashboard.search = ''
+    return redirectWithCookies(dashboard, response)
   }
 
   return response

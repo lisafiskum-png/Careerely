@@ -307,7 +307,7 @@ export function DashboardView({ data, firstName, readOnly }: { data: DashboardDa
             onKeyDown={e => rowKey(e, () => openPanel(pick.id, true))}
           >
             <div className="pick-body">
-              <LogoTile letter={pickTile.letter} color={pickTile.color} size={48} />
+              <LogoTile company={pick.company} letter={pickTile.letter} color={pickTile.color} size={48} />
               <div className="pick-content">
                 <div className="pick-company">{pick.company}</div>
                 <div className="pick-role">{pick.title}</div>
@@ -406,7 +406,7 @@ export function DashboardView({ data, firstName, readOnly }: { data: DashboardDa
                   onClick={() => openPanel(r.id, false)}
                   onKeyDown={e => rowKey(e, () => openPanel(r.id, false))}
                 >
-                  <LogoTile letter={tile.letter} color={tile.color} size={34} />
+                  <LogoTile company={r.company} letter={tile.letter} color={tile.color} size={34} />
                   <div className="opp-body">
                     <div className="opp-role">{r.title}</div>
                     <div className="opp-meta">
@@ -465,7 +465,7 @@ export function DashboardView({ data, firstName, readOnly }: { data: DashboardDa
               const tile = logoTile(a.company)
               return (
                 <div key={a.id} className="app-row" role="button" tabIndex={0} onClick={() => openPanel(a.id, a.id === pick?.id)} onKeyDown={e => rowKey(e, () => openPanel(a.id, a.id === pick?.id))}>
-                  <LogoTile letter={tile.letter} color={tile.color} size={34} />
+                  <LogoTile company={a.company} letter={tile.letter} color={tile.color} size={34} />
                   <div className="app-body">
                     <div className="app-role">{a.title}</div>
                     <div className="app-meta">{[a.company, ...a.meta.slice(1)].filter(Boolean).join(' · ')}</div>
@@ -521,3 +521,4 @@ export function DashboardView({ data, firstName, readOnly }: { data: DashboardDa
     </>
   )
 }
+

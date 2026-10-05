@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import s from '../landing.module.css'
+import { CompanyLogo } from '../../components/company-logo'
 
 // Scroll-driven product demo from design/landing-final.html. Illustrative data
 // (demo persona), not clickable. Plays once when the window enters the viewport,
@@ -17,9 +18,9 @@ const TIMELINE: [number, Flag][] = [
 ]
 
 function greetingFor(hour: number) {
-  if (hour >= 5 && hour < 12) return 'Good morning, Lisa.'
-  if (hour >= 12 && hour < 18) return 'Good afternoon, Lisa.'
-  return 'Good evening, Lisa.'
+  if (hour >= 5 && hour < 12) return 'Good morning, Alex.'
+  if (hour >= 12 && hour < 18) return 'Good afternoon, Alex.'
+  return 'Good evening, Alex.'
 }
 
 function Check({ size }: { size: number }) {
@@ -33,7 +34,7 @@ function Check({ size }: { size: number }) {
 export function ProductDemo() {
   const winRef = useRef<HTMLDivElement>(null)
   const [on, setOn] = useState<Set<Flag>>(new Set())
-  const [greeting, setGreeting] = useState('Good morning, Lisa.')
+  const [greeting, setGreeting] = useState('Good morning, Alex.')
   const [counts, setCounts] = useState({ reviewed: 0, shortlisted: 0, ready: 0 })
 
   useEffect(() => {
@@ -119,7 +120,7 @@ export function ProductDemo() {
             <div className={s.appTab}>Opportunities</div>
             <div className={s.appTab}>Applications</div>
           </div>
-          <div className={s.avatar}>LF</div>
+          <div className={s.avatar}>AM</div>
         </div>
 
         {/* App body */}
@@ -149,7 +150,7 @@ export function ProductDemo() {
               <div className={s.pickGrid}>
                 <div className={s.pickMain}>
                   <div className={s.pickHead}>
-                    <div className={s.pickLogo}>S</div>
+                    <CompanyLogo company="Stripe" className={s.pickLogo} />
                     <div>
                       <div className={s.pickRole}>Business Development Lead</div>
                       <div className={s.pickMeta}>Stripe · Dublin · Hybrid</div>
@@ -157,13 +158,13 @@ export function ProductDemo() {
                   </div>
                   <div className={s.chips}>
                     <span className={s.chipMatch}>95% match</span>
-                    <span className={`${s.chipEvidence} ${fade('chip1', s.fade)}`}>✓ AML compliance required</span>
-                    <span className={`${s.chipEvidence} ${fade('chip2', s.fade)}`}>✓ Enterprise BD experience</span>
+                    <span className={`${s.chipEvidence} ${fade('chip1', s.fade)}`}>✓ Strategic partnerships experience</span>
+                    <span className={`${s.chipEvidence} ${fade('chip2', s.fade)}`}>✓ Enterprise sales experience</span>
                   </div>
                 </div>
                 <div className={s.pickSide}>
                   <div className={s.pickReason}>
-                    Your AML background directly addresses a stated requirement, while your commercial experience supports the BD scope.
+                    Your experience building strategic partnerships and winning enterprise clients aligns with this role’s focus on growing new business.
                   </div>
                   <div className={fade('prep', s.fadeSlow)}>
                     <div className={s.prepLine}>
@@ -188,16 +189,16 @@ export function ProductDemo() {
                 <span className={s.cardMeta}>View all (6)</span>
               </div>
               <div className={s.row}>
-                <div className={s.rowLogo} style={{ background: '#96BF48' }} />
+                <CompanyLogo company="Shopify" className={s.rowLogo} />
                 <div className={s.rowText}>
                   Partnerships Manager <span>· Shopify</span>
                 </div>
                 <span className={s.rowPct}>92%</span>
               </div>
               <div className={s.row}>
-                <div className={s.rowLogo} style={{ background: '#1C1C1C' }} />
+                <CompanyLogo company="GitLab" className={s.rowLogo} />
                 <div className={s.rowText}>
-                  Alliance Manager <span>· Ramp</span>
+                  Alliance Manager <span>· GitLab</span>
                 </div>
                 <span className={s.rowPct}>90%</span>
               </div>
@@ -211,7 +212,7 @@ export function ProductDemo() {
                 <span className={s.readyBadge}>2 READY</span>
               </div>
               <div className={s.appRow}>
-                <div className={s.rowLogo} style={{ background: '#29B5E8' }} />
+                <CompanyLogo company="Snowflake" className={s.rowLogo} />
                 <div>
                   <div className={s.appRole}>Senior Partnerships Manager</div>
                   <div className={s.appCompany}>Snowflake</div>
@@ -222,7 +223,7 @@ export function ProductDemo() {
                 </div>
               </div>
               <div className={s.appRow}>
-                <div className={s.rowLogo} style={{ background: '#FF3621' }} />
+                <CompanyLogo company="Databricks" className={s.rowLogo} />
                 <div>
                   <div className={s.appRole}>Strategic Account Executive</div>
                   <div className={s.appCompany}>Databricks</div>
@@ -274,3 +275,4 @@ export function ProductDemo() {
     </div>
   )
 }
+
