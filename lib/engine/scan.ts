@@ -5,28 +5,30 @@ import { hardFilter, locationMatches, preferredPlaces, relevance, type Candidate
 import { jobDocument, loadSearchContext, type SearchContext } from './context'
 import { evaluateJob } from './evaluate'
 import { STAGE_NUMBER, type OpportunityPipelineStage, type RejectionReason } from './schema'
-import { alignmentScore, compositeScore, rankOpportunities, MIN_SCORED_DIMENSIONS, SHORTLIST_MAX_PER_NIGHT, SHORTLIST_MIN_SCORE, type KnownDimension } from './scoring'
+import { alignmentScore, compositeScore, rankOpportunities, MIN_SCORED_DIMENSIONS, SHORTLIST_MAX_PER_SCAN, SHORTLIST_MIN_SCORE, type KnownDimension } from './scoring'
 import { goalEvidence, primaryEvidence, verifyEvaluation, type VerifiedEvaluation, type VerifiedEvidence } from './verify'
 
 // One scan of one search, in three resumable phases:
-//   start    → Stage 1 on every new active posting; pick tonight's candidates
+//   start    → Stage 1 on eligible active postings; pick fresh candidates
 //   evaluate → Stages 2–5 for a few candidates per invocation
-//   finalize → Stage 3 threshold, Stage 4 ranking, store opportunities + evidence
+//   finalize → threshold + ranking, then store opportunities + evidence
 // Every evaluated posting ends in exactly one of:
 //   shortlisted  → an opportunity
-//   rejected     → a rejection row (failed Stage 1, or scored below the threshold)
-//   not_selected → passed the threshold but outside this run's nightly cap; not
-//                  a rejection, competes again in the next scan
-//   unevaluable  → too little traceable evidence to score; fit is unknown, not
-//                  low (absence of evidence = unknown, never negative); not a
-//                  rejection, re-evaluated once the resume, search or posting changes
-// not_selected and unevaluable are kept on candidate_evaluations with a reason.
+//   rejected     → a rejection row
+//   not_selected → eligible but outside this scan's shortlist cap
+//   unevaluable  → too little traceable evidence; fit is unknown, not low
+// Continuous scanning must not repeatedly spend AI on unchanged candidates, so
+// settled outcomes carry an inputs hash and cool down before reconsideration.
 
 /** [DERIVED] Postings first seen within this many days are considered. */
 export const CANDIDATE_MAX_AGE_DAYS = 45
-/** [DERIVED] Full AI evaluations per search per scan (cost control); the rest stay in the pool. */
+/** Full AI evaluations per search per scan (cost control); the rest stay in the pool. */
 export const EVALUATIONS_PER_SCAN = 20
 export const EVALUATION_BATCH = 5
+/** Eligible-but-not-selected roles may compete again after this cooldown. */
+export const NOT_SELECTED_RECHECK_MS = 24 * 60 * 60_000
+/** Transient AI failures cool down before another paid attempt. */
+export const FAILED_EVALUATION_RECHECK_MS = 30 * 60_000
 
 export type JobRow = CandidateJob & {
   description: string | null
@@ -72,6 +74,36 @@ async function allRows<T>(query: (from: number, to: number) => PromiseLike<{ dat
   return out
 }
 
+type PreviousEvaluation = {
+  job_id: string
+  status: string
+  inputs_hash: string | null
+  evaluated_at: string | null
+  created_at: string
+}
+
+/** Latest settled/failed evaluation for each job in this search. */
+function latestEvaluations(rows: PreviousEvaluation[]): Map<string, PreviousEvaluation> {
+  const latest = new Map<string, PreviousEvaluation>()
+  for (const row of rows) {
+    const old = latest.get(row.job_id)
+    const rowAt = new Date(row.evaluated_at ?? row.created_at).getTime()
+    const oldAt = old ? new Date(old.evaluated_at ?? old.created_at).getTime() : -Infinity
+    if (!old || rowAt > oldAt) latest.set(row.job_id, row)
+  }
+  return latest
+}
+
+function shouldReevaluate(previous: PreviousEvaluation | undefined, hash: string, now: Date): boolean {
+  if (!previous || previous.inputs_hash !== hash) return true
+  if (previous.status === 'unevaluable') return false
+  const at = new Date(previous.evaluated_at ?? previous.created_at).getTime()
+  const age = now.getTime() - at
+  if (previous.status === 'not_selected') return age >= NOT_SELECTED_RECHECK_MS
+  if (previous.status === 'failed') return age >= FAILED_EVALUATION_RECHECK_MS
+  return true
+}
+
 // ── Phase: start ────────────────────────────────────────────────────────────
 
 export async function startScan(admin: SupabaseClient, searchId: string, now = new Date()): Promise<{ runId: string; pending: number } | null> {
@@ -88,7 +120,7 @@ export async function startScan(admin: SupabaseClient, searchId: string, now = n
   if (runError) throw runError
 
   const since = new Date(now.getTime() - CANDIDATE_MAX_AGE_DAYS * 86_400_000).toISOString()
-  const [pool, rejected, existing, unevaluable] = await Promise.all([
+  const [pool, rejected, existing, previousRows] = await Promise.all([
     allRows<JobRow>((a, b) =>
       admin.from('jobs').select(JOB_COLUMNS).eq('is_active', true).gte('first_seen_at', since).order('first_seen_at', { ascending: false }).range(a, b),
     ),
@@ -96,22 +128,26 @@ export async function startScan(admin: SupabaseClient, searchId: string, now = n
     allRows<{ job_id: string; jobs: { dedupe_key: string | null } | null }>((a, b) =>
       admin.from('opportunities').select('job_id, jobs(dedupe_key)').eq('user_id', ctx.userId).range(a, b),
     ),
-    allRows<{ job_id: string; inputs_hash: string | null }>((a, b) =>
-      admin.from('candidate_evaluations').select('job_id, inputs_hash').eq('search_id', searchId).eq('status', 'unevaluable').range(a, b),
+    allRows<PreviousEvaluation>((a, b) =>
+      admin
+        .from('candidate_evaluations')
+        .select('job_id, status, inputs_hash, evaluated_at, created_at')
+        .eq('search_id', searchId)
+        .in('status', ['not_selected', 'unevaluable', 'failed'])
+        .order('created_at', { ascending: false })
+        .range(a, b),
     ),
   ])
 
   const done = new Set([...rejected.map(r => r.job_id), ...existing.map(o => o.job_id)])
   const seenDedupe = new Set(existing.map(o => o.jobs?.dedupe_key).filter((k): k is string => Boolean(k)))
-  // An unevaluable role is skipped until something it was evaluated on changes.
-  // not_selected roles are not skipped: they compete again every scan.
-  const unevaluableHash = new Map(unevaluable.map(u => [u.job_id, u.inputs_hash]))
+  const previous = latestEvaluations(previousRows)
   const hashes = new Map<string, string>()
   const candidates = pool.filter(j => {
     if (done.has(j.id)) return false
     const hash = evaluationInputsHash(ctx, j)
     hashes.set(j.id, hash)
-    return unevaluableHash.get(j.id) !== hash
+    return shouldReevaluate(previous.get(j.id), hash, now)
   })
 
   const rejections: Parameters<typeof logRejections>[1] = []
@@ -255,11 +291,11 @@ export async function evaluateBatch(admin: SupabaseClient, runId: string, batch 
       const job = row.jobs as unknown as JobRow
       try {
         const result = await evaluateCandidate(job, ctx)
-        await admin.from('candidate_evaluations').update({ status: 'evaluated', result }).eq('run_id', runId).eq('job_id', row.job_id)
+        await admin.from('candidate_evaluations').update({ status: 'evaluated', result, evaluated_at: new Date().toISOString() }).eq('run_id', runId).eq('job_id', row.job_id)
       } catch (err) {
         await admin
           .from('candidate_evaluations')
-          .update({ status: 'failed', error: err instanceof Error ? err.message : String(err) })
+          .update({ status: 'failed', error: err instanceof Error ? err.message : String(err), evaluated_at: new Date().toISOString() })
           .eq('run_id', runId)
           .eq('job_id', row.job_id)
       }
@@ -294,11 +330,10 @@ export async function finalizeRun(admin: SupabaseClient, runId: string): Promise
   const outcomes: { job_id: string; status: 'not_selected' | 'unevaluable'; reason: string }[] = []
 
   for (const row of rows ?? []) {
-    if (row.status !== 'evaluated' || !row.result) continue // failed evaluations stay in the pool for the next scan
+    if (row.status !== 'evaluated' || !row.result) continue
     const job = row.jobs as unknown as JobRow
     const result = row.result as CandidateResult
     if (result.matchScore === null) {
-      // Absence of evidence = unknown, never negative: no score, no rejection.
       outcomes.push({
         job_id: job.id,
         status: 'unevaluable',
@@ -327,13 +362,12 @@ export async function finalizeRun(admin: SupabaseClient, runId: string): Promise
       postedAt: p.job.posted_at,
     })),
   )
-  const shortlist = ranked.slice(0, SHORTLIST_MAX_PER_NIGHT)
-  for (const r of ranked.slice(SHORTLIST_MAX_PER_NIGHT)) {
-    // Passed the threshold; only the nightly cap kept it out. Not a rejection.
+  const shortlist = ranked.slice(0, SHORTLIST_MAX_PER_SCAN)
+  for (const r of ranked.slice(SHORTLIST_MAX_PER_SCAN)) {
     outcomes.push({
       job_id: r.job.id,
       status: 'not_selected',
-      reason: `Eligible: match score ${r.matchScore} meets the shortlist threshold of ${SHORTLIST_MIN_SCORE}, but ranked ${r.finalRank} in this run, outside the top ${SHORTLIST_MAX_PER_NIGHT} for this search. Competes again in the next scan.`,
+      reason: `Eligible: match score ${r.matchScore} meets the shortlist threshold of ${SHORTLIST_MIN_SCORE}, but ranked ${r.finalRank} in this scan, outside the top ${SHORTLIST_MAX_PER_SCAN}. It can compete again after the recheck cooldown or sooner if its inputs change.`,
     })
   }
 
@@ -367,8 +401,10 @@ export async function finalizeRun(admin: SupabaseClient, runId: string): Promise
     })
     .eq('id', runId)
   await admin.from('searches').update({ last_scan_at: new Date().toISOString() }).eq('id', run.search_id)
-  // Keep only the latest outcome per search and job: drop this run's settled
-  // rows, and earlier runs' rows for jobs this run has now evaluated.
+
+  // Keep only the latest settled outcome per search/job. Evaluated rows that
+  // became opportunities/rejections are no longer needed; retained cooldown
+  // outcomes carry the latest inputs hash and timestamp.
   await admin.from('candidate_evaluations').delete().eq('run_id', runId).eq('status', 'evaluated')
   const settled = (rows ?? []).filter(r => r.status === 'evaluated').map(r => r.job_id as string)
   for (let i = 0; i < settled.length; i += 200) {
@@ -413,7 +449,7 @@ async function storeOpportunity(
     .select('id')
     .maybeSingle()
   if (error) throw error
-  if (!opp) return null // already an opportunity (found by another search)
+  if (!opp) return null
   await writeEvaluation(admin, opp.id, run.user_id, job, result)
   return opp.id
 }
@@ -482,10 +518,7 @@ export async function writeEvaluation(admin: SupabaseClient, opportunityId: stri
   if (updError) throw updError
 }
 
-/**
- * Stage 4 across all of a user's live opportunities: goal-aligned first
- * (LOCKED), then industry, score, recency. Rank 1 is My Pick.
- */
+/** Stage 4 across all of a user's live opportunities. Rank 1 is My Pick. */
 export async function rerankUser(admin: SupabaseClient, userId: string): Promise<void> {
   const { data: live, error } = await admin
     .from('opportunities')
