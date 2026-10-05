@@ -19,5 +19,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Dependency audit after framework upgrade
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+      - name: Full dependency audit for visibility
         run: npm audit --json || true
