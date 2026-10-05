@@ -6,8 +6,9 @@ import { createServerClient } from '@supabase/ssr'
 // (lib/auth.ts), so they are excluded here.
 
 const PROTECTED_PREFIXES = ['/dashboard', '/onboarding', '/opportunities', '/applications', '/searches', '/settings']
-// Existing sessions open the app; new registrations enter onboarding explicitly.
-const GUEST_ONLY = ['/signup', '/login']
+// A signed-in user may still need to switch accounts, so /login must always
+// render the credential form. Signup remains reserved for new registrations.
+const GUEST_ONLY = ['/signup']
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })

@@ -52,12 +52,18 @@ beforeEach(() => {
 })
 
 describe('existing and new account routing', () => {
-  it.each(['/login', '/signup'])('opens dashboard for an existing session at %s and preserves refreshed cookies', async path => {
+  it('always shows the credential form at /login, even when another account has an active session', async () => {
     mocks.user = { id: 'existing-user', email: 'alex@example.test' }
     mocks.refresh = true
-    const response = await proxy(new NextRequest(`https://careerely.test${path}?next=/onboarding/3`))
-    expect(response.headers.get('location')).toBe('https://careerely.test/dashboard')
+    const response = await proxy(new NextRequest('https://careerely.test/login?next=/dashboard'))
+    expect(response.headers.get('location')).toBeNull()
     expect(response.cookies.get('refreshed-session')?.value).toBe('new-token')
+  })
+
+  it('keeps signup out of an existing session', async () => {
+    mocks.user = { id: 'existing-user', email: 'alex@example.test' }
+    const response = await proxy(new NextRequest('https://careerely.test/signup'))
+    expect(response.headers.get('location')).toBe('https://careerely.test/dashboard')
   })
 
   it.each(['/login', '/signup'])('leaves signed-out visitors on their chosen account page %s', async path => {
