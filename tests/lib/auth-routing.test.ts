@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   refresh: false,
   verifyOtp: vi.fn(),
   exchangeCodeForSession: vi.fn(),
+  onboardingPath: '/dashboard' as '/dashboard' | '/onboarding/2',
   redirect: vi.fn((path: string) => { throw new Error(`redirect:${path}`) }),
 }))
 
@@ -22,6 +23,7 @@ vi.mock('../../lib/supabase/server', () => ({ createClient: async () => ({ auth:
   verifyOtp: mocks.verifyOtp, exchangeCodeForSession: mocks.exchangeCodeForSession,
 } }) }))
 vi.mock('../../lib/auth', () => ({ getUser: async () => mocks.user }))
+vi.mock('../../lib/onboarding-server', () => ({ getOnboardingPath: async () => mocks.onboardingPath }))
 vi.mock('../../lib/dashboard', () => ({
   DASHBOARD_SHORTLIST_ROWS: 3,
   getAccount: async () => ({ firstName: null, lastName: null, access: { kind: 'read_only' } }),
@@ -43,6 +45,7 @@ beforeEach(() => {
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-key')
   mocks.user = null
   mocks.refresh = false
+  mocks.onboardingPath = '/dashboard'
   vi.clearAllMocks()
   mocks.verifyOtp.mockResolvedValue({ error: null })
   mocks.exchangeCodeForSession.mockResolvedValue({ error: null })
@@ -87,6 +90,12 @@ describe('existing and new account routing', () => {
 
   it('keeps signed-out users out of the app shell', async () => {
     await expect(AppLayout({ children: 'private content' })).rejects.toThrow('redirect:/login?next=/dashboard')
+  })
+
+  it('keeps an unpaid or unfinished account out of the dashboard', async () => {
+    mocks.user = { id: 'unfinished-user', email: 'new@example.test' }
+    mocks.onboardingPath = '/onboarding/2'
+    await expect(AppLayout({ children: 'private content' })).rejects.toThrow('redirect:/onboarding/2')
   })
 })
 

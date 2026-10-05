@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getUser } from '../../../lib/auth'
 import { createClient } from '../../../lib/supabase/server'
-import { hasCompletedOnboarding, isWorkStyle } from '../../../lib/onboarding'
+import { isWorkStyle } from '../../../lib/onboarding'
 import { isPlanId } from '../../../lib/plans'
 import { PreferencesStep, type PreferencesInitial } from './preferences-step'
 
@@ -32,12 +32,7 @@ export default async function PreferencesPage({
   if (!career?.resume_confirmed_at) redirect('/onboarding/2')
   // Finished users go to the dashboard, except when returning from checkout
   // (the page then confirms the payment and shows the success screen).
-  if (hasCompletedOnboarding({
-    completed: Boolean(profile?.onboarding_completed_at),
-    hasResume: Boolean(career.resume_confirmed_at),
-    roles: career.target_roles,
-    workStyles: career.work_styles,
-  }) && checkout !== 'success') redirect('/dashboard')
+  if (profile?.onboarding_completed_at && checkout !== 'success') redirect('/dashboard')
 
   const suggestions = (career.suggestions ?? {}) as Suggestions
   const saved = career.target_roles.length > 0

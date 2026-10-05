@@ -14,21 +14,11 @@ export type OnboardingProgress = {
   hasResume: boolean
 }
 
-export type SavedOnboardingProgress = OnboardingProgress & {
-  roles: string[]
-  workStyles: string[]
-}
-
-/** A saved resume plus valid search preferences is a completed profile.
- * Billing and starting the first search are separate lifecycle states. */
-export function hasCompletedOnboarding(progress: SavedOnboardingProgress): boolean {
-  return progress.completed || (progress.hasResume && progress.roles.length > 0 && progress.workStyles.length > 0)
-}
-
 /** Where a signed-in user should be sent to continue onboarding. */
 export function nextOnboardingPath(progress: OnboardingProgress): OnboardingPath {
   if (progress.completed) return '/dashboard'
-  if (progress.hasResume) return '/onboarding/3'
+  // An account is not an app account until checkout has completed. Returning
+  // unpaid users restart at the resume step; they never enter the dashboard.
   return '/onboarding/2'
 }
 

@@ -160,10 +160,14 @@ export const getScanStatus = cache(async (userId: string): Promise<ScanStatus & 
 
 export const getAccount = cache(async (userId: string): Promise<{ firstName: string | null; lastName: string | null; access: AccessState }> => {
   const supabase = await createClient()
-  const [{ data: profile }, { data: subscription }] = await Promise.all([
+  const [{ data: profile, error: profileError }, { data: subscription, error: subscriptionError }] = await Promise.all([
     supabase.from('profiles').select('first_name, last_name').eq('id', userId).maybeSingle(),
-    supabase.from('subscriptions').select('plan, status, current_period_end, cancel_at').maybeSingle<SubscriptionState>(),
+    supabase.from('subscriptions').select('plan, status, current_period_end, cancel_at').eq('user_id', userId).maybeSingle<SubscriptionState>(),
   ])
+  // A billing read failure must never be presented as "Choose a plan". That is
+  // a false business state and could cause an already-paid user to pay twice.
+  if (profileError) throw profileError
+  if (subscriptionError) throw subscriptionError
   return { firstName: profile?.first_name ?? null, lastName: profile?.last_name ?? null, access: getAccessState(subscription) }
 })
 

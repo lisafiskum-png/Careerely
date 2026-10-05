@@ -70,15 +70,6 @@ export async function POST(request: Request) {
         return Response.json({ error: 'Please upload and review your resume first.' }, { status: 409 })
       }
 
-      // Profile completion is independent of payment and starting a search.
-      // Otherwise a user can save every onboarding field yet appear unfinished
-      // whenever checkout is deferred or interrupted.
-      const { error: completeError } = await admin
-        .from('profiles')
-        .update({ onboarding_completed_at: new Date().toISOString() })
-        .eq('id', user.id)
-        .is('onboarding_completed_at', null)
-      if (completeError) throw completeError
     }
 
     if (sessionId) {
@@ -157,6 +148,15 @@ export async function POST(request: Request) {
         console.error('first scan kickoff failed', err)
       }
     })
+
+    // Onboarding completes only after paid access is confirmed and the first
+    // search exists. Saving a resume or preferences alone never unlocks the app.
+    const { error: completeError } = await admin
+      .from('profiles')
+      .update({ onboarding_completed_at: new Date().toISOString() })
+      .eq('id', user.id)
+      .is('onboarding_completed_at', null)
+    if (completeError) throw completeError
 
     return Response.json({ status: 'started' })
   } catch (err) {

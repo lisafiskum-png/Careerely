@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getUser } from '../../lib/auth'
+import { createClient } from '../../lib/supabase/server'
+import { getOnboardingPath } from '../../lib/onboarding-server'
 import { DASHBOARD_SHORTLIST_ROWS, getAccount, getLiveOpportunities, getScanStatus } from '../../lib/dashboard'
 import { initials } from '../../lib/display'
 import { LiveRefresh } from './_components/live-refresh'
@@ -11,7 +13,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await getUser()
   if (!user) redirect('/login?next=/dashboard')
 
-  const [account, { list }, scan] = await Promise.all([getAccount(user.id), getLiveOpportunities(), getScanStatus(user.id)])
+  const [account, { list }, scan, onboardingPath] = await Promise.all([
+    getAccount(user.id),
+    getLiveOpportunities(),
+    getScanStatus(user.id),
+    createClient().then(client => getOnboardingPath(client, user.id)),
+  ])
+  if (onboardingPath !== '/dashboard') redirect(onboardingPath)
 
   return (
     <div className="cl-app">
