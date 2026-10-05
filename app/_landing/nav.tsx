@@ -1,37 +1,19 @@
 'use client'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { createClient } from '../../lib/supabase/client'
 import s from '../landing.module.css'
 import x from './landing-controls.module.css'
 
-// Transparent → frosted glass on scroll. Signed-out visitors always get an
-// explicit Log in action; signed-in visitors get a clear way back to the app
-// instead of being sent through sign-up again.
+// Transparent → frosted glass on scroll. The public landing page always presents
+// the two account choices consistently: returning users log in; new users start.
 export function LandingNav() {
   const [scrolled, setScrolled] = useState(false)
-  const [signedIn, setSignedIn] = useState(false)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10)
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
-  useEffect(() => {
-    const supabase = createClient()
-    let active = true
-    void supabase.auth.getSession().then(({ data }) => {
-      if (active) setSignedIn(Boolean(data.session))
-    })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) setSignedIn(Boolean(session))
-    })
-    return () => {
-      active = false
-      listener.subscription.unsubscribe()
-    }
   }, [])
 
   return (
@@ -45,17 +27,11 @@ export function LandingNav() {
           <a href="#pricing">Pricing</a>
         </div>
         <div className={x.navActions}>
-          {signedIn ? (
-            <Link href="/dashboard" className={x.navLogin}>
-              Dashboard
-            </Link>
-          ) : (
-            <Link href="/login" className={x.navLogin}>
-              Log in
-            </Link>
-          )}
-          <Link href={signedIn ? '/dashboard' : '/signup'} className={s.navCta}>
-            {signedIn ? 'Open Careerely' : 'Get Started'}
+          <Link href="/login" className={x.navLogin}>
+            Log in
+          </Link>
+          <Link href="/signup" className={s.navCta}>
+            Get Started
           </Link>
         </div>
       </div>

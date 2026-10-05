@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   cleanChips,
   firstSearchName,
+  hasCompletedOnboarding,
   isValidEmail,
   isWorkStyle,
   nextOnboardingPath,
@@ -15,6 +16,17 @@ describe('nextOnboardingPath', () => {
     expect(nextOnboardingPath({ completed: false, hasResume: false })).toBe('/onboarding/2')
     expect(nextOnboardingPath({ completed: false, hasResume: true })).toBe('/onboarding/3')
     expect(nextOnboardingPath({ completed: true, hasResume: true })).toBe('/dashboard')
+  })
+})
+
+describe('hasCompletedOnboarding', () => {
+  it('treats saved resume and search preferences as complete before billing', () => {
+    expect(hasCompletedOnboarding({ completed: false, hasResume: true, roles: ['Account Executive'], workStyles: ['remote'] })).toBe(true)
+  })
+
+  it('does not complete a profile without a resume or required preferences', () => {
+    expect(hasCompletedOnboarding({ completed: false, hasResume: false, roles: ['Account Executive'], workStyles: ['remote'] })).toBe(false)
+    expect(hasCompletedOnboarding({ completed: false, hasResume: true, roles: [], workStyles: ['remote'] })).toBe(false)
   })
 })
 

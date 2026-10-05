@@ -17,17 +17,6 @@
   color: #111111;
 }
 
-.signedInJoin {
-  align-items: center;
-}
-
-.sessionNote {
-  color: #6b7280;
-  font-size: 13px;
-  line-height: 1.35;
-  align-self: center;
-}
-
 @media (max-width: 479px) {
   .navActions {
     gap: 8px;
@@ -35,9 +24,5 @@
 
   .navLogin {
     font-size: 12px;
-  }
-
-  .sessionNote {
-    display: none;
   }
 }
