@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '../../lib/supabase/client'
 import s from '../landing.module.css'
+import x from './landing-controls.module.css'
 
 // "Email address + Get Started": continues to signup with the email filled in.
 // If this browser already has a Careerely session, do not pretend a different
@@ -29,8 +30,8 @@ export function JoinForm({ className }: { className: string }) {
 
   if (signedIn) {
     return (
-      <div className={`${className} ${s.signedInJoin}`}>
-        <span className={s.sessionNote}>You’re already signed in.</span>
+      <div className={`${className} ${x.signedInJoin}`}>
+        <span className={x.sessionNote}>You’re already signed in.</span>
         <button type="button" className={s.btnDark} onClick={() => router.push('/dashboard')}>
           Open Careerely
         </button>
