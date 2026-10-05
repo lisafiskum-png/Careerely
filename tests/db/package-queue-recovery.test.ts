@@ -33,7 +33,9 @@ beforeAll(async () => {
     [USER],
   )
   searchId = (await db.query<{ id: string }>(
-    `insert into public.searches (user_id, name, status) values ($1, 'Queue test', 'active') returning id`,
+    `insert into public.searches (user_id, name, status, target_roles, work_styles)
+     values ($1, 'Queue test', 'active', array['Account Executive'], array['remote']::public.work_style[])
+     returning id`,
     [USER],
   )).rows[0].id
 })

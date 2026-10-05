@@ -27,7 +27,8 @@ async function setSubscription(uid: string, plan: string, status: string, period
     `insert into public.subscriptions (user_id, plan, status, current_period_start, current_period_end)
      values ($1, $2, $3, now() - interval '1 day', now() + $4::interval)
      on conflict (user_id) do update set plan = excluded.plan, status = excluded.status,
-       current_period_start = excluded.current_period_start, current_period_end = excluded.current_period_end`,
+       current_period_start = excluded.current_period_start, current_period_end = excluded.current_period_end,
+       cancel_at = null, cancel_at_period_end = false`,
     [uid, plan, status, periodEndOffset],
   )
 }
@@ -135,12 +136,12 @@ describe('foundation migration', () => {
   it('makes accounts without a subscription read-only', async () => {
     await expect(
       asUser(BOB, () =>
-        db.query(`insert into public.searches (user_id, name) values ($1, 'Sales in fintech')`, [BOB]),
+        db.query(`insert into public.searches (user_id, name, target_roles, work_styles) values ($1, 'Sales in fintech', array['Sales'], array['remote'::public.work_style])`, [BOB]),
       ),
     ).rejects.toThrow(/active subscription is required/)
     await expect(
       asUser(BOB, () =>
-        db.query(`insert into public.searches (user_id, name, status) values ($1, 'Sales', 'paused')`, [BOB]),
+        db.query(`insert into public.searches (user_id, name, status, target_roles, work_styles) values ($1, 'Sales', 'paused', array['Sales'], array['remote'::public.work_style])`, [BOB]),
       ),
     ).rejects.toThrow(/row-level security/)
   })
@@ -148,13 +149,13 @@ describe('foundation migration', () => {
   it('enforces the active search limit and allows saving as paused', async () => {
     await setSubscription(ALICE, 'basic', 'active', '20 days')
     await asUser(ALICE, () =>
-      db.query(`insert into public.searches (user_id, name) values ($1, 'First')`, [ALICE]),
+      db.query(`insert into public.searches (user_id, name, target_roles, work_styles) values ($1, 'First', array['Sales'], array['remote'::public.work_style])`, [ALICE]),
     )
     await expect(
-      asUser(ALICE, () => db.query(`insert into public.searches (user_id, name) values ($1, 'Second')`, [ALICE])),
+      asUser(ALICE, () => db.query(`insert into public.searches (user_id, name, target_roles, work_styles) values ($1, 'Second', array['Sales'], array['remote'::public.work_style])`, [ALICE])),
     ).rejects.toThrow(/Active search limit reached/)
     await asUser(ALICE, () =>
-      db.query(`insert into public.searches (user_id, name, status) values ($1, 'Second', 'paused')`, [ALICE]),
+      db.query(`insert into public.searches (user_id, name, status, target_roles, work_styles) values ($1, 'Second', 'paused', array['Sales'], array['remote'::public.work_style])`, [ALICE]),
     )
     await expect(
       asUser(ALICE, () => db.query(`update public.searches set status = 'active' where name = 'Second'`)),
@@ -174,7 +175,7 @@ describe('foundation migration', () => {
     await expect(asUser(ALICE, () => db.query(`update public.searches set min_compensation = null where name = 'First'`))).rejects.toThrow(/searches_compensation_pair/)
     await expect(asUser(ALICE, () => db.query(`update public.searches set compensation_currency = 'gbp' where name = 'First'`))).rejects.toThrow(/searches_compensation_currency_format/)
     await expect(
-      asUser(ALICE, () => db.query(`insert into public.searches (user_id, name, status, min_compensation) values ($1, 'No currency', 'paused', 50000)`, [ALICE])),
+      asUser(ALICE, () => db.query(`insert into public.searches (user_id, name, status, target_roles, work_styles, min_compensation) values ($1, 'No currency', 'paused', array['Sales'], array['remote'::public.work_style], 50000)`, [ALICE])),
     ).rejects.toThrow(/searches_compensation_pair/)
     await asUser(ALICE, () => db.query(`update public.searches set min_compensation = null, compensation_currency = null where name = 'First'`))
   })
@@ -545,7 +546,8 @@ describe('plan change: pausing searches above a lower limit (D6)', () => {
       pg.query(
         `insert into public.subscriptions (user_id, plan, status, current_period_start, current_period_end)
          values ($1, $2, 'active', now() - interval '1 day', now() + interval '20 days')
-         on conflict (user_id) do update set plan = excluded.plan`,
+         on conflict (user_id) do update set plan = excluded.plan, status = 'active',
+           current_period_end = now() + interval '20 days', cancel_at = null, cancel_at_period_end = false`,
         [uid, plan],
       )
     const asUid = async <T,>(fn: () => Promise<T>) => {
@@ -561,8 +563,10 @@ describe('plan change: pausing searches above a lower limit (D6)', () => {
 
     await setPlan('pro')
     await pg.query(
-      `insert into public.searches (user_id, name, status, created_at) values
-         ($1, 'Kept', 'active', now() - interval '3 days'), ($1, 'Auto', 'active', now() - interval '2 days'), ($1, 'Manual', 'active', now() - interval '1 day')`,
+      `insert into public.searches (user_id, name, status, target_roles, work_styles, created_at) values
+         ($1, 'Kept', 'active', array['Sales'], array['remote'::public.work_style], now() - interval '3 days'),
+         ($1, 'Auto', 'active', array['Sales'], array['remote'::public.work_style], now() - interval '2 days'),
+         ($1, 'Manual', 'active', array['Sales'], array['remote'::public.work_style], now() - interval '1 day')`,
       [uid],
     )
     // Manually paused by the user: never marked.
@@ -601,17 +605,18 @@ describe('plan change: pausing searches above a lower limit (D6)', () => {
       pg.query(
         `insert into public.subscriptions (user_id, plan, status, current_period_start, current_period_end)
          values ($1, $2, $3, now() - interval '1 day', now() + $4::interval)
-         on conflict (user_id) do update set plan = excluded.plan, status = excluded.status, current_period_end = excluded.current_period_end`,
+         on conflict (user_id) do update set plan = excluded.plan, status = excluded.status,
+           current_period_end = excluded.current_period_end, cancel_at = null, cancel_at_period_end = false`,
         [uid, plan, status, end],
       )
     await setPlan('pro')
     await pg.query(
-      `insert into public.searches (user_id, name, status, created_from_profile, created_at) values
-         ($1, 'Oldest', 'active', false, now() - interval '5 days'),
-         ($1, 'From profile', 'active', true, now() - interval '1 day'),
-         ($1, 'Second oldest', 'active', false, now() - interval '4 days'),
-         ($1, 'Newest', 'active', false, now() - interval '1 hour'),
-         ($1, 'Already paused', 'paused', false, now() - interval '9 days')`,
+      `insert into public.searches (user_id, name, status, target_roles, work_styles, created_from_profile, created_at) values
+         ($1, 'Oldest', 'active', array['Sales'], array['remote'::public.work_style], false, now() - interval '5 days'),
+         ($1, 'From profile', 'active', array['Sales'], array['remote'::public.work_style], true, now() - interval '1 day'),
+         ($1, 'Second oldest', 'active', array['Sales'], array['remote'::public.work_style], false, now() - interval '4 days'),
+         ($1, 'Newest', 'active', array['Sales'], array['remote'::public.work_style], false, now() - interval '1 hour'),
+         ($1, 'Already paused', 'paused', array['Sales'], array['remote'::public.work_style], false, now() - interval '9 days')`,
       [uid],
     )
     const state = async () =>

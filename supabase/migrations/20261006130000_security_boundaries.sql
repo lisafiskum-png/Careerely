@@ -7,12 +7,21 @@
 --    signed-in caller, while service/trigger calls (no auth.uid()) still work.
 -- 4) Pure/trigger helper functions use an explicit search_path.
 
--- Legacy tables are not used by the current app. Keep the data for now, but
--- make it inaccessible to browser roles until the legacy data is retired.
-alter table if exists public.cover_letters enable row level security;
-alter table if exists public.waitlist enable row level security;
-revoke all privileges on table public.cover_letters from anon, authenticated;
-revoke all privileges on table public.waitlist from anon, authenticated;
+-- Legacy tables existed in the prototype database but are intentionally not
+-- part of a clean Careerely schema. Harden them when present without making a
+-- fresh migration replay depend on legacy objects existing.
+do $$
+begin
+  if to_regclass('public.cover_letters') is not null then
+    execute 'alter table public.cover_letters enable row level security';
+    execute 'revoke all privileges on table public.cover_letters from anon, authenticated';
+  end if;
+  if to_regclass('public.waitlist') is not null then
+    execute 'alter table public.waitlist enable row level security';
+    execute 'revoke all privileges on table public.waitlist from anon, authenticated';
+  end if;
+end
+$$;
 
 -- Canonical access helper. RLS policies need authenticated callers to be able
 -- to execute it, but a user must not be able to probe another user's account.
