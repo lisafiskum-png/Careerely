@@ -9,12 +9,13 @@ import { evaluateBatch, finalizeRun, startScan } from './scan'
 // Work queue for the Opportunity Engine (public.engine_tasks).
 //
 // Supabase Cron calls the worker frequently. A small idempotent market cycle is
-// created every few minutes; it refreshes job boards and scans every active
-// search without an artificial overnight window or post-sync delay.
-//   market_cycle       → enqueues source syncs and active-search scans
+// created every few minutes. User-facing scan/application work is queued first;
+// source refreshes follow shortly after so they can feed the next cycle without
+// forcing a user to sit behind dozens of ATS requests.
+//   market_cycle       → enqueues active-search scans and source refreshes
 //   sync_source        → one company board (Greenhouse / Lever / Ashby)
 //   scan_search        → one search: start → evaluate (in batches) → finalize
-//   decide_preparation → Stage 6 for one user after fresh scan results land
+//   decide_preparation → Stage 6 after fresh scan results land
 //   prepare_package    → Stage 7 for one opportunity/package reservation
 
 export type TaskKind = 'market_cycle' | 'sync_source' | 'scan_search' | 'decide_preparation' | 'prepare_package'
@@ -31,9 +32,10 @@ export type Task = {
   max_attempts: number
 }
 
-/** Fresh-market cadence. Worker ticks can run more often than this. */
 export const MARKET_CYCLE_MINUTES = 5
 export const MARKET_CYCLE_MS = MARKET_CYCLE_MINUTES * 60_000
+/** Leave the first minute of a cycle free for user-facing scan/prep work. */
+export const SOURCE_REFRESH_DELAY_MS = 60_000
 
 export const utcDate = (d: Date) => d.toISOString().slice(0, 10)
 export const marketCycleKey = (d: Date) => String(Math.floor(d.getTime() / MARKET_CYCLE_MS))
@@ -59,9 +61,8 @@ export async function ensureMarketCycle(admin: SupabaseClient, now = new Date())
 export async function enqueueFirstScan(admin: SupabaseClient, userId: string, searchId: string, now = new Date()): Promise<void> {
   const { count } = await admin.from('jobs').select('id', { count: 'exact', head: true }).eq('is_active', true)
   if (!count) {
-    // Fresh deployment with no postings yet: queue board syncs first. Because
-    // they are created before the scan, the FIFO worker naturally services the
-    // syncs first without making the user wait a fixed ten minutes.
+    // Only a truly fresh deployment needs source data before its first scan.
+    // There is no fixed sleep: sync work and the scan are immediately queued.
     await enqueueSyncs(admin, `bootstrap:${marketCycleKey(now)}`)
   }
   await enqueue(admin, {
@@ -86,10 +87,9 @@ export async function enqueueResumeScan(admin: SupabaseClient, userId: string, s
 }
 
 /**
- * Immediate scan for an explicit Search action. The existing plan-specific
- * daily allowance still protects the expensive manual create/resume path, but
- * an active search is never stranded until an overnight run: the continuous
- * market cycle will pick it up within minutes even when this returns false.
+ * Immediate scan for an explicit Search action. The plan-specific daily
+ * allowance protects this manual trigger from abuse. If it is exhausted, the
+ * active search still joins the next continuous market cycle within minutes.
  */
 export async function startSearchScan(admin: SupabaseClient, userId: string, searchId: string, action: 'create' | 'resume', now = new Date()): Promise<boolean> {
   const { data: existing } = await admin
@@ -109,10 +109,8 @@ export async function startSearchScan(admin: SupabaseClient, userId: string, sea
   return true
 }
 
-/** A missing board (404 / 410) is rechecked once a week. */
 export const MISSING_BOARD_RECHECK_DAYS = 7
 
-/** Configured boards to sync now: known missing boards are skipped until recheck. */
 export async function boardsToSync(admin: SupabaseClient, now = new Date()) {
   const { data, error } = await admin.from('source_health').select('provider, slug').gt('recheck_after', now.toISOString())
   if (error) throw error
@@ -120,17 +118,23 @@ export async function boardsToSync(admin: SupabaseClient, now = new Date()) {
   return COMPANY_BOARDS.filter(b => !skip.has(`${b.provider}:${b.slug}`))
 }
 
-async function enqueueSyncs(admin: SupabaseClient, tag: string) {
+async function enqueueSyncs(admin: SupabaseClient, tag: string, runAfter?: Date) {
   for (const board of await boardsToSync(admin)) {
-    await enqueue(admin, { kind: 'sync_source', dedupe_key: `sync:${board.provider}:${board.slug}:${tag}`, payload: { ...board } })
+    await enqueue(admin, {
+      kind: 'sync_source',
+      dedupe_key: `sync:${board.provider}:${board.slug}:${tag}`,
+      payload: { ...board },
+      ...(runAfter ? { run_after: runAfter } : {}),
+    })
   }
 }
 
-/** Queue one fresh-market pass. Source tasks are inserted before scan tasks. */
+/**
+ * Queue one fresh-market pass. Active searches use the already-fresh job index
+ * immediately. ATS refreshes start one minute later and feed subsequent scans.
+ */
 async function runMarketCycle(admin: SupabaseClient, task: Task) {
   const cycle = typeof task.payload.cycle === 'string' ? task.payload.cycle : marketCycleKey(new Date())
-  await enqueueSyncs(admin, cycle)
-
   const { data: searches, error } = await admin.from('searches').select('id, user_id').eq('status', 'active')
   if (error) throw error
   for (const s of searches ?? []) {
@@ -144,13 +148,9 @@ async function runMarketCycle(admin: SupabaseClient, task: Task) {
       payload: { phase: 'start', trigger: 'continuous', cycle },
     })
   }
+  await enqueueSyncs(admin, cycle, new Date(Date.now() + SOURCE_REFRESH_DELAY_MS))
 }
 
-/**
- * One board sync. Success clears any missing-board record. A missing board
- * (404 / 410) is recorded and rechecked weekly; other non-retriable failures
- * fail this cycle; temporary failures use the normal queue backoff.
- */
 async function runSyncTask(admin: SupabaseClient, task: Task, now = new Date()) {
   const board = task.payload as unknown as CompanyBoard
   try {
@@ -217,8 +217,6 @@ function reservedIds(payload: Record<string, unknown>): string[] | null {
 }
 
 async function runDecideTask(admin: SupabaseClient, task: Task) {
-  // Only wait for scans that are actively executing right now. Future/queued
-  // continuous scans must never hold application preparation for minutes.
   const { count } = await admin
     .from('engine_tasks')
     .select('id', { count: 'exact', head: true })
@@ -232,9 +230,6 @@ async function runDecideTask(admin: SupabaseClient, task: Task) {
     const { data: access } = await admin.rpc('has_active_access', { uid: task.user_id })
     reserved = access ? await decidePreparation(admin, task.user_id!) : []
     if (!reserved.length) return complete(admin, task)
-
-    // Persist the reservation list before queueing package work. If the worker
-    // dies while queueing, its retry reuses exactly these reservations.
     return requeue(admin, task, { ...task.payload, reserved_opportunity_ids: reserved })
   }
 
@@ -300,7 +295,6 @@ export async function handleFailure(admin: SupabaseClient, task: Task, err: unkn
     }
     return
   }
-  // Retry quickly enough to feel live while still backing off transient faults.
   const { error } = await admin
     .from('engine_tasks')
     .update({ status: 'queued', last_error: message.slice(0, 2000), locked_until: null, run_after: new Date(Date.now() + task.attempts * 60_000).toISOString() })
@@ -310,7 +304,6 @@ export async function handleFailure(admin: SupabaseClient, task: Task, err: unkn
 
 export type WorkerResult = { processed: number; failed: number }
 
-/** Claims and runs tasks until the time budget is used up. */
 export async function runWorker(admin: SupabaseClient, opts: { budgetMs: number; concurrency?: number; leaseSeconds?: number }): Promise<WorkerResult> {
   const deadline = Date.now() + opts.budgetMs
   const concurrency = opts.concurrency ?? 4
