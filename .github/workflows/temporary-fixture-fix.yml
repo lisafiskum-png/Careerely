@@ -1,0 +1,41 @@
+name: Temporary fixture fix
+
+on:
+  push:
+    branches:
+      - chatgpt/add-ci
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/add-ci
+      - name: Patch enum array fixtures
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/db/migrations.test.ts')
+          text = path.read_text()
+          updated = text.replace("array['remote']", "array['remote'::public.work_style]")
+          if updated == text:
+              print('No fixture changes needed')
+          else:
+              path.write_text(updated)
+          PY
+      - name: Commit fixture update
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/db/migrations.test.ts
+          git commit -m "Cast work style fixtures to database enum"
+          git push origin HEAD:chatgpt/add-ci
