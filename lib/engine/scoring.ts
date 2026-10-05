@@ -19,8 +19,10 @@ export const DIMENSION_WEIGHTS: Record<ScoreDimensionType, number> = {
 
 /** Shortlisting threshold (product decision, 2026-09-30). */
 export const SHORTLIST_MIN_SCORE = 60
-/** New shortlisted roles per search per night (product decision, 2026-09-30). */
-export const SHORTLIST_MAX_PER_NIGHT = 10
+/** Maximum newly shortlisted roles from one search scan. */
+export const SHORTLIST_MAX_PER_SCAN = 10
+/** @deprecated Compatibility name for older tests/docs; engine behavior is per scan. */
+export const SHORTLIST_MAX_PER_NIGHT = SHORTLIST_MAX_PER_SCAN
 /** At least this many AI-judged dimensions must have evidence to produce a score. */
 export const MIN_SCORED_DIMENSIONS = 2
 
@@ -50,10 +52,7 @@ export type Rankable = {
   postedAt?: string | null
 }
 
-/**
- * [DERIVED] Tie-break score within an alignment tier (schema: 0–1 float).
- * Industry match decides ties within the aligned group (product decision).
- */
+/** [DERIVED] Tie-break score within an alignment tier (schema: 0–1 float). */
 export function alignmentScore(goalAligned: boolean, industryMatch: boolean): number {
   if (goalAligned) return industryMatch ? 1 : 0.75
   return industryMatch ? 0.25 : 0

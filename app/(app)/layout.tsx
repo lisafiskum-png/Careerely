@@ -4,10 +4,11 @@ import { createClient } from '../../lib/supabase/server'
 import { getOnboardingPath } from '../../lib/onboarding-server'
 import { DASHBOARD_SHORTLIST_ROWS, getAccount, getLiveOpportunities, getScanStatus } from '../../lib/dashboard'
 import { initials } from '../../lib/display'
+import { LiveRefresh } from './_components/live-refresh'
 import { TopNav } from './_components/top-nav'
 import './app.css'
 
-// Signed-in app shell: top-bar navigation from design/dashboard-final.html (locked).
+// Signed-in app shell: top-bar navigation + automatic fresh server data.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getUser()
   if (!user) redirect('/login?next=/dashboard')
@@ -18,6 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="cl-app">
+      <LiveRefresh />
       <div className="bg-canvas" aria-hidden>
         <div className="bg-orb1" />
         <div className="bg-orb2" />
@@ -26,9 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         initials={initials(account.firstName, account.lastName, user.email)}
         email={user.email ?? ''}
         badges={{
-          // Master Brief → Dashboard: nav badge = My Pick + visible dashboard shortlist rows.
           opportunities: list.length ? 1 + Math.min(list.length - 1, DASHBOARD_SHORTLIST_ROWS) : 0,
-          // Master Brief → Applications: count of "Ready to apply".
           applications: list.filter(o => o.readyToApply).length,
         }}
         scan={{ state: scan.state, lastScanAt: scan.lastScanAt }}

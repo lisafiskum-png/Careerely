@@ -4,7 +4,7 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import { CLAUDE_MODEL, getAnthropic } from '../ai'
-import { NIGHTLY_AUTO_PREP } from '../plans'
+import { AUTO_PREP_BATCH } from '../plans'
 import { jobDocument, loadSearchContext, type SearchContext } from './context'
 import {
   COVER_LETTER_SEGMENT_TYPES,
@@ -19,12 +19,10 @@ import { containsQuote, normalizeForMatch, unsupportedNumbers } from './text'
 // ── Stage 6 — preparation decision ─────────────────────────────────────────
 
 /**
- * Prepares the top-ranked shortlisted opportunities: at most NIGHTLY_AUTO_PREP
- * per run (LOCKED: top 2, all tiers) and never beyond the monthly allowance
- * (automatic preparation counts toward it). The reservation happens in the
- * database so concurrent workers can't overspend. Every considered
- * opportunity gets a PreparationDecision; none is rejected — unselected ones
- * stay shortlisted.
+ * Prepares the strongest currently shortlisted opportunities: at most
+ * AUTO_PREP_BATCH per decision and never beyond the monthly allowance.
+ * The reservation happens in the database so concurrent workers cannot
+ * overspend. Unselected opportunities remain shortlisted.
  */
 export async function decidePreparation(admin: SupabaseClient, userId: string, now = new Date()): Promise<string[]> {
   const { data: shortlisted, error } = await admin
@@ -41,7 +39,7 @@ export async function decidePreparation(admin: SupabaseClient, userId: string, n
   const { data: reservedIds, error: rpcError } = await admin.rpc('reserve_preparations', {
     p_user: userId,
     p_opportunity_ids: ordered.map(o => o.id),
-    p_max: NIGHTLY_AUTO_PREP,
+    p_max: AUTO_PREP_BATCH,
   })
   if (rpcError) throw rpcError
   const reserved = new Set<string>((reservedIds as string[] | null) ?? [])
@@ -55,7 +53,7 @@ export async function decidePreparation(admin: SupabaseClient, userId: string, n
       userId,
       selectedForPreparation: selected,
       selectionRank: selected ? ++selectionRank : null,
-      reason: selected ? 'top_ranked_auto' : i < NIGHTLY_AUTO_PREP ? 'quota_exceeded' : 'score_insufficient',
+      reason: selected ? 'top_ranked_auto' : i < AUTO_PREP_BATCH ? 'quota_exceeded' : 'score_insufficient',
       decidedAt,
     }
     const { error: decisionError } = await admin.from('opportunities').update({ preparation_decision: decision }).eq('id', o.id)
@@ -202,8 +200,6 @@ export async function generatePackage(admin: SupabaseClient, opportunityId: stri
   const { data: pkg, error: packageError } = await packageQuery.maybeSingle()
   if (packageError) throw packageError
   if (!pkg) {
-    // A task tied to a reservation that no longer exists is stale; completing
-    // it is safer than retrying it against a newer package.
     if (packageId) return
     throw new PackageError('No reserved package')
   }
