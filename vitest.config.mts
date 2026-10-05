@@ -7,7 +7,7 @@ export default defineConfig({
     alias: { 'server-only': fileURLToPath(new URL('./tests/stubs/server-only.ts', import.meta.url)) },
   },
   test: {
-    include: ['tests/**/*.test.ts'],
+    include: ['tests/**/*.test.ts', 'lib/**/*.test.ts'],
     environment: 'node',
     testTimeout: 30_000,
   },

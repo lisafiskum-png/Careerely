@@ -108,8 +108,10 @@ function shouldReevaluate(previous: PreviousEvaluation | undefined, hash: string
 
 export async function startScan(admin: SupabaseClient, searchId: string, now = new Date()): Promise<{ runId: string; pending: number } | null> {
   const ctx = await loadSearchContext(admin, searchId)
-  const { data: access } = await admin.rpc('has_active_access', { uid: ctx.userId })
-  const { data: search } = await admin.from('searches').select('status').eq('id', searchId).single()
+  const { data: access, error: accessError } = await admin.rpc('has_active_access', { uid: ctx.userId })
+  if (accessError) throw accessError
+  const { data: search, error: searchError } = await admin.from('searches').select('status').eq('id', searchId).single()
+  if (searchError) throw searchError
   if (!access || search?.status !== 'active') return null
 
   const { data: run, error: runError } = await admin
@@ -181,7 +183,7 @@ export async function startScan(admin: SupabaseClient, searchId: string, now = n
     if (error) throw error
   }
 
-  await admin
+  const { error: updateError } = await admin
     .from('search_runs')
     .update({
       jobs_reviewed: candidates.length,
@@ -189,6 +191,7 @@ export async function startScan(admin: SupabaseClient, searchId: string, now = n
       jobs_deferred: survivors.length - picked.length,
     })
     .eq('id', run.id)
+  if (updateError) throw updateError
 
   return { runId: run.id, pending: picked.length }
 }
@@ -279,34 +282,37 @@ export async function evaluateBatch(admin: SupabaseClient, runId: string, batch 
   if (error) throw error
   const ctx = await loadSearchContext(admin, run.search_id)
 
-  const { data: pending } = await admin
+  const { data: pending, error: pendingError } = await admin
     .from('candidate_evaluations')
     .select(`job_id, jobs(${JOB_COLUMNS})`)
     .eq('run_id', runId)
     .eq('status', 'pending')
     .limit(batch)
+  if (pendingError) throw pendingError
 
-  await Promise.all(
+  const outcomes = await Promise.allSettled(
     (pending ?? []).map(async row => {
       const job = row.jobs as unknown as JobRow
+      let values: Record<string, unknown>
       try {
         const result = await evaluateCandidate(job, ctx)
-        await admin.from('candidate_evaluations').update({ status: 'evaluated', result, evaluated_at: new Date().toISOString() }).eq('run_id', runId).eq('job_id', row.job_id)
+        values = { status: 'evaluated', result, evaluated_at: new Date().toISOString() }
       } catch (err) {
-        await admin
-          .from('candidate_evaluations')
-          .update({ status: 'failed', error: err instanceof Error ? err.message : String(err), evaluated_at: new Date().toISOString() })
-          .eq('run_id', runId)
-          .eq('job_id', row.job_id)
+        values = { status: 'failed', error: err instanceof Error ? err.message : String(err), evaluated_at: new Date().toISOString() }
       }
+      const { error: saveError } = await admin.from('candidate_evaluations').update(values).eq('run_id', runId).eq('job_id', row.job_id)
+      if (saveError) throw saveError
     }),
   )
+  const saveErrors = outcomes.flatMap(result => result.status === 'rejected' ? [result.reason] : [])
+  if (saveErrors.length) throw new AggregateError(saveErrors, 'Candidate evaluation persistence failed')
 
-  const { count } = await admin
+  const { count, error: countError } = await admin
     .from('candidate_evaluations')
     .select('job_id', { count: 'exact', head: true })
     .eq('run_id', runId)
     .eq('status', 'pending')
+  if (countError) throw countError
   return { remaining: count ?? 0 }
 }
 
@@ -316,13 +322,17 @@ const aiJudgedWithEvidence = (dims: KnownDimension[]) =>
   dims.filter(d => d.evidenceRecordIds.length > 0 && d.dimension !== 'location_fit' && d.dimension !== 'compensation_fit').length
 
 export async function finalizeRun(admin: SupabaseClient, runId: string): Promise<{ userId: string; shortlisted: string[] }> {
-  const { data: run, error } = await admin.from('search_runs').select('id, user_id, search_id, jobs_rejected').eq('id', runId).single()
+  const { data: run, error } = await admin.from('search_runs').select('id, user_id, search_id, jobs_rejected, status, new_opportunity_ids').eq('id', runId).single()
   if (error) throw error
+  // A follow-up enqueue can fail after finalization committed. Replaying that
+  // queue task must preserve the completed run's counters and opportunity ids.
+  if (run.status === 'succeeded') return { userId: run.user_id, shortlisted: run.new_opportunity_ids ?? [] }
 
-  const { data: rows } = await admin
+  const { data: rows, error: rowsError } = await admin
     .from('candidate_evaluations')
     .select(`job_id, status, result, jobs(${JOB_COLUMNS})`)
     .eq('run_id', runId)
+  if (rowsError) throw rowsError
 
   const base = { user_id: run.user_id, search_id: run.search_id, run_id: run.id }
   const rejections: Parameters<typeof logRejections>[1] = []
