@@ -19,16 +19,22 @@ alter table public.engine_tasks
   ]));
 
 -- Production uses pg_cron + pg_net to call /api/engine/tick. Run the worker
--- every minute so newly queued searches/packages are picked up quickly. The
--- application itself only creates a fresh full-market cycle every five minutes.
+-- every minute so newly queued searches/packages are picked up quickly. Use
+-- pg_cron's public API instead of writing cron.job directly (managed Supabase
+-- correctly blocks direct UPDATE privileges on that system table).
 do $$
+declare
+  v_jobid bigint;
 begin
   if to_regclass('cron.job') is not null then
-    execute $sql$
-      update cron.job
-      set schedule = '* * * * *'
-      where jobname = 'careerely-engine-tick'
-    $sql$;
+    select jobid into v_jobid
+    from cron.job
+    where jobname = 'careerely-engine-tick'
+    limit 1;
+
+    if v_jobid is not null then
+      perform cron.alter_job(v_jobid, schedule := '* * * * *');
+    end if;
   end if;
 end
 $$;
