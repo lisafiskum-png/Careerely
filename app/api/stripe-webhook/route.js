@@ -30,7 +30,8 @@ export async function POST(request) {
   const admin = createAdminClient()
 
   try {
-    const { data: seen } = await admin.from('stripe_events').select('id').eq('id', event.id).maybeSingle()
+    const { data: seen, error: seenError } = await admin.from('stripe_events').select('id').eq('id', event.id).maybeSingle()
+    if (seenError) throw seenError
     if (seen) return Response.json({ received: true, duplicate: true })
 
     if (event.type === 'checkout.session.completed') {
