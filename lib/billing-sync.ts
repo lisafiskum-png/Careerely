@@ -21,7 +21,8 @@ export async function syncSubscription(
 
   let userId = userIdHint || subscription.metadata?.user_id
   if (!userId) {
-    const { data } = await admin.from('subscriptions').select('user_id').eq('stripe_customer_id', customerId).maybeSingle()
+    const { data, error } = await admin.from('subscriptions').select('user_id').eq('stripe_customer_id', customerId).maybeSingle()
+    if (error) throw error
     userId = data?.user_id
   }
   if (!userId) throw new Error(`No Careerely user for Stripe subscription ${subscription.id}`)
@@ -29,11 +30,12 @@ export async function syncSubscription(
   const row = subscriptionToRow(subscription, userId, priceIdToPlanMap())
 
   // Never let an older, ended subscription overwrite a different one that still grants access.
-  const { data: current } = await admin
+  const { data: current, error: currentError } = await admin
     .from('subscriptions')
     .select('stripe_subscription_id, plan, status, current_period_end, cancel_at')
     .eq('user_id', userId)
     .maybeSingle()
+  if (currentError) throw currentError
   if (
     current?.stripe_subscription_id &&
     current.stripe_subscription_id !== row.stripe_subscription_id &&
