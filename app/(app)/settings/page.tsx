@@ -94,7 +94,7 @@ export default async function SettingsPage() {
         <div className="set-card">
           <div className="set-row">
             <div>
-              <div className="set-label">Delete account</div>
+              <div className="set-label">Account deletion</div>
               <div className="set-value">
                 Permanently remove your Careerely account and personal data.
               </div>
