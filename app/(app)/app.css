@@ -32,6 +32,8 @@
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: var(--bg);
   color: var(--ink);
   font-size: 14px;
@@ -49,6 +51,7 @@
   /* Page content sits above the background; the panel (inside .page) must not be
      trapped under the sticky nav, so .page creates no stacking context. */
   & .page { position: relative }
+  & .app-main { flex: 1 0 auto; position: relative }
 
   /* ── Entrance system ── */
   & .seq { opacity: 0; transform: translateY(18px); transition: opacity .55s var(--ease), transform .55s var(--ease) }
@@ -83,6 +86,21 @@
 
   /* ── Page ── */
   & .page { max-width: 900px; margin: 0 auto; padding: 56px 40px 100px }
+
+  /* ── Shared app footer ── */
+  & .app-footer { position: relative; z-index: 1; flex-shrink: 0; border-top: 1px solid var(--line); color: var(--ink4) }
+  & .app-footer-inner { width: 100%; max-width: 980px; margin: 0 auto; padding: 28px 40px 34px; display: flex; align-items: center; justify-content: space-between; gap: 18px 28px; flex-wrap: wrap }
+  & .app-footer-brand { font-size: 14px; font-weight: 640; letter-spacing: -.045em; color: var(--ink) }
+  & .app-footer-brand span { color: var(--pu) }
+  & .app-footer-links { display: flex; align-items: center; gap: 20px }
+  & .app-footer-links a { font-size: 12px; color: var(--ink4); transition: color .14s }
+  & .app-footer-links a:hover { color: var(--ink) }
+  & .app-footer-socials { display: flex; align-items: center; gap: 16px; flex-wrap: wrap }
+  & .app-footer-social { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink4); transition: color .14s }
+  & a.app-footer-social:hover { color: var(--ink) }
+  & .app-footer-social-pending { color: var(--ink5) }
+  & .app-footer-copy { font-size: 12px; color: var(--ink5); white-space: nowrap }
+  & .app-footer a:focus-visible { outline: 2px solid var(--pu); outline-offset: 4px; border-radius: 2px }
 
   /* added: read-only account notice */
   & .notice { background: var(--white); border: 1px solid var(--line); border-radius: 12px; padding: 22px 24px; margin-bottom: 40px }
@@ -458,6 +476,8 @@
     & .ntab.on::after { left: 10px; right: 10px }
     & .nav-av { margin-left: 8px }
     & .page { padding: 32px 16px 80px }
+    & .app-footer-inner { padding: 24px 16px 30px; flex-direction: column; justify-content: center; text-align: center }
+    & .app-footer-socials { justify-content: center }
     & .page-header { margin-bottom: 36px }
     & .pick-body { flex-direction: column; padding: 24px 20px 20px; gap: 16px }
     & .pick-aside { flex-direction: row; align-items: center; width: 100%; min-height: 0; padding-top: 0 }

@@ -5,6 +5,7 @@ import { getOnboardingPath } from '../../lib/onboarding-server'
 import { DASHBOARD_SHORTLIST_ROWS, getAccount, getLiveOpportunities, getScanStatus } from '../../lib/dashboard'
 import { initials } from '../../lib/display'
 import { LiveRefresh } from './_components/live-refresh'
+import { AppFooter } from './_components/app-footer'
 import { TopNav } from './_components/top-nav'
 import './app.css'
 
@@ -37,7 +38,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         }}
         scan={{ state: scan.state, lastScanAt: scan.lastScanAt }}
       />
-      {children}
+      <div className="app-main">{children}</div>
+      <AppFooter />
     </div>
   )
 }
