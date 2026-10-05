@@ -94,7 +94,7 @@ export function DeleteAccountButton() {
   if (!open) {
     return (
       <button className={`btn-ghost ${styles.deleteTrigger}`} onClick={() => setOpen(true)}>
-        Delete account
+        Remove my account
       </button>
     )
   }
