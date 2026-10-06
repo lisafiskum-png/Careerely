@@ -119,8 +119,13 @@ export async function startScan(admin: SupabaseClient, searchId: string, now = n
     .insert({ user_id: ctx.userId, search_id: searchId, status: 'running' })
     .select('id')
     .single()
+  // A partial unique index permits only one active run per search. Continuous
+  // cycles can overlap at the worker boundary, so the later task is a harmless
+  // no-op instead of creating a second scan for the same search.
+  if (runError?.code === '23505') return null
   if (runError) throw runError
 
+  try {
   const since = new Date(now.getTime() - CANDIDATE_MAX_AGE_DAYS * 86_400_000).toISOString()
   const [pool, rejected, existing, previousRows] = await Promise.all([
     allRows<JobRow>((a, b) =>
@@ -194,6 +199,18 @@ export async function startScan(admin: SupabaseClient, searchId: string, now = n
   if (updateError) throw updateError
 
   return { runId: run.id, pending: picked.length }
+  } catch (err) {
+    // The queue task still has a `phase: start` payload until this function
+    // returns, so generic task cleanup cannot know this run id. Settle it here
+    // to prevent abandoned `running` rows after a timeout or database error.
+    const { error: cleanupError } = await admin
+      .from('search_runs')
+      .update({ status: 'failed', error: 'Scan initialization failed.', finished_at: new Date().toISOString() })
+      .eq('id', run.id)
+      .eq('status', 'running')
+    if (cleanupError) throw new AggregateError([err, cleanupError], 'Scan initialization and cleanup failed')
+    throw err
+  }
 }
 
 // ── Phase: evaluate ─────────────────────────────────────────────────────────
