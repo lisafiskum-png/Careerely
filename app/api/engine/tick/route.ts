@@ -1,5 +1,5 @@
 import { createAdminClient } from '../../../../lib/supabase/admin'
-import { ensureMarketCycle, runWorker } from '../../../../lib/engine/queue'
+import { ensureMarketCycle, errorMessage, runWorker } from '../../../../lib/engine/queue'
 
 // Opportunity Engine scheduler. Supabase Cron calls this frequently with
 // `Authorization: Bearer <CRON_SECRET>`. Every call makes sure the current
@@ -10,7 +10,7 @@ import { ensureMarketCycle, runWorker } from '../../../../lib/engine/queue'
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
 
-const WORK_BUDGET_MS = 50_000
+const WORK_BUDGET_MS = 40_000
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET
@@ -18,7 +18,13 @@ export async function GET(request: Request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const admin = createAdminClient()
-  await ensureMarketCycle(admin)
-  const result = await runWorker(admin, { budgetMs: WORK_BUDGET_MS })
-  return Response.json(result)
+  try {
+    await ensureMarketCycle(admin)
+    const result = await runWorker(admin, { budgetMs: WORK_BUDGET_MS })
+    console.info('engine tick complete', result)
+    return Response.json(result)
+  } catch (err) {
+    console.error('engine tick failed', { error: errorMessage(err) })
+    return Response.json({ error: 'Engine tick failed' }, { status: 500 })
+  }
 }

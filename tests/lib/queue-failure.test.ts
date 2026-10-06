@@ -12,7 +12,16 @@ vi.mock('../../lib/engine/scan', () => ({
 
 import { decidePreparation, failPackage, generatePackage } from '../../lib/engine/prepare'
 import { finalizeRun } from '../../lib/engine/scan'
-import { AI_FAILURE_COOLDOWN_MS, handleFailure, runTask, type Task } from '../../lib/engine/queue'
+import {
+  AI_FAILURE_COOLDOWN_MS,
+  errorMessage,
+  handleFailure,
+  SOURCE_REFRESH_CYCLES,
+  sourceSchedule,
+  runTask,
+  type Task,
+} from '../../lib/engine/queue'
+import { COMPANY_BOARDS } from '../../lib/engine/companies'
 
 const task: Task = {
   id: 'task', kind: 'prepare_package', dedupe_key: 'prepare:opp:pkg',
@@ -60,6 +69,25 @@ describe('AI failure classification', () => {
 })
 
 describe('queue recovery', () => {
+  it('spreads every source exactly once across a refresh window', () => {
+    const scheduled = Array.from({ length: SOURCE_REFRESH_CYCLES }, (_, cycle) => sourceSchedule(String(cycle)).boards).flat()
+    expect(scheduled).toHaveLength(COMPANY_BOARDS.length)
+    expect(new Set(scheduled.map(board => `${board.provider}:${board.slug}`)).size).toBe(COMPANY_BOARDS.length)
+    expect(Math.max(...Array.from({ length: SOURCE_REFRESH_CYCLES }, (_, cycle) => sourceSchedule(String(cycle)).boards.length))).toBeLessThanOrEqual(2)
+  })
+
+  it('uses one dedupe window across its staggered source cycles', () => {
+    expect(sourceSchedule('0').tag).toBe('window:0')
+    expect(sourceSchedule(String(SOURCE_REFRESH_CYCLES - 1)).tag).toBe('window:0')
+    expect(sourceSchedule(String(SOURCE_REFRESH_CYCLES)).tag).toBe('window:1')
+  })
+
+  it('serializes plain client errors instead of storing object Object', () => {
+    expect(errorMessage({ message: 'database failed', code: 'PGRST500' })).toBe('database failed | PGRST500')
+    expect(errorMessage({ reason: 'network' })).toBe('{"reason":"network"}')
+    expect(errorMessage({})).toBe('Unknown engine error')
+  })
+
   it('releases a permanent failure immediately and opens a cross-worker cooldown', async () => {
     const { admin, writes } = database()
     const before = Date.now()

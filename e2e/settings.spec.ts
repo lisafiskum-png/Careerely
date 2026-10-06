@@ -67,7 +67,7 @@ test.describe.serial('settings', () => {
     await expect(page.getByRole('main').getByRole('button', { name: 'Sign out' })).toBeVisible()
     await expect(page.getByRole('main')).not.toContainText('$')
     await expect(page.getByText(/applications prepared this/i)).toHaveCount(0)
-    await expect(page.getByText(/delete account|change email|password/i)).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Delete account' })).toBeVisible()
     await expect(page.getByTestId('plan-change-notice')).toHaveCount(0)
     await page.waitForTimeout(500)
     await shot(page, 'settings-active')
@@ -161,6 +161,21 @@ test.describe.serial('settings', () => {
     await page.waitForTimeout(400)
     await shot(page, 'settings-no-plan', false)
     expect((await request.post('/api/billing/portal')).status()).toBe(401)
+  })
+
+  test('account deletion requires explicit confirmation and removes the user', async ({ page }) => {
+    await signIn(page, noPlanEmail)
+    await page.goto('/settings')
+    await page.getByRole('button', { name: 'Delete account' }).click()
+    await expect(page.getByText('This cannot be undone.')).toBeVisible()
+    const confirm = page.getByLabel('Type DELETE to confirm')
+    await confirm.fill('delete')
+    await expect(page.getByRole('button', { name: 'Permanently delete' })).toBeDisabled()
+    await confirm.fill('DELETE')
+    await page.getByRole('button', { name: 'Permanently delete' }).click()
+    await expect(page).toHaveURL(/\/$/)
+    const { data } = await admin.auth.admin.getUserById(noPlanSeed.userId)
+    expect(data.user).toBeNull()
   })
 
   test('searches paused by a plan change: named on Searches, noted on Settings; dismissing keeps them paused', async ({ page }) => {

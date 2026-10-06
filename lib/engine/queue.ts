@@ -37,6 +37,9 @@ export type Task = {
 
 export const MARKET_CYCLE_MINUTES = 5
 export const MARKET_CYCLE_MS = MARKET_CYCLE_MINUTES * 60_000
+/** Refresh every direct ATS board once per six-hour window, evenly staggered. */
+export const SOURCE_REFRESH_INTERVAL_MINUTES = 6 * 60
+export const SOURCE_REFRESH_CYCLES = SOURCE_REFRESH_INTERVAL_MINUTES / MARKET_CYCLE_MINUTES
 /** Leave the first minute of a cycle free for user-facing scan/prep work. */
 export const SOURCE_REFRESH_DELAY_MS = 60_000
 export const AI_FAILURE_COOLDOWN_MS = 30 * 60_000
@@ -150,6 +153,37 @@ async function enqueueSyncs(admin: SupabaseClient, tag: string, runAfter?: Date)
 }
 
 /**
+ * Return the stable slice of boards assigned to one market cycle. The registry
+ * index is used (rather than the filtered health list) so a temporarily missing
+ * board cannot reshuffle every other company's schedule.
+ */
+export function sourceSchedule(cycle: string): { tag: string; boards: CompanyBoard[] } {
+  const cycleNumber = Number.parseInt(cycle, 10)
+  const safeCycle = Number.isFinite(cycleNumber) ? cycleNumber : Math.floor(Date.now() / MARKET_CYCLE_MS)
+  const slot = ((safeCycle % SOURCE_REFRESH_CYCLES) + SOURCE_REFRESH_CYCLES) % SOURCE_REFRESH_CYCLES
+  const window = Math.floor(safeCycle / SOURCE_REFRESH_CYCLES)
+  return {
+    tag: `window:${window}`,
+    boards: COMPANY_BOARDS.filter((_, index) => index % SOURCE_REFRESH_CYCLES === slot),
+  }
+}
+
+async function enqueueScheduledSyncs(admin: SupabaseClient, cycle: string, runAfter: Date) {
+  const { tag, boards } = sourceSchedule(cycle)
+  if (!boards.length) return
+  const healthy = new Set((await boardsToSync(admin)).map(board => `${board.provider}:${board.slug}`))
+  for (const board of boards) {
+    if (!healthy.has(`${board.provider}:${board.slug}`)) continue
+    await enqueue(admin, {
+      kind: 'sync_source',
+      dedupe_key: `sync:${board.provider}:${board.slug}:${tag}`,
+      payload: { ...board },
+      run_after: runAfter,
+    })
+  }
+}
+
+/**
  * Queue one fresh-market pass. Active searches use the already-fresh job index
  * immediately. Direct ATS refreshes start one minute later. Optional global
  * discovery is independently deduped to its configured interval and, when it
@@ -183,7 +217,7 @@ async function runMarketCycle(admin: SupabaseClient, task: Task) {
       })
     }
   }
-  await enqueueSyncs(admin, cycle, new Date(Date.now() + SOURCE_REFRESH_DELAY_MS))
+  await enqueueScheduledSyncs(admin, cycle, new Date(Date.now() + SOURCE_REFRESH_DELAY_MS))
 }
 
 async function runSyncTask(admin: SupabaseClient, task: Task, now = new Date()) {
@@ -341,8 +375,8 @@ export async function runTask(admin: SupabaseClient, task: Task, now = new Date(
 }
 
 export async function handleFailure(admin: SupabaseClient, task: Task, err: unknown) {
-  const message = err instanceof Error ? err.message : String(err)
-  console.error('engine task failed', task.kind, task.id, message)
+  const message = errorMessage(err)
+  console.error('engine task failed', { kind: task.kind, taskId: task.id, attempts: task.attempts, error: message })
   const permanentAIError = err instanceof AIRequestError && !err.retriable
   if (permanentAIError || task.attempts >= task.max_attempts) {
     // Cleanup first: if it fails, keep the task leased for database recovery.
@@ -370,6 +404,25 @@ export async function handleFailure(admin: SupabaseClient, task: Task, err: unkn
     .update({ status: 'queued', last_error: message.slice(0, 2000), locked_until: null, run_after: new Date(Date.now() + task.attempts * 60_000).toISOString() })
     .eq('id', task.id)
   if (error) throw error
+}
+
+/** Supabase and fetch clients sometimes reject with plain objects. */
+export function errorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message
+  if (typeof err === 'string') return err
+  if (err && typeof err === 'object') {
+    const value = err as Record<string, unknown>
+    const parts = [value.message, value.details, value.hint, value.code]
+      .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+    if (parts.length) return [...new Set(parts)].join(' | ')
+    try {
+      const serialized = JSON.stringify(err)
+      if (serialized && serialized !== '{}') return serialized
+    } catch {
+      // Fall through to the safe generic message.
+    }
+  }
+  return 'Unknown engine error'
 }
 
 export type WorkerResult = { processed: number; failed: number }

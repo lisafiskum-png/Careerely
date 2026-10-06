@@ -117,7 +117,7 @@ export const getLiveOpportunities = cache(async (): Promise<{ list: DashOpportun
   return { list, raw, anyDismissed: rows.some(r => r.dismissed_at), anyApplied }
 })
 
-const RUNNING_RUN_MAX_AGE_MS = 6 * 3600_000
+const RUNNING_RUN_MAX_AGE_MS = 30 * 60_000
 
 export const getScanStatus = cache(async (userId: string): Promise<ScanStatus & { reviewedInLatest: number | null }> => {
   const supabase = await createClient()

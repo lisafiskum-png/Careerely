@@ -3,7 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 
-const REFRESH_MS = 3_000
+const ACTIVE_REFRESH_MS = 5_000
+const IDLE_REFRESH_MS = 60_000
 
 function userIsEditing() {
   const el = document.activeElement
@@ -17,7 +18,7 @@ function userIsEditing() {
  * open panels/forms stay usable; we also avoid refreshing while the user is
  * actively typing.
  */
-export function LiveRefresh() {
+export function LiveRefresh({ active }: { active: boolean }) {
   const router = useRouter()
   const last = useRef(0)
 
@@ -30,7 +31,7 @@ export function LiveRefresh() {
       router.refresh()
     }
 
-    const timer = window.setInterval(refresh, REFRESH_MS)
+    const timer = window.setInterval(refresh, active ? ACTIVE_REFRESH_MS : IDLE_REFRESH_MS)
     const onFocus = () => refresh()
     const onVisibility = () => {
       if (document.visibilityState === 'visible') refresh()
@@ -42,7 +43,7 @@ export function LiveRefresh() {
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [router])
+  }, [active, router])
 
   return null
 }

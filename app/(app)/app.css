@@ -460,6 +460,12 @@
   & .set-label { font-size: 12px; font-weight: 520; color: var(--ink4); margin-bottom: 3px }
   & .set-value { font-size: 14px; color: var(--ink); overflow-wrap: anywhere }
   & .set-signout { height: 36px; font-size: 13px }
+  & .set-delete { display: grid; gap: 12px; width: min(100%, 560px) }
+  & .set-delete-input { width: min(100%, 280px); height: 42px; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; background: var(--white); color: var(--ink); font: inherit }
+  & .set-delete-input:focus { outline: 2px solid color-mix(in srgb, var(--pu) 30%, transparent); border-color: var(--pu) }
+  & .set-delete-actions { display: flex; flex-wrap: wrap; gap: 10px }
+  & .btn-danger { border: 1px solid #b42318; border-radius: 8px; padding: 10px 14px; background: #b42318; color: white; font: inherit; font-weight: 650; cursor: pointer }
+  & .btn-danger:disabled { opacity: .48; cursor: not-allowed }
   & .sc-banner-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px }
   & .sc-dismiss { font-size: 12.5px; font-weight: 560; color: var(--pu); white-space: nowrap; flex-shrink: 0 }
   & .plan-manage { font-size: 12.5px; font-weight: 520; color: var(--pu); white-space: nowrap }
@@ -523,6 +529,7 @@
     & .sf-ft { padding: 14px 20px }
     & .sf-comp { flex-wrap: wrap }
     & .set-card { padding: 18px 16px }
+    & .set-row-delete { align-items: stretch; flex-direction: column }
     & .plan-right { width: 100%; justify-content: space-between }
     & .sf-currency { flex: 1; width: auto }
   }

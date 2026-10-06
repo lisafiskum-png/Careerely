@@ -24,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="cl-app">
-      <LiveRefresh />
+      <LiveRefresh active={scan.state === 'scanning'} />
       <div className="bg-canvas" aria-hidden>
         <div className="bg-orb1" />
         <div className="bg-orb2" />

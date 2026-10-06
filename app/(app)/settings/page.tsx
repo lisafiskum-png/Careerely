@@ -4,7 +4,7 @@ import { getUser } from '../../../lib/auth'
 import { createClient } from '../../../lib/supabase/server'
 import { describePlan, planChangeNotice, type StoredSubscription } from '../../../lib/plan-status'
 import { SubscribeButtons } from '../_components/subscribe-buttons'
-import { ManageBillingButton, SignOutButton } from './settings-actions'
+import { DeleteAccount, ManageBillingButton, SignOutButton } from './settings-actions'
 
 // Settings (Phase D6, kept minimal): current plan and its renewal or end date,
 // "Manage billing" through Stripe's Customer Portal, the account email and
@@ -83,6 +83,13 @@ export default async function SettingsPage() {
           </div>
           <div className="set-row">
             <SignOutButton />
+          </div>
+          <div className="set-row set-row-delete">
+            <div>
+              <div className="set-label">Delete account</div>
+              <div className="set-value">Permanently remove your Careerely data and stop your subscription.</div>
+            </div>
+            <DeleteAccount />
           </div>
         </div>
       </section>
