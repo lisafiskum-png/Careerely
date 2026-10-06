@@ -13,6 +13,16 @@ const GUEST_ONLY = ['/signup']
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
 
+  const { pathname } = request.nextUrl
+  const isProtected = PROTECTED_PREFIXES.some(p => pathname === p || pathname.startsWith(`${p}/`))
+
+  // Public pages must not depend on an auth-provider round trip. Besides being
+  // unnecessary, doing this for the landing and login pages makes their TTFB
+  // depend on Supabase availability and can look like an endless page load on
+  // slower mobile connections. Signup is the only public-looking route that
+  // needs the user check, because an existing session is redirected away.
+  if (!isProtected && !GUEST_ONLY.includes(pathname)) return response
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !anonKey) return response
@@ -34,9 +44,6 @@ export async function proxy(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-
-  const { pathname } = request.nextUrl
-  const isProtected = PROTECTED_PREFIXES.some(p => pathname === p || pathname.startsWith(`${p}/`))
 
   if (!user && isProtected) {
     const signIn = request.nextUrl.clone()

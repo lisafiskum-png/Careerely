@@ -5,6 +5,7 @@ import type { ReactElement } from 'react'
 const mocks = vi.hoisted(() => ({
   user: null as { id: string; email: string } | null,
   refresh: false,
+  getUser: vi.fn(),
   verifyOtp: vi.fn(),
   exchangeCodeForSession: vi.fn(),
   onboardingPath: '/dashboard' as '/dashboard' | '/onboarding/2',
@@ -14,10 +15,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@supabase/ssr', () => ({
   createServerClient: (_url: string, _key: string, options: {
     cookies: { setAll: (cookies: { name: string; value: string; options: { path: string } }[]) => void }
-  }) => ({ auth: { getUser: async () => {
+  }) => ({ auth: { getUser: mocks.getUser.mockImplementation(async () => {
     if (mocks.refresh) options.cookies.setAll([{ name: 'refreshed-session', value: 'new-token', options: { path: '/' } }])
     return { data: { user: mocks.user } }
-  } } }),
+  }) } }),
 }))
 vi.mock('../../lib/supabase/server', () => ({ createClient: async () => ({ auth: {
   verifyOtp: mocks.verifyOtp, exchangeCodeForSession: mocks.exchangeCodeForSession,
@@ -57,7 +58,14 @@ describe('existing and new account routing', () => {
     mocks.refresh = true
     const response = await proxy(new NextRequest('https://careerely.test/login?next=/dashboard'))
     expect(response.headers.get('location')).toBeNull()
-    expect(response.cookies.get('refreshed-session')?.value).toBe('new-token')
+    expect(response.cookies.get('refreshed-session')).toBeUndefined()
+    expect(mocks.getUser).not.toHaveBeenCalled()
+  })
+
+  it('renders the landing page without waiting for Supabase Auth', async () => {
+    const response = await proxy(new NextRequest('https://careerely.test/'))
+    expect(response.headers.get('location')).toBeNull()
+    expect(mocks.getUser).not.toHaveBeenCalled()
   })
 
   it('keeps signup out of an existing session', async () => {
