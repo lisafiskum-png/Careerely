@@ -10,6 +10,8 @@ export function AppFooter() {
         </Link>
         <nav className="app-footer-links" aria-label="Footer">
           <Link href="/#faq">FAQ</Link>
+          <Link href="/terms">Terms</Link>
+          <Link href="/privacy">Privacy</Link>
         </nav>
         <SocialLinks
           className="app-footer-socials"

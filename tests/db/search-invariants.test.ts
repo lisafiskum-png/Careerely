@@ -61,4 +61,39 @@ describe('search database invariants', () => {
     )
     expect(rows[0].def).toContain('pg_advisory_xact_lock')
   })
+
+  it('starts at most one running scan and allows a later retry', async () => {
+    const { rows: searches } = await db.query<{ id: string }>(
+      `insert into public.searches
+       (user_id, name, target_roles, work_styles, status)
+       values ($1, 'Atomic run', array['Product Manager'], array['remote']::public.work_style[], 'active')
+       returning id`,
+      [USER],
+    )
+    const searchId = searches[0].id
+
+    const first = await db.query<{ start_search_run: string | null }>(
+      `select public.start_search_run($1, $2)`,
+      [USER, searchId],
+    )
+    const duplicate = await db.query<{ start_search_run: string | null }>(
+      `select public.start_search_run($1, $2)`,
+      [USER, searchId],
+    )
+
+    expect(first.rows[0].start_search_run).toBeTruthy()
+    expect(duplicate.rows[0].start_search_run).toBeNull()
+
+    await db.query(
+      `update public.search_runs
+       set status = 'failed', finished_at = now()
+       where id = $1`,
+      [first.rows[0].start_search_run],
+    )
+    const retry = await db.query<{ start_search_run: string | null }>(
+      `select public.start_search_run($1, $2)`,
+      [USER, searchId],
+    )
+    expect(retry.rows[0].start_search_run).toBeTruthy()
+  })
 })

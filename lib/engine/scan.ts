@@ -114,16 +114,15 @@ export async function startScan(admin: SupabaseClient, searchId: string, now = n
   if (searchError) throw searchError
   if (!access || search?.status !== 'active') return null
 
-  const { data: run, error: runError } = await admin
-    .from('search_runs')
-    .insert({ user_id: ctx.userId, search_id: searchId, status: 'running' })
-    .select('id')
-    .single()
-  // A partial unique index permits only one active run per search. Continuous
-  // cycles can overlap at the worker boundary, so the later task is a harmless
-  // no-op instead of creating a second scan for the same search.
-  if (runError?.code === '23505') return null
+  const { data: runId, error: runError } = await admin.rpc('start_search_run', {
+    p_user_id: ctx.userId,
+    p_search_id: searchId,
+  })
   if (runError) throw runError
+  // The RPC serializes on the search row. A concurrent start that arrived
+  // second is a harmless no-op instead of creating an orphaned scan.
+  if (!runId) return null
+  const run = { id: runId as string }
 
   try {
   const since = new Date(now.getTime() - CANDIDATE_MAX_AGE_DAYS * 86_400_000).toISOString()

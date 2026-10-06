@@ -34,6 +34,8 @@ test.describe('landing page', () => {
     await page.locator('#pricing').scrollIntoViewIfNeeded()
     for (const price of ['$29', '$49', '$79']) await expect(page.getByText(price, { exact: true })).toBeVisible()
     await expect(page.getByText('Most Popular')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Terms' })).toHaveAttribute('href', '/terms')
+    await expect(page.getByRole('link', { name: 'Privacy' })).toHaveAttribute('href', '/privacy')
 
     // Plan button carries the plan into signup.
     await page.getByRole('link', { name: 'Get Started' }).nth(2).click()

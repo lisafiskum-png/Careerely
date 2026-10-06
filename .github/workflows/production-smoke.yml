@@ -1,0 +1,55 @@
+name: Production smoke
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: production-smoke
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  mobile-browsers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: true
+      PRODUCTION_BASE_URL: https://www.careerely.ai
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install mobile browser engines
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Wait for this production deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --max-time 15 https://www.careerely.ai/api/health | jq -e '.queue == "ok"' >/dev/null \
+              && curl --fail --silent --max-time 15 https://www.careerely.ai/terms | grep -q 'Terms of Service'; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo 'Production did not become ready within five minutes.' >&2
+          exit 1
+
+      - name: Run mobile Chrome and Safari smoke tests
+        run: npx playwright test --config=playwright.production.config.ts

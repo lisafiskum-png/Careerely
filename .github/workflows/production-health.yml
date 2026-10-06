@@ -1,0 +1,21 @@
+name: Production health
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check database and queue health
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(curl --fail --silent --show-error --max-time 20 https://www.careerely.ai/api/health)"
+          echo "$body" | jq -e '.status == "ok" and .database == "ok" and .queue == "ok"'
