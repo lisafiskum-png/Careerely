@@ -16,6 +16,15 @@ test.describe('landing page', () => {
     await expect(page.getByText('Always looking for what’s new')).toBeAttached()
     await expect(page.getByText('Recent activity')).toBeAttached()
     await expect(page.getByText('Review application')).toBeAttached()
+    await expect(page.getByText('Growth Marketing Lead')).toBeAttached()
+    await expect(page.getByText('6 years in B2B SaaS')).toBeAttached()
+    await expect(page.getByText('Illustrative profile, companies and roles created to demonstrate the product.')).toBeAttached()
+
+    // Static marketing demos use fictional brands and roles; real employers
+    // only appear in the product when backed by an actual sourced listing.
+    for (const realBrand of ['Stripe', 'Shopify', 'GitLab', 'Snowflake', 'Databricks']) {
+      expect(body).not.toContain(realBrand)
+    }
 
     // Demo plays when scrolled into view: count-up reaches the reference value.
     await page.locator('#demo').scrollIntoViewIfNeeded()

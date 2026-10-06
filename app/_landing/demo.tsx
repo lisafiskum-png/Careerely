@@ -1,7 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import s from '../landing.module.css'
-import { CompanyLogo } from '../../components/company-logo'
 
 // Scroll-driven product demo from design/landing-final.html. Illustrative data
 // (demo persona), not clickable. Plays once when the window enters the viewport,
@@ -28,6 +27,53 @@ function Check({ size }: { size: number }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden>
       <polyline points="20 6 9 17 4 12" />
     </svg>
+  )
+}
+
+type DemoBrand = 'kiteframe' | 'northlane' | 'brightform' | 'signalnest' | 'asterwell'
+
+const DEMO_BRANDS: Record<DemoBrand, { name: string; background: string; accent: string }> = {
+  kiteframe: { name: 'Kiteframe Labs', background: '#172554', accent: '#93C5FD' },
+  northlane: { name: 'Northlane Systems', background: '#3F1D52', accent: '#E9D5FF' },
+  brightform: { name: 'Brightform Cloud', background: '#713F12', accent: '#FDE68A' },
+  signalnest: { name: 'Signalnest AI', background: '#064E3B', accent: '#A7F3D0' },
+  asterwell: { name: 'Asterwell Studio', background: '#7F1D1D', accent: '#FECACA' },
+}
+
+function DemoLogo({ brand, className }: { brand: DemoBrand; className: string }) {
+  const company = DEMO_BRANDS[brand]
+  return (
+    <span className={className} style={{ background: company.background }} aria-hidden="true">
+      <svg width="70%" height="70%" viewBox="0 0 32 32" fill="none">
+        {brand === 'kiteframe' && (
+          <>
+            <path d="M8 7h8l8 9-8 9H8l8-9L8 7Z" fill={company.accent} />
+            <path d="m8 7 8 9-8 9" stroke="#fff" strokeWidth="2.4" strokeLinejoin="round" />
+          </>
+        )}
+        {brand === 'northlane' && (
+          <>
+            <path d="M7 24 16 6l9 18-9-5-9 5Z" fill={company.accent} />
+            <path d="M16 6v13" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+          </>
+        )}
+        {brand === 'brightform' && (
+          <>
+            <circle cx="16" cy="16" r="6" fill="#fff" />
+            <path d="M16 4v4M16 24v4M4 16h4M24 16h4M7.5 7.5l3 3M21.5 21.5l3 3M24.5 7.5l-3 3M10.5 21.5l-3 3" stroke={company.accent} strokeWidth="2.5" strokeLinecap="round" />
+          </>
+        )}
+        {brand === 'signalnest' && (
+          <>
+            <circle cx="16" cy="16" r="3" fill="#fff" />
+            <path d="M10.5 21.5a7.8 7.8 0 0 1 0-11M21.5 10.5a7.8 7.8 0 0 1 0 11M7 25a12.7 12.7 0 0 1 0-18M25 7a12.7 12.7 0 0 1 0 18" stroke={company.accent} strokeWidth="2.2" strokeLinecap="round" />
+          </>
+        )}
+        {brand === 'asterwell' && (
+          <path d="m16 4 2.7 8.2L27 15l-8.3 2.8L16 26l-2.7-8.2L5 15l8.3-2.8L16 4Z" fill={company.accent} stroke="#fff" strokeWidth="1.4" strokeLinejoin="round" />
+        )}
+      </svg>
+    </span>
   )
 }
 
@@ -87,7 +133,7 @@ export function ProductDemo() {
 
   return (
     <div className={s.demoStage}>
-      <div ref={winRef} className={`${s.demoWin} ${has('win') ? s.demoWinIn : ''}`} aria-label="Careerely dashboard demo" role="img">
+      <div ref={winRef} className={`${s.demoWin} ${has('win') ? s.demoWinIn : ''}`} aria-label="Illustrative Careerely dashboard demo with fictional companies and roles" role="img">
         {/* Browser chrome */}
         <div className={s.chrome}>
           <div className={s.light} style={{ background: '#FF5F57' }} />
@@ -115,6 +161,7 @@ export function ProductDemo() {
             <div className={s.scanDot} />
             <span>Scanning the market...</span>
           </div>
+          <div className={s.demoBadge}>Illustrative demo</div>
           <div className={s.appTabs}>
             <div className={`${s.appTab} ${s.appTabOn}`}>Dashboard</div>
             <div className={s.appTab}>Opportunities</div>
@@ -150,21 +197,21 @@ export function ProductDemo() {
               <div className={s.pickGrid}>
                 <div className={s.pickMain}>
                   <div className={s.pickHead}>
-                    <CompanyLogo company="Stripe" className={s.pickLogo} />
+                    <DemoLogo brand="kiteframe" className={s.pickLogo} />
                     <div>
-                      <div className={s.pickRole}>Business Development Lead</div>
-                      <div className={s.pickMeta}>Stripe · Dublin · Hybrid</div>
+                      <div className={s.pickRole}>Growth Marketing Lead</div>
+                      <div className={s.pickMeta}>Kiteframe Labs · London · Hybrid</div>
                     </div>
                   </div>
                   <div className={s.chips}>
-                    <span className={s.chipMatch}>95% match</span>
-                    <span className={`${s.chipEvidence} ${fade('chip1', s.fade)}`}>✓ Strategic partnerships experience</span>
-                    <span className={`${s.chipEvidence} ${fade('chip2', s.fade)}`}>✓ Enterprise sales experience</span>
+                    <span className={s.chipMatch}>96% match</span>
+                    <span className={`${s.chipEvidence} ${fade('chip1', s.fade)}`}>✓ 6 years in B2B SaaS</span>
+                    <span className={`${s.chipEvidence} ${fade('chip2', s.fade)}`}>✓ Demand generation &amp; lifecycle</span>
                   </div>
                 </div>
                 <div className={s.pickSide}>
                   <div className={s.pickReason}>
-                    Your experience building strategic partnerships and winning enterprise clients aligns with this role’s focus on growing new business.
+                    Your six years in B2B SaaS marketing, ownership of multi-channel demand generation, and track record growing qualified pipeline directly match this role.
                   </div>
                   <div className={fade('prep', s.fadeSlow)}>
                     <div className={s.prepLine}>
@@ -189,18 +236,18 @@ export function ProductDemo() {
                 <span className={s.cardMeta}>View all (6)</span>
               </div>
               <div className={s.row}>
-                <CompanyLogo company="Shopify" className={s.rowLogo} />
+                <DemoLogo brand="northlane" className={s.rowLogo} />
                 <div className={s.rowText}>
-                  Partnerships Manager <span>· Shopify</span>
+                  Senior Growth Marketing Manager <span>· Northlane Systems</span>
                 </div>
-                <span className={s.rowPct}>92%</span>
+                <span className={s.rowPct}>93%</span>
               </div>
               <div className={s.row}>
-                <CompanyLogo company="GitLab" className={s.rowLogo} />
+                <DemoLogo brand="brightform" className={s.rowLogo} />
                 <div className={s.rowText}>
-                  Alliance Manager <span>· GitLab</span>
+                  Demand Generation Lead <span>· Brightform Cloud</span>
                 </div>
-                <span className={s.rowPct}>90%</span>
+                <span className={s.rowPct}>91%</span>
               </div>
             </div>
           </div>
@@ -212,10 +259,10 @@ export function ProductDemo() {
                 <span className={s.readyBadge}>2 READY</span>
               </div>
               <div className={s.appRow}>
-                <CompanyLogo company="Snowflake" className={s.rowLogo} />
+                <DemoLogo brand="signalnest" className={s.rowLogo} />
                 <div>
-                  <div className={s.appRole}>Senior Partnerships Manager</div>
-                  <div className={s.appCompany}>Snowflake</div>
+                  <div className={s.appRole}>Product Marketing Manager</div>
+                  <div className={s.appCompany}>Signalnest AI</div>
                   <div className={`${s.readyTag} ${fade('tag1', s.fade)}`}>
                     <Check size={8} />
                     Ready
@@ -223,10 +270,10 @@ export function ProductDemo() {
                 </div>
               </div>
               <div className={s.appRow}>
-                <CompanyLogo company="Databricks" className={s.rowLogo} />
+                <DemoLogo brand="asterwell" className={s.rowLogo} />
                 <div>
-                  <div className={s.appRole}>Strategic Account Executive</div>
-                  <div className={s.appCompany}>Databricks</div>
+                  <div className={s.appRole}>Regional Marketing Manager</div>
+                  <div className={s.appCompany}>Asterwell Studio</div>
                   <div className={`${s.readyTag} ${fade('tag2', s.fade)}`}>
                     <Check size={8} />
                     Ready
@@ -275,4 +322,3 @@ export function ProductDemo() {
     </div>
   )
 }
-

@@ -58,6 +58,7 @@ export default function Home() {
         <Reveal className={`${s.wrap} ${s.demoIntro}`}>
           <p className={s.demoEyebrow}>Live product demo</p>
           <h2 className={`${s.h2} ${s.demoTitle}`}>This is what Careerely does around the clock.</h2>
+          <p className={s.demoNote}>Illustrative profile, companies and roles created to demonstrate the product.</p>
         </Reveal>
         <ProductDemo />
       </section>
