@@ -31,6 +31,7 @@ Apply the database schema before first use; see [`supabase/README.md`](supabase/
 | `npm run dev` | Development server |
 | `npm run build` | Production build |
 | `npm test` | Unit tests plus the database access-rule tests (in-memory Postgres) |
+| `npx vitest run --project integration` | Engine, billing, queue and health tests against the local Supabase stack (run serially; skipped when the stack is down) |
 | `npm run test:e2e` | Full onboarding journey in a browser (see below) |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript |
@@ -66,6 +67,11 @@ The Claude API is replaced by `e2e/mock-anthropic.mjs`, and the Stripe-hosted
 checkout page is simulated by the test (payment succeeds, the webhook's
 subscription row is written, Stripe redirects back).
 
+CI (`.github/workflows/ci.yml`) runs typecheck, lint, unit tests and the
+build, then an `integration` job that starts this same local stack and runs
+the integration project and the Playwright suite; it fails if the stack isn't
+reachable rather than passing with skipped tests.
+
 ## Dashboard (Phase D)
 
 `/dashboard` follows `design/dashboard-final.html` (locked). Every number and
@@ -99,16 +105,17 @@ scan" (never summed or live counts), plus the plan's active-search usage
 (limit from `lib/plans.ts`, enforced in the database). Users create, edit,
 pause and resume searches; there is no delete in V1. At the limit a new
 search can only be saved as paused, and Resume is refused until another
-search is paused. A new active search is scanned straight away; a resumed one
-too, at most once per search per day (shared with the nightly dedupe key);
-an edit applies from the next nightly scan. Immediate scans from these Search
-actions also have a per-user safety cap per UTC day (Basic 1, Pro 5, Max 10;
-`IMMEDIATE_SCANS_PER_DAY`, enforced by `public.claim_immediate_scan()`), not
-shown as a plan entitlement. Over the cap the search is still saved or
-resumed and active, nothing is queued, and the page says its scan "will run
-at the next nightly run" (a never-scanned card shows "First scan at next
-nightly run"; "First scan queued" only when a scan task really exists).
-Onboarding's first scan and nightly scans don't use the cap. A search's optional minimum
+search is paused. Every active search is monitored continuously (see Scheduling below). A
+new active search is also scanned straight away, and so is a resumed one
+(one resume scan per search per 5-minute market cycle, never while another
+scan of it is queued or running); an edit applies from the next scan.
+Immediate scans from these Search actions have a per-user safety cap per UTC
+day (Basic 1, Pro 5, Max 10; `IMMEDIATE_SCANS_PER_DAY`, enforced by
+`public.claim_immediate_scan()`), not shown as a plan entitlement. Over the
+cap the search is still saved or resumed and active, nothing extra is queued,
+and the page says Careerely "will pick it up within a few minutes" (the next
+market cycle). Onboarding's first scan and market-cycle scans don't use the
+cap. A search's optional minimum
 compensation is annual (whole number, up to 10,000,000) and has its own ISO 4217
 currency (`searches.compensation_currency`), compared only with salaries in the
 same currency (no conversion);
@@ -139,10 +146,10 @@ Implements `OPPORTUNITY_ENGINE_SCHEMA.ts`. Code in `lib/engine/`:
 | Sources | `companies.ts`, `sources.ts`, `ingest.ts` | Greenhouse, Lever and Ashby company boards only; postings no longer listed become inactive |
 | 1 Hard filter | `filter.ts` | Deterministic: expired, duplicate, location, compensation floor, role category. Unknown never rejects |
 | 2 Relevance | `evaluate.ts`, `verify.ts` | Claude evaluates requirements; only verbatim-quoted evidence is kept |
-| 3 Scoring | `scoring.ts` | Weighted dimensions; dimensions without evidence are left out; shortlist at ≥ 60, max 10 per search per night |
+| 3 Scoring | `scoring.ts` | Weighted dimensions; dimensions without evidence are left out; shortlist at ≥ 60, max 10 per search per scan |
 | 4 Ranking | `scoring.ts`, `scan.ts` | Goal-aligned (matches a Step 3 target role) always above non-aligned; then industry, score, recency; rank 1 = My Pick |
 | 5 Evidence | `scan.ts`, `text.ts` | Evidence records stored; every claim points to them. A quote must match whole words within one line, bullet or resume field. Audit stored evidence with `supabase/audit/evidence_traceability.sql` |
-| 6 Preparation | `prepare.ts` | Top 2 per nightly run, within the plan's monthly allowance (reserved atomically in the database) |
+| 6 Preparation | `prepare.ts` | Top 2 (`AUTO_PREP_BATCH`) after each scan, within the plan's monthly allowance (reserved atomically in the database) |
 | 7 Package | `prepare.ts` | Tailored resume changes + segmented cover letter, fact-checked, regenerated once if a check fails |
 
 Every evaluated posting ends in one of four outcomes. **Shortlisted** becomes
@@ -150,18 +157,27 @@ an opportunity. **Rejected** gets a `rejections` row: failed Stage 1, or scored
 below 60. Two outcomes are not rejections and are kept on
 `candidate_evaluations` with a reason:
 
-- `not_selected`: scored ≥ 60 but fell outside the run's top 10. It competes
-  again in the next scan.
+- `not_selected`: scored ≥ 60 but fell outside the run's top 10. It is
+  evaluated again 24 hours later (`NOT_SELECTED_RECHECK_MS`), or sooner if
+  the resume, the search or the posting changes.
 - `unevaluable`: too little traceable evidence to score. Its fit is unknown,
   not low. It is evaluated again once the resume, the search or the posting
   changes.
 
 Scheduling: the engine is built around repeated ticks of
 `GET /api/engine/tick` (with `Authorization: Bearer <CRON_SECRET>`), every 5
-minutes in production. Each tick queues the nightly run when it's due (02:00
-UTC, `ENGINE_NIGHTLY_HOUR_UTC`) and works through `engine_tasks` for up to 4
-minutes, so syncs, the scans queued 30 minutes later, preparation decisions
-and packages complete over the following ticks. Production stays on Vercel
+minutes in production. Each tick queues that 5-minute market cycle
+(`market_cycle`, `MARKET_CYCLE_MINUTES`) and works through `engine_tasks` for
+up to 4 minutes. A market cycle queues one scan per active search
+(`scan:<search>:cycle:<n>`) and the slice of board syncs due in it: boards
+are spread over a 6-hour window (`SOURCE_REFRESH_INTERVAL_MINUTES`), so each
+board is refreshed about every 6 hours. A scan evaluates at most 20 new or
+due candidates (`EVALUATIONS_PER_SCAN`); jobs already shortlisted, rejected
+or recently evaluated with the same inputs aren't sent to Claude again.
+Preparation decisions and packages follow over the next ticks.
+`/api/health` reports the queue as backlogged when due work has waited more
+than 15 minutes, a search run has been running for over 15 minutes, or a
+task lease expired more than two ticks ago. Production stays on Vercel
 Hobby, so the ticks come from **Supabase Cron**, not Vercel Cron (there is no
 `vercel.json` cron). User actions (onboarding, new or resumed searches) also
 start the worker straight away.
@@ -173,14 +189,14 @@ Boards are configured in `lib/engine/companies.ts`. Each failed sync records
 bodies:
 
 - `not_found` (404 / 410): the board doesn't exist under that provider and
-  slug. One attempt, then `public.source_health` records it, and nightly runs
-  skip it until a weekly recheck (one attempt) or until the source is
+  slug. One attempt, then `public.source_health` records it, and market
+  cycles skip it until a weekly recheck (one attempt) or until the source is
   corrected in `companies.ts` (a new provider/slug is synced immediately). A
   successful sync removes the record. The migration backfills it from
   boards whose latest finished sync already failed with HTTP 404/410
   (production 2026-10-02: all 56 repeatedly failing boards were 404s).
 - `rejected` (other 4xx, e.g. 403) and `malformed` (not the provider's JSON
-  shape): one attempt, tried again the next day. A malformed response never
+  shape): one attempt, tried again at the board's next scheduled refresh. A malformed response never
   counts as "no jobs", so it can't expire a board's postings.
 - `rate_limited` (429), `provider_error` (408, 5xx), `timeout`, `network`:
   retried with backoff, as before.
@@ -352,8 +368,8 @@ Can't be validated locally (stand-ins are used); check once in production:
    ATS boards are reachable from Vercel.
 5. Supabase Cron calls `/api/engine/tick` every 5 minutes with the Vault
    secret (`cron.job_run_details` succeeded, `net._http_response` 200, Vercel
-   logs), and the 02:00 UTC nightly run completes over the following ticks
-   with no tasks stuck in `engine_tasks`.
+   logs), market cycles complete over the following ticks with no tasks
+   stuck in `engine_tasks`, and `/api/health` answers 200.
 6. A prepared application's PDFs download and open.
 7. Manage billing opens the portal; cancel at period end, then undo; switch
    plans (upgrade now, downgrade at period end) with the documented portal
