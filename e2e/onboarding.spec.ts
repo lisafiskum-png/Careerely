@@ -137,6 +137,10 @@ test.describe.serial('onboarding', () => {
 
   test('Step 3: preferences, checkout on "Find my matches", first search', async ({ page }) => {
     await signIn(page, password)
+    // Unpaid returning users restart at the resume step (their confirmed resume
+    // is kept); Step 3 is reachable from there.
+    await expect(page).toHaveURL(/\/onboarding\/2$/)
+    await page.goto('/onboarding/3')
     await expect(page).toHaveURL(/\/onboarding\/3$/)
 
     await expect(page.getByRole('heading', { name: 'Your next move' })).toBeVisible()
@@ -226,16 +230,16 @@ test.describe.serial('onboarding', () => {
     // With no postings synced yet the scan waits; if earlier runs left postings
     // in the local database it may already have finished.
     const status = (await page.getByTestId('scan-status').textContent()) ?? ''
-    if (status === 'Scanning the market') {
+    if (status === 'Scanning the market now') {
       await expect(page.getByTestId('pick-empty')).toHaveText('Your first scan is running. Opportunities will appear here when it finishes.')
       await expect(page.getByTestId('stat-line')).toContainText(/0\s*shortlisted/)
       await expect(page.getByTestId('stat-line')).not.toContainText('reviewed')
     } else {
-      expect(status).toMatch(/^Last scan /)
+      expect(status).toMatch(/^Monitoring 24\/7 · (last scan |first scan starting soon)/)
       await expect(page.getByTestId('stat-line')).toContainText(/reviewed in latest scan/)
     }
     await page.waitForTimeout(1200)
-    if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, status === 'Scanning the market' ? 'desktop-first-scan.png' : 'desktop-empty-after-scan.png') })
+    if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, status === 'Scanning the market now' ? 'desktop-first-scan.png' : 'desktop-empty-after-scan.png') })
 
     // Finished users skip onboarding and guest pages.
     await page.goto('/onboarding/2')

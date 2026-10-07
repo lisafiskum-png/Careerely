@@ -100,7 +100,7 @@ test.describe.serial('searches', () => {
     await expect(page).toHaveURL(/\/searches$/)
     await expect(nav.getByRole('link', { name: 'Searches' })).toHaveAttribute('aria-current', 'page')
     await expect(page.getByRole('heading', { name: 'Searches', level: 1 })).toBeVisible()
-    await expect(page.getByText('What Careerely is hunting for on your behalf.')).toBeVisible()
+    await expect(page.getByText('What Careerely is hunting for on your behalf, around the clock.')).toBeVisible()
 
     // Limit from the plan configuration (Pro = 5); only active searches count.
     await expect(page.getByTestId('plan-bar')).toHaveText(/1 of 5\s*active searches · Pro plan/)
@@ -120,7 +120,7 @@ test.describe.serial('searches', () => {
     await expect(bd).toContainText('Reviewed in latest scan')
     await expect(bd.getByTestId('shortlisted')).toHaveText('8')
     await expect(bd).toContainText('Shortlisted in latest scan')
-    await expect(bd.getByTestId('scan-line')).toHaveText(/Last scan \d+ min ago\s*Scans nightly/)
+    await expect(bd.getByTestId('scan-line')).toHaveText(/Monitoring 24\/7\s*Last scan \d+ min ago/)
 
     const saas = card(page, 'SaaS Account Executive')
     await expect(saas.getByTestId('search-status')).toHaveText('Paused')
@@ -194,7 +194,7 @@ test.describe.serial('searches', () => {
 
     const created = card(page, 'Payments partnerships')
     await expect(created.getByTestId('search-status')).toHaveText('Active')
-    await expect(created.getByTestId('scan-line')).toHaveText(/First scan queued|Scanning now…/)
+    await expect(created.getByTestId('scan-line')).toHaveText(/Starting first scan…|Scanning now…/)
     await expect(created.getByTestId('reviewed')).toHaveText('—')
     await expect(created.getByTestId('search-params')).toContainText('Min £85,000 a year')
     await expect(created).not.toContainText('Created from your preferences')
@@ -211,7 +211,7 @@ test.describe.serial('searches', () => {
       compensation_currency: 'GBP',
       created_from_profile: false,
     })
-    // First scan queued immediately.
+    // First scan queued immediately (onboarding-style first-scan key).
     expect((await scanTasks(row!.id)).map(t => t.dedupe_key)).toEqual([`scan:${row!.id}:first`])
     // The Career Profile is never changed by a search.
     expect(await profileRow(seed.userId)).toEqual(before)
@@ -249,7 +249,8 @@ test.describe.serial('searches', () => {
     await page.getByRole('menuitem', { name: 'Edit search' }).click()
     await form.getByRole('group', { name: 'Industries' }).getByLabel('Add an industry').fill('Payments')
     await form.getByRole('group', { name: 'Industries' }).getByRole('button', { name: 'Add', exact: true }).click()
-    // This seeded search has no work style; at least one is required.
+    // At least one work style is required: clearing them all is rejected.
+    for (const style of ['Hybrid', 'Remote']) await form.getByRole('group', { name: 'Work style' }).getByRole('button', { name: style }).click()
     await form.getByRole('button', { name: 'Save changes' }).click()
     await expect(form.getByRole('alert')).toHaveText('Choose at least one work style.')
     await form.getByRole('group', { name: 'Work style' }).getByRole('button', { name: 'Remote' }).click()
@@ -257,11 +258,11 @@ test.describe.serial('searches', () => {
     await expect(form).toHaveCount(0)
     expect(await searchRow(bdId)).toMatchObject({ industries: ['Payments'], work_styles: ['remote'] })
     expect((await scanTasks(bdId)).length).toBe(tasksBefore)
-    await expect(card(page, 'Business Development Manager').getByTestId('scan-line')).toHaveText(/Last scan \d+ min ago\s*Scans nightly/)
+    await expect(card(page, 'Business Development Manager').getByTestId('scan-line')).toHaveText(/Monitoring 24\/7\s*Last scan \d+ min ago/)
     expect(await profileRow(seed.userId)).toEqual(before)
   })
 
-  test('pause and resume; a resumed search is scanned at most once a day', async ({ page }) => {
+  test('pause and resume; a resume queues one immediate scan and toggling never stacks scans', async ({ page }) => {
     await signIn(page, email)
     await page.goto('/searches')
     await openMenu(page, 'Business Development Manager')
@@ -275,10 +276,9 @@ test.describe.serial('searches', () => {
     await openMenu(page, 'Business Development Manager')
     await page.getByRole('menuitem', { name: 'Resume search' }).click()
     await expect(bd.getByTestId('search-status')).toHaveText('Active')
-    const day = new Date().toISOString().slice(0, 10)
-    expect((await scanTasks(bdId)).filter(t => t.dedupe_key === `scan:${bdId}:${day}`)).toHaveLength(1)
+    expect((await scanTasks(bdId)).filter(t => new RegExp(`^scan:${bdId}:resume:\\d+$`).test(t.dedupe_key))).toHaveLength(1)
 
-    // Pausing and resuming again does not queue another scan.
+    // Pausing and resuming again within the same market cycle does not queue another scan.
     for (const action of ['Pause search', 'Resume search']) {
       await openMenu(page, 'Business Development Manager')
       await page.getByRole('menuitem', { name: action }).click()
@@ -350,18 +350,18 @@ test.describe.serial('searches', () => {
 
     await signIn(page, email)
     await page.goto('/searches')
-    await expect(page.getByTestId('all-paused-banner')).toHaveText('Careerely isn’t currently searching. Resume a search below to start scanning the market again.')
+    await expect(page.getByTestId('all-paused-banner')).toHaveText('Careerely isn’t currently searching. Resume a search below to start monitoring the market again.')
     await expect(page.getByTestId('search-card').first()).toBeVisible()
     await expect(page.getByTestId('plan-bar')).toHaveText(/0 of 5/)
-    await expect(page.getByTestId('scan-status')).toHaveText(/^Last scan /)
-    await expect(page.getByText('Scanning the market', { exact: true })).toHaveCount(0)
+    await expect(page.getByTestId('scan-status')).toHaveText(/^Monitoring 24\/7 · last scan /)
+    await expect(page.getByText('Scanning the market now', { exact: true })).toHaveCount(0)
     await page.waitForTimeout(700)
     await shot(page, 'searches-all-paused')
 
     // Control: the same running task counts once its search is active again.
     await admin.from('searches').update({ status: 'active' }).eq('id', bdId)
     await page.reload()
-    await expect(page.getByTestId('scan-status')).toHaveText('Scanning the market')
+    await expect(page.getByTestId('scan-status')).toHaveText('Scanning the market now')
     await admin.from('searches').update({ status: 'paused' }).eq('id', bdId)
     await admin.from('engine_tasks').delete().like('dedupe_key', 'e2e-stale-%')
     await admin.from('search_runs').delete().eq('search_id', saasId).eq('status', 'running')

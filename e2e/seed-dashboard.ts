@@ -79,7 +79,7 @@ export async function seedDashboardUser(admin: SupabaseClient, opts: { email: st
   const search = await check(
     admin
       .from('searches')
-      .insert({ user_id: userId, name: 'Business Development Manager', status: opts.readOnly ? 'paused' : 'active', target_roles: ['Business Development Manager', 'Account Executive'], created_from_profile: true })
+      .insert({ user_id: userId, name: 'Business Development Manager', status: opts.readOnly ? 'paused' : 'active', target_roles: ['Business Development Manager', 'Account Executive'], work_styles: ['hybrid', 'remote'], created_from_profile: true })
       .select('id')
       .single(),
   )

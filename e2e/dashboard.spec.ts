@@ -53,7 +53,7 @@ test.describe.serial('dashboard', () => {
     await expect(stats).toContainText(/2\s*applications ready/)
     await expect(stats).toContainText(/4,393\s*reviewed in latest scan/)
     await expect(stats).toContainText(/last scan\s*3 min ago/)
-    await expect(page.getByTestId('scan-status')).toHaveText(/Last scan 3 min ago/)
+    await expect(page.getByTestId('scan-status')).toHaveText(/Monitoring 24\/7 · last scan 3 min ago/)
 
     // Nav: top bar. Opportunities badge = My Pick + visible rows (1 + 5), not all 8 live.
     const nav = page.getByRole('navigation', { name: 'Main' })

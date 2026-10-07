@@ -84,8 +84,14 @@ export async function reevaluateOpportunity(admin: SupabaseClient, opportunityId
   if (result.matchScore === null || result.matchScore < SHORTLIST_MIN_SCORE) {
     // No longer shortlist-worthy on traceable evidence: discard the package
     // (releases its quota) and leave the opportunity for a decision.
-    await admin.from('opportunities').update({ state: 'preparing' }).eq('id', opportunityId)
-    await failPackage(admin, opportunityId, 'Discarded: re-evaluation with the current evidence rules no longer supports shortlisting.')
+    // fail_application_package only fails a package that is still being
+    // prepared (the engine's guard), so move this finished package back to
+    // preparing first and name it explicitly.
+    const { error: opError } = await admin.from('opportunities').update({ state: 'preparing' }).eq('id', opportunityId)
+    if (opError) throw opError
+    const { error: pkgError } = await admin.from('application_packages').update({ status: 'preparing' }).eq('id', pkgRow.id)
+    if (pkgError) throw pkgError
+    await failPackage(admin, opportunityId, 'Discarded: re-evaluation with the current evidence rules no longer supports shortlisting.', pkgRow.id)
     report.outcome = 'discarded'
     report.detail =
       result.matchScore === null

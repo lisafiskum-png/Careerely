@@ -328,7 +328,12 @@ describe.skipIf(!reachable)('Opportunity Engine (local Supabase)', () => {
 
   it('lets an over-cap role compete again and skips an unevaluable role until its inputs change', async () => {
     const { count: before } = await admin.from('rejections').select('id', { count: 'exact', head: true }).eq('search_id', searchId)
-    await admin.from('engine_tasks').insert({ kind: 'scan_search', user_id: userId, search_id: searchId, payload: { phase: 'start', trigger: 'nightly', day: 'second-scan' } })
+    // An eligible-but-not-selected role cools down for a day before competing
+    // again (continuous scanning must not re-spend AI on it every cycle).
+    const { NOT_SELECTED_RECHECK_MS } = await import('../../lib/engine/scan')
+    const dayAgo = new Date(Date.now() - NOT_SELECTED_RECHECK_MS - 60_000).toISOString()
+    await admin.from('candidate_evaluations').update({ evaluated_at: dayAgo }).eq('search_id', searchId).eq('status', 'not_selected')
+    await admin.from('engine_tasks').insert({ kind: 'scan_search', user_id: userId, search_id: searchId, payload: { phase: 'start', trigger: 'continuous', cycle: 'second-scan' } })
     for (let i = 0; i < 30; i++) {
       const r = await engine.runWorker(admin, { budgetMs: 20_000 })
       if (!r.processed && !r.failed) break
@@ -425,7 +430,7 @@ describe.skipIf(!reachable)('Opportunity Engine (local Supabase)', () => {
   it('does not search or prepare for accounts without an active subscription', async () => {
     const { data: search } = await admin
       .from('searches')
-      .insert({ user_id: readOnlyUserId, name: 'x', status: 'paused', target_roles: ['Account Executive'] })
+      .insert({ user_id: readOnlyUserId, name: 'x', status: 'paused', target_roles: ['Account Executive'], work_styles: ['remote'] })
       .select('id')
       .single()
     // Force-activate as the service role to simulate a lapsed subscription on an active search.

@@ -56,9 +56,9 @@ describe.skipIf(!reachable)('subscription sync and plan limits (D6)', () => {
     await syncSubscription(admin, stripeReturning('price_pro'), subId, userId)
     const ago = (days: number) => new Date(Date.now() - days * DAY * 1000).toISOString()
     const { error: insertError } = await admin.from('searches').insert([
-      { user_id: userId, name: 'A · from profile', status: 'active', created_from_profile: true, created_at: ago(1) },
-      { user_id: userId, name: 'B · oldest', status: 'active', created_from_profile: false, created_at: ago(5) },
-      { user_id: userId, name: 'C · newest', status: 'active', created_from_profile: false, created_at: ago(0.1) },
+      { user_id: userId, name: 'A · from profile', status: 'active', created_from_profile: true, target_roles: ['Sales Manager'], work_styles: ['remote'], created_at: ago(1) },
+      { user_id: userId, name: 'B · oldest', status: 'active', created_from_profile: false, target_roles: ['Sales Manager'], work_styles: ['remote'], created_at: ago(5) },
+      { user_id: userId, name: 'C · newest', status: 'active', created_from_profile: false, target_roles: ['Sales Manager'], work_styles: ['remote'], created_at: ago(0.1) },
     ])
     if (insertError) throw insertError
   })
@@ -72,7 +72,7 @@ describe.skipIf(!reachable)('subscription sync and plan limits (D6)', () => {
     const { data, error } = await admin.from('subscriptions').select('cancel_at, cancel_at_period_end').eq('user_id', userId).single()
     if (error) throw error
     expect(data.cancel_at_period_end).toBe(false)
-    expect(data.cancel_at).toBe(new Date(cancelAt * 1000).toISOString())
+    expect(new Date(data.cancel_at).toISOString()).toBe(new Date(cancelAt * 1000).toISOString())
 
     // Undoing a scheduled cancellation clears the stored timestamp on the next sync.
     await syncSubscription(admin, stripeReturning('price_pro'), subId, null)

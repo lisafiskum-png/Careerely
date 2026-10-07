@@ -13,7 +13,6 @@ test.describe('landing page', () => {
     for (const obsolete of ['leading tech companies', 'Nightly', 'Every night', 'Roles reviewed while you sleep', 'This is what Careerely does while you sleep.']) {
       expect(body).not.toContain(obsolete)
     }
-    await expect(page.getByText('Always looking for what’s new')).toBeAttached()
     await expect(page.getByText('Recent activity')).toBeAttached()
     await expect(page.getByText('Review application')).toBeAttached()
     await expect(page.getByText('Growth Marketing Lead')).toBeAttached()

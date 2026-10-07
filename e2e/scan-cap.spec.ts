@@ -44,7 +44,7 @@ test.describe.serial('immediate scan cap', () => {
     await admin.from('jobs').delete().like('source_job_id', 'e2e-%')
   })
 
-  test('Basic: the first resume scans now; the next one waits for the next nightly run and says so', async ({ page }) => {
+  test('Basic: the first resume scans now; the next one joins continuous monitoring and says so', async ({ page }) => {
     await signIn(page, basicEmail)
     await page.goto('/searches')
     const bd = (await admin.from('searches').select('id').eq('user_id', basic.userId).eq('name', 'Business Development Manager').single()).data!.id
@@ -55,20 +55,20 @@ test.describe.serial('immediate scan cap', () => {
     await menu(page, 'Business Development Manager', 'Resume search')
     await expect(card(page, 'Business Development Manager').getByTestId('search-status')).toHaveText('Active')
     await expect(page.getByTestId('scan-deferred')).toHaveCount(0)
-    expect((await scanTasks(bd)).map(t => t.dedupe_key)).toEqual([`scan:${bd}:${today()}`])
+    expect((await scanTasks(bd)).map(t => t.dedupe_key)).toEqual([expect.stringMatching(new RegExp(`^scan:${bd}:resume:\\d+$`))])
 
     // Allowance spent: a different search resumes, stays active, and waits for tonight.
     await menu(page, 'Business Development Manager', 'Pause search')
     await expect(card(page, 'Business Development Manager').getByTestId('search-status')).toHaveText('Paused')
     await menu(page, 'Second search', 'Resume search')
-    await expect(page.getByTestId('scan-deferred')).toHaveText('Search resumed. Its next scan will run at the next nightly run.')
+    await expect(page.getByTestId('scan-deferred')).toHaveText('Search resumed. Careerely is monitoring it continuously and will pick it up within a few minutes.')
     await expect(card(page, 'Second search').getByTestId('search-status')).toHaveText('Active')
-    await expect(card(page, 'Second search').getByTestId('scan-line')).toHaveText('First scan at next nightly run')
+    await expect(card(page, 'Second search').getByTestId('scan-line')).toHaveText(/Monitoring 24\/7\s*Next market refresh within a few minutes/)
     expect(await scanTasks(second)).toEqual([])
     expect((await admin.from('searches').select('status').eq('id', second).single()).data!.status).toBe('active')
   })
 
-  test('Pro over the cap: a new active search is saved, active, and waits for the next nightly run', async ({ page }) => {
+  test('Pro over the cap: a new active search is saved, active, and joins continuous monitoring', async ({ page }) => {
     await admin.from('immediate_scan_usage').upsert({ user_id: pro.userId, day: today(), used: 5 })
     await signIn(page, proEmail)
     await page.goto('/searches')
@@ -77,9 +77,9 @@ test.describe.serial('immediate scan cap', () => {
     await form.getByLabel('Search name').fill('Later today')
     await form.getByRole('button', { name: 'Start search' }).click()
     await expect(form).toHaveCount(0)
-    await expect(page.getByTestId('scan-deferred')).toHaveText('Search saved. Its first scan will run at the next nightly run.')
+    await expect(page.getByTestId('scan-deferred')).toHaveText('Search saved. Careerely is monitoring it continuously and will pick it up within a few minutes.')
     await expect(card(page, 'Later today').getByTestId('search-status')).toHaveText('Active')
-    await expect(card(page, 'Later today').getByTestId('scan-line')).toHaveText('First scan at next nightly run')
+    await expect(card(page, 'Later today').getByTestId('scan-line')).toHaveText(/Monitoring 24\/7\s*Next market refresh within a few minutes/)
     const { data: created } = await admin.from('searches').select('id, status').eq('user_id', pro.userId).eq('name', 'Later today').single()
     expect(created!.status).toBe('active')
     expect(await scanTasks(created!.id)).toEqual([])

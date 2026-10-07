@@ -11,7 +11,7 @@ const SUPABASE_URL = 'http://127.0.0.1:54321'
 const SERVICE_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU'
 const reachable = await fetch(`${SUPABASE_URL}/auth/v1/health`).then(r => r.ok).catch(() => false)
-const { enqueueFirstScan, runTask, startSearchScan } = await import('../../lib/engine/queue')
+const { enqueueFirstScan, marketCycleKey, runTask, sourceSchedule, startSearchScan } = await import('../../lib/engine/queue')
 
 const admin: SupabaseClient = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
 const users: string[] = []
@@ -110,7 +110,7 @@ describe.skipIf(!reachable)('immediate scan cap for Search actions (D8)', () => 
     expect(results.filter(Boolean)).toHaveLength(5)
   })
 
-  it('onboarding’s first scan is never blocked, and nightly scans still include the delayed search', async () => {
+  it('onboarding’s first scan is never blocked, and the continuous market cycle still includes the delayed search', async () => {
     const uid = await userOnPlan('basic')
     const used = await search(uid, 'Uses the allowance')
     expect(await startSearchScan(admin, uid, used, 'create')).toBe(true)
@@ -121,11 +121,11 @@ describe.skipIf(!reachable)('immediate scan cap for Search actions (D8)', () => 
     await enqueueFirstScan(admin, uid, profileSearch)
     expect((await scanTasks(profileSearch)).map(t => t.dedupe_key)).toEqual([`scan:${profileSearch}:first`])
 
-    // A delayed active search (allowance spent) gets tonight's scan from the nightly run.
+    // A delayed active search (allowance spent) is scanned by the next market cycle.
     await setStatus(profileSearch, 'paused')
     const delayed = await search(uid, 'Delayed')
     expect(await startSearchScan(admin, uid, delayed, 'create')).toBe(false)
-    // Run the nightly task for a far-future day; its board syncs are held back
+    // Run a market cycle for a far-future slot; its board syncs are held back
     // (run_after in 2099) so no worker elsewhere picks them up, then removed.
     const holdSyncs = new Proxy(admin, {
       get(target, prop, receiver) {
@@ -146,12 +146,14 @@ describe.skipIf(!reachable)('immediate scan cap for Search actions (D8)', () => 
         }
       },
     }) as SupabaseClient
+    const cycle = marketCycleKey(new Date(`${FAR_DAY}T02:00:00Z`))
     try {
-      await runTask(holdSyncs, { id: 'nightly-test', kind: 'nightly', dedupe_key: null, user_id: null, search_id: null, opportunity_id: null, payload: {}, attempts: 1, max_attempts: 3 } as never, new Date(`${FAR_DAY}T02:00:00Z`))
-      expect((await scanTasks(delayed)).map(t => t.dedupe_key)).toEqual([`scan:${delayed}:${FAR_DAY}`])
-      expect(await scanTasks(used)).toHaveLength(1) // paused: no nightly scan
+      await runTask(holdSyncs, { id: '00000000-0000-0000-0000-000000000000', kind: 'market_cycle', dedupe_key: null, user_id: null, search_id: null, opportunity_id: null, payload: { cycle }, attempts: 1, max_attempts: 3 } as never)
+      expect((await scanTasks(delayed)).map(t => t.dedupe_key)).toEqual([`scan:${delayed}:cycle:${cycle}`])
+      expect(await scanTasks(used)).toHaveLength(1) // paused: not scanned by the cycle
     } finally {
-      await admin.from('engine_tasks').delete().like('dedupe_key', `%:${FAR_DAY}`)
+      await admin.from('engine_tasks').delete().like('dedupe_key', `%:cycle:${cycle}`)
+      await admin.from('engine_tasks').delete().like('dedupe_key', `sync:%:${sourceSchedule(cycle).tag}`)
     }
   })
 })

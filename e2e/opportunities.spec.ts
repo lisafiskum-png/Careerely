@@ -77,7 +77,7 @@ test.describe.serial('opportunities', () => {
 
     await expect(page.getByTestId('op-title')).toHaveText('8 opportunities')
     await expect(page.getByText(/Ranked by Careerely\.\s*4,393 reviewed in latest scan\./)).toBeVisible()
-    await expect(page.getByText(/Last scan 3 min ago/).first()).toBeVisible()
+    await expect(page.getByText(/last scan 3 min ago/i).first()).toBeVisible()
 
     const pick = page.getByTestId('op-pick')
     await expect(pick).toContainText('My pick')
