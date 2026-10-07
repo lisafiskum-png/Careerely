@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   quality:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       CI: true
@@ -39,8 +39,65 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Unit and database tests
-        run: npm test
+      - name: Unit tests
+        run: npx vitest run --project unit
 
       - name: Production build
         run: npm run build
+
+  # Database, engine and billing tests plus the Playwright suite, against a
+  # local Supabase stack (all migrations applied), stripe-mock and the mock
+  # Claude API. Keys are the public local-stack defaults, not secrets.
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CI: true
+      NEXT_TELEMETRY_DISABLED: 1
+    services:
+      stripe-mock:
+        image: stripe/stripe-mock:latest
+        ports:
+          - 12111:12111
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase and apply migrations
+        run: supabase start -x realtime,studio,imgproxy,edge-runtime,logflare,vector,supavisor,postgres-meta
+
+      - name: Confirm the local stack is reachable
+        # The Supabase-backed test files skip themselves when the stack is
+        # down; fail loudly here instead of passing with skipped tests.
+        run: curl --fail --silent --show-error --retry 10 --retry-delay 3 --retry-all-errors http://127.0.0.1:54321/auth/v1/health
+
+      - name: Integration tests
+        run: npx vitest run --project integration
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7
