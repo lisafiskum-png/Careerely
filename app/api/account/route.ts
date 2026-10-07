@@ -1,38 +1,46 @@
+import { z } from 'zod'
 import { requireUser, unauthorizedResponse, UnauthorizedError } from '../../../lib/auth'
+import { createClient } from '../../../lib/supabase/server'
 import { createAdminClient } from '../../../lib/supabase/admin'
 import { getStripe } from '../../../lib/stripe'
+import { permanentlyDeleteAccount } from '../../../lib/account-deletion'
 
-/** Permanently closes the signed-in account and stops any Stripe subscription. */
+const Body = z.object({
+  confirmation: z.literal('DELETE'),
+  password: z.string().min(1).max(500),
+})
+
+/**
+ * Permanent account erasure. The user id is always taken from the verified
+ * session, and a fresh password check is required immediately before deletion.
+ */
 export async function DELETE(request: Request) {
   try {
     const user = await requireUser()
-    const body = await request.json().catch(() => null) as { confirmation?: unknown } | null
-    if (body?.confirmation !== 'DELETE') {
-      return Response.json({ error: 'Type DELETE to confirm.' }, { status: 400 })
+    const parsed = Body.safeParse(await request.json().catch(() => null))
+    if (!parsed.success || !user.email) {
+      return Response.json({ error: 'Type DELETE and enter your password to continue.' }, { status: 400 })
     }
 
-    const admin = createAdminClient()
-    const { data: subscription, error: readError } = await admin
-      .from('subscriptions')
-      .select('stripe_subscription_id')
-      .eq('user_id', user.id)
-      .maybeSingle()
-    if (readError) throw readError
-
-    if (subscription?.stripe_subscription_id) {
-      const stripe = getStripe()
-      const current = await stripe.subscriptions.retrieve(subscription.stripe_subscription_id)
-      if (current.status !== 'canceled') await stripe.subscriptions.cancel(current.id)
+    // Sensitive action: require the current password, not just possession of a
+    // possibly long-lived browser session.
+    const supabase = await createClient()
+    const { error: reauthError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: parsed.data.password,
+    })
+    if (reauthError) {
+      return Response.json({ error: 'That password is not correct.' }, { status: 403 })
     }
 
-    // User-owned rows have ON DELETE CASCADE foreign keys to auth.users.
-    const { error: deleteError } = await admin.auth.admin.deleteUser(user.id)
-    if (deleteError) throw deleteError
-
+    await permanentlyDeleteAccount(createAdminClient(), getStripe(), user.id)
     return Response.json({ deleted: true })
-  } catch (err) {
-    if (err instanceof UnauthorizedError) return unauthorizedResponse()
-    console.error('account deletion failed', { error: err instanceof Error ? err.message : 'Unknown error' })
-    return Response.json({ error: 'Couldn’t delete the account. Please try again or contact hello@careerely.ai.' }, { status: 500 })
+  } catch (error) {
+    if (error instanceof UnauthorizedError) return unauthorizedResponse()
+    console.error('account deletion failed', error)
+    return Response.json(
+      { error: 'We couldn’t delete your account. Nothing else will be changed until you try again.' },
+      { status: 500 },
+    )
   }
 }
