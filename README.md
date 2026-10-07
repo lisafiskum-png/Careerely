@@ -158,13 +158,14 @@ below 60. Two outcomes are not rejections and are kept on
 
 Scheduling: the engine is built around repeated ticks of
 `GET /api/engine/tick` (with `Authorization: Bearer <CRON_SECRET>`), every 5
-minutes in production. Each tick queues the nightly run when it's due (02:00
-UTC, `ENGINE_NIGHTLY_HOUR_UTC`) and works through `engine_tasks` for up to 4
-minutes, so syncs, the scans queued 30 minutes later, preparation decisions
-and packages complete over the following ticks. Production stays on Vercel
+minutes in production. Each tick creates one idempotent market cycle and works
+through `engine_tasks` for up to 40 seconds. User scans and package work are
+claimed before source refreshes. Direct ATS boards are spread evenly across a
+six-hour window instead of being queued in one burst. Production stays on Vercel
 Hobby, so the ticks come from **Supabase Cron**, not Vercel Cron (there is no
 `vercel.json` cron). User actions (onboarding, new or resumed searches) also
-start the worker straight away.
+start the worker straight away. Expired leases and ownerless search runs are
+recovered in the same database transaction that claims new work.
 
 ### Job-board sources and failures
 
@@ -180,10 +181,13 @@ bodies:
   boards whose latest finished sync already failed with HTTP 404/410
   (production 2026-10-02: all 56 repeatedly failing boards were 404s).
 - `rejected` (other 4xx, e.g. 403) and `malformed` (not the provider's JSON
-  shape): one attempt, tried again the next day. A malformed response never
-  counts as "no jobs", so it can't expire a board's postings.
+  shape): one attempt, then a 24-hour pause. A malformed response never counts
+  as "no jobs", so it can't expire a board's postings.
 - `rate_limited` (429), `provider_error` (408, 5xx), `timeout`, `network`:
-  retried with backoff, as before.
+  retried with bounded backoff; after the final failed attempt the board is
+  paused for 24 hours. Successful syncs clear the pause. Job rows are written
+  in small batches so large descriptions do not exhaust the database statement
+  timeout.
 
 `npm run sources:check` (optionally `-- greenhouse|lever|ashby`) probes every
 configured board with the engine's exact request and prints each outcome. It
@@ -227,8 +231,8 @@ save, or in the cron job's command text.
 
    The command only references the Vault secret by name; the value is read at
    run time. Use the exact production host (`https://www.careerely.ai`) so no
-   redirect drops the header. The 300 s timeout matches the tick's
-   `maxDuration` (the worker itself stops after 4 minutes).
+   redirect drops the header. The 300 s network timeout leaves headroom for the
+   endpoint's `maxDuration`; the worker itself stops after 40 seconds.
 5. **Verify** (a few minutes later):
 
    ```sql
@@ -352,8 +356,8 @@ Can't be validated locally (stand-ins are used); check once in production:
    ATS boards are reachable from Vercel.
 5. Supabase Cron calls `/api/engine/tick` every 5 minutes with the Vault
    secret (`cron.job_run_details` succeeded, `net._http_response` 200, Vercel
-   logs), and the 02:00 UTC nightly run completes over the following ticks
-   with no tasks stuck in `engine_tasks`.
+   logs), continuous market cycles complete without claimable tasks, expired
+   leases or ownerless `search_runs` accumulating.
 6. A prepared application's PDFs download and open.
 7. Manage billing opens the portal; cancel at period end, then undo; switch
    plans (upgrade now, downgrade at period end) with the documented portal

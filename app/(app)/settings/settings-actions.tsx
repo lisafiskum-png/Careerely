@@ -2,6 +2,7 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { createClient } from '../../../lib/supabase/client'
+import styles from './settings.module.css'
 
 /** Opens Stripe's Customer Portal for this account (the server picks the customer). */
 export function ManageBillingButton() {
@@ -50,57 +51,108 @@ export function SignOutButton() {
     </button>
   )
 }
-export function DeleteAccount() {
+export function DeleteAccountButton() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
 
-  async function remove() {
-    if (confirmation !== 'DELETE') return
+  function close() {
+    if (pending) return
+    setOpen(false)
+    setPassword('')
+    setConfirmation('')
+    setError('')
+  }
+
+  async function removeAccount() {
+    if (confirmation !== 'DELETE' || !password) return
     setPending(true)
     setError('')
+
     const response = await fetch('/api/account', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ confirmation }),
+      body: JSON.stringify({ confirmation, password }),
     }).catch(() => null)
-    const data = await response?.json().catch(() => null) as { deleted?: boolean; error?: string } | null
+    const data = (await response?.json().catch(() => null)) as { deleted?: boolean; error?: string } | null
+
     if (response?.ok && data?.deleted) {
-      await createClient().auth.signOut()
+      // The Auth user no longer exists; clear the local browser session before
+      // leaving the signed-in app shell.
+      await createClient().auth.signOut().catch(() => undefined)
       router.push('/')
       router.refresh()
       return
     }
+
     setPending(false)
-    setError(data?.error ?? 'Couldn’t delete the account. Please try again.')
+    setError(data?.error ?? 'We couldn’t delete your account. Please try again.')
   }
 
   if (!open) {
-    return <button className="btn-ghost set-signout" onClick={() => setOpen(true)}>Delete account</button>
+    return (
+      <button className={`btn-ghost ${styles.deleteTrigger}`} onClick={() => setOpen(true)}>
+        Remove my account
+      </button>
+    )
   }
 
   return (
-    <div className="set-delete">
-      <p className="set-status warn">
-        This permanently deletes your profile, searches and applications. Any active subscription is cancelled immediately. This cannot be undone.
+    <div className={styles.deletePanel} data-testid="delete-account-panel">
+      <p className={styles.deleteWarning}>
+        This permanently deletes your Careerely account, resume, matches and application data. Any active subscription is cancelled immediately. This cannot be undone.
       </p>
-      <label className="set-label" htmlFor="delete-confirmation">Type DELETE to confirm</label>
-      <input
-        id="delete-confirmation"
-        className="set-delete-input"
-        value={confirmation}
-        onChange={event => setConfirmation(event.target.value)}
-        autoComplete="off"
-      />
-      <div className="set-delete-actions">
-        <button className="btn-ghost" onClick={() => { setOpen(false); setConfirmation(''); setError('') }} disabled={pending}>Keep account</button>
-        <button className="btn-danger" onClick={remove} disabled={pending || confirmation !== 'DELETE'}>
-          {pending ? 'Deleting…' : 'Permanently delete'}
+
+      <div className={styles.field}>
+        <label htmlFor="delete-account-password">Current password</label>
+        <input
+          id="delete-account-password"
+          className={styles.input}
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={event => setPassword(event.target.value)}
+          disabled={pending}
+        />
+      </div>
+
+      <div className={styles.field}>
+        <label htmlFor="delete-account-confirmation">Type DELETE to confirm</label>
+        <input
+          id="delete-account-confirmation"
+          className={styles.input}
+          type="text"
+          autoCapitalize="characters"
+          autoComplete="off"
+          spellCheck={false}
+          value={confirmation}
+          onChange={event => setConfirmation(event.target.value)}
+          disabled={pending}
+        />
+      </div>
+
+      <div className={styles.actions}>
+        <button
+          className={styles.deleteButton}
+          type="button"
+          onClick={removeAccount}
+          disabled={pending || !password || confirmation !== 'DELETE'}
+        >
+          {pending ? 'Deleting…' : 'Permanently delete account'}
+        </button>
+        <button className="btn-ghost" type="button" onClick={close} disabled={pending}>
+          Cancel
         </button>
       </div>
-      {error && <span className="ft-error" role="alert">{error}</span>}
+
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

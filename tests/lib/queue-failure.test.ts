@@ -22,6 +22,7 @@ import {
   type Task,
 } from '../../lib/engine/queue'
 import { COMPANY_BOARDS } from '../../lib/engine/companies'
+import { JOB_WRITE_BATCH_SIZE } from '../../lib/engine/ingest'
 
 const task: Task = {
   id: 'task', kind: 'prepare_package', dedupe_key: 'prepare:opp:pkg',
@@ -40,7 +41,11 @@ function database(options: { blockedUntil?: string; enqueueError?: Error; queryE
         gt: () => query, order: () => query,
         limit: () => { result = { data: options.blockedUntil ? [{ run_after: options.blockedUntil }] : [], error: options.queryError ?? null }; return query },
         update(values: Record<string, unknown>) { writes.push({ table, values }); result = { error: null }; return query },
-        upsert() { result = { error: options.enqueueError ?? null }; return query },
+        upsert(values: Record<string, unknown>) {
+          if (table === 'source_health') writes.push({ table, values })
+          result = { error: options.enqueueError ?? null }
+          return query
+        },
         then(resolve: (value: Record<string, unknown>) => unknown) { return Promise.resolve(result).then(resolve) },
       }
       return query
@@ -69,6 +74,9 @@ describe('AI failure classification', () => {
 })
 
 describe('queue recovery', () => {
+  it('uses small writes for source payloads with large descriptions', () => {
+    expect(JOB_WRITE_BATCH_SIZE).toBeLessThanOrEqual(50)
+  })
   it('spreads every source exactly once across a refresh window', () => {
     const scheduled = Array.from({ length: SOURCE_REFRESH_CYCLES }, (_, cycle) => sourceSchedule(String(cycle)).boards).flat()
     expect(scheduled).toHaveLength(COMPANY_BOARDS.length)
@@ -136,5 +144,24 @@ describe('queue recovery', () => {
     const { admin, writes } = database({ enqueueError: new Error('enqueue failed') })
     await expect(runTask(admin, { ...task, kind: 'scan_search', payload: { phase: 'finalize', run_id: 'run' } })).rejects.toThrow('enqueue failed')
     expect(writes).toEqual([])
+  })
+
+  it('pauses a repeatedly failing source after its final attempt', async () => {
+    const { admin, writes } = database()
+    const sourceTask: Task = {
+      ...task,
+      kind: 'sync_source',
+      opportunity_id: null,
+      attempts: 3,
+      payload: { provider: 'lever', slug: 'example', company: 'Example' },
+    }
+    await handleFailure(admin, sourceTask, new Error('upstream request timeout'))
+    expect(writes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        table: 'source_health',
+        values: expect.objectContaining({ state: 'degraded', provider: 'lever', slug: 'example' }),
+      }),
+      expect.objectContaining({ table: 'engine_tasks', values: expect.objectContaining({ status: 'failed' }) }),
+    ]))
   })
 })
