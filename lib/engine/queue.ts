@@ -133,6 +133,28 @@ export async function startSearchScan(admin: SupabaseClient, userId: string, sea
 }
 
 export const MISSING_BOARD_RECHECK_DAYS = 7
+export const DEGRADED_BOARD_RECHECK_HOURS = 24
+
+async function pauseBoard(
+  admin: SupabaseClient,
+  board: CompanyBoard,
+  state: 'not_found' | 'degraded',
+  status: number | null,
+  now = new Date(),
+) {
+  const delayMs = state === 'not_found'
+    ? MISSING_BOARD_RECHECK_DAYS * 86_400_000
+    : DEGRADED_BOARD_RECHECK_HOURS * 3_600_000
+  const { error } = await admin.from('source_health').upsert({
+    provider: board.provider,
+    slug: board.slug,
+    state,
+    http_status: status,
+    last_checked_at: now.toISOString(),
+    recheck_after: new Date(now.getTime() + delayMs).toISOString(),
+  })
+  if (error) throw error
+}
 
 export async function boardsToSync(admin: SupabaseClient, now = new Date()) {
   const { data, error } = await admin.from('source_health').select('provider, slug').gt('recheck_after', now.toISOString())
@@ -226,17 +248,7 @@ async function runSyncTask(admin: SupabaseClient, task: Task, now = new Date()) 
     await syncBoard(admin, board)
   } catch (err) {
     if (!(err instanceof SourceError) || err.retriable) throw err
-    if (err.permanent) {
-      const { error } = await admin.from('source_health').upsert({
-        provider: board.provider,
-        slug: board.slug,
-        state: 'not_found',
-        http_status: err.status,
-        last_checked_at: now.toISOString(),
-        recheck_after: new Date(now.getTime() + MISSING_BOARD_RECHECK_DAYS * 86_400_000).toISOString(),
-      })
-      if (error) throw error
-    }
+    await pauseBoard(admin, board, err.permanent ? 'not_found' : 'degraded', err.status, now)
     console.error('board sync failed', err.message)
     const { error } = await admin.from('engine_tasks').update({ status: 'failed', last_error: err.message, locked_until: null }).eq('id', task.id)
     if (error) throw error
@@ -391,6 +403,12 @@ export async function handleFailure(admin: SupabaseClient, task: Task, err: unkn
         .eq('id', task.payload.run_id as string)
         .eq('status', 'running')
       if (runError) throw runError
+    }
+    if (task.kind === 'sync_source') {
+      const board = task.payload as unknown as CompanyBoard
+      if (board.provider && board.slug) {
+        await pauseBoard(admin, board, 'degraded', err instanceof SourceError ? err.status : null)
+      }
     }
     const { error } = await admin.from('engine_tasks').update({
       status: 'failed', last_error: message.slice(0, 2000), locked_until: null,

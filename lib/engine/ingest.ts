@@ -10,12 +10,16 @@ import { fetchBoard } from './sources'
 
 export type SyncResult = { board: string; fetched: number; deactivated: number }
 
+// Job descriptions can be large. Keeping PostgREST writes small avoids a
+// single slow company board exhausting the database statement timeout.
+export const JOB_WRITE_BATCH_SIZE = 50
+
 export async function syncBoard(admin: SupabaseClient, board: CompanyBoard, fetchImpl: typeof fetch = fetch): Promise<SyncResult> {
   const jobs = await fetchBoard(board, fetchImpl)
   const now = new Date().toISOString()
 
-  for (let i = 0; i < jobs.length; i += 200) {
-    const chunk = jobs.slice(i, i + 200).map(j => ({ ...j, is_active: true, last_seen_at: now }))
+  for (let i = 0; i < jobs.length; i += JOB_WRITE_BATCH_SIZE) {
+    const chunk = jobs.slice(i, i + JOB_WRITE_BATCH_SIZE).map(j => ({ ...j, is_active: true, last_seen_at: now }))
     const { error } = await admin.from('jobs').upsert(chunk, { onConflict: 'source,source_job_id' })
     if (error) throw error
   }
@@ -30,8 +34,8 @@ export async function syncBoard(admin: SupabaseClient, board: CompanyBoard, fetc
   if (knownError) throw knownError
 
   const gone = (known ?? []).filter(j => !liveIds.has(j.source_job_id)).map(j => j.id)
-  for (let i = 0; i < gone.length; i += 200) {
-    const { error } = await admin.from('jobs').update({ is_active: false }).in('id', gone.slice(i, i + 200))
+  for (let i = 0; i < gone.length; i += JOB_WRITE_BATCH_SIZE) {
+    const { error } = await admin.from('jobs').update({ is_active: false }).in('id', gone.slice(i, i + JOB_WRITE_BATCH_SIZE))
     if (error) throw error
   }
 
