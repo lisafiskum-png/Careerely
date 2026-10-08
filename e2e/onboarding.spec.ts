@@ -116,6 +116,11 @@ test.describe.serial('onboarding', () => {
     expect(JSON.stringify(sent.messages)).toContain('Nordic Bank')
 
     // Review continues within this visit; a fresh visit restarts at upload.
+    await page.route('**/api/resume/confirm', route => route.abort('failed'))
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await expect(page.getByText('We couldn’t save your resume. Please try again.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    await page.unroute('**/api/resume/confirm')
     await page.getByRole('button', { name: 'Continue' }).click()
     await expect(page).toHaveURL(/\/onboarding\/3$/)
 
