@@ -4,6 +4,7 @@ export default defineConfig({
   testDir: './e2e-production',
   timeout: 45_000,
   retries: 1,
+  reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: process.env.PRODUCTION_BASE_URL || 'https://www.careerely.ai',
     trace: 'retain-on-failure',

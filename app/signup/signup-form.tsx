@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase/client'
+import { authErrorMessage } from '../../lib/auth-errors'
 import { isValidEmail, MIN_PASSWORD_LENGTH, splitFullName } from '../../lib/onboarding'
 import type { PlanId } from '../../lib/plans'
 import { LegalModal, type LegalKind } from '../../components/onboarding/legal-modal'
@@ -21,6 +22,7 @@ export function SignupForm({ selectedPlan, initialEmail = '' }: { selectedPlan: 
   const [error, setError] = useState('')
   const [sentTo, setSentTo] = useState<string | null>(null)
   const [resent, setResent] = useState(false)
+  const [resending, setResending] = useState(false)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -32,43 +34,52 @@ export function SignupForm({ selectedPlan, initialEmail = '' }: { selectedPlan: 
     if (!agreed) return setError('Please accept the Terms of Service and Privacy Policy.')
 
     setPending(true)
-    const { data, error: signUpError } = await createClient().auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/confirm?next=/onboarding/2`,
-        data: {
-          first_name: first,
-          last_name: last,
-          terms_accepted: 'true',
-          ...(selectedPlan ? { selected_plan: selectedPlan } : {}),
+    try {
+      const { data, error: signUpError } = await createClient().auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/confirm?next=/onboarding/2`,
+          data: {
+            first_name: first,
+            last_name: last,
+            terms_accepted: 'true',
+            ...(selectedPlan ? { selected_plan: selectedPlan } : {}),
+          },
         },
-      },
-    })
-    if (signUpError) {
+      })
+      if (signUpError) return setError(authErrorMessage(signUpError, signUpError.message))
+      if (data.session) {
+        router.push('/onboarding/2')
+        router.refresh()
+        return
+      }
+      // Email confirmation is required before the account can be used.
+      setSentTo(email.trim())
+    } catch (error) {
+      setError(authErrorMessage(error, 'Something went wrong. Please try again.'))
+    } finally {
       setPending(false)
-      return setError(signUpError.message)
     }
-    if (data.session) {
-      router.push('/onboarding/2')
-      router.refresh()
-      return
-    }
-    // Email confirmation is required before the account can be used.
-    setPending(false)
-    setSentTo(email.trim())
   }
 
   async function resend() {
-    if (!sentTo) return
+    if (!sentTo || resending || resent) return
     setError('')
-    const { error: resendError } = await createClient().auth.resend({
-      type: 'signup',
-      email: sentTo,
-      options: { emailRedirectTo: `${window.location.origin}/auth/confirm?next=/onboarding/2` },
-    })
-    if (resendError) setError(resendError.message)
-    else setResent(true)
+    setResending(true)
+    try {
+      const { error: resendError } = await createClient().auth.resend({
+        type: 'signup',
+        email: sentTo,
+        options: { emailRedirectTo: `${window.location.origin}/auth/confirm?next=/onboarding/2` },
+      })
+      if (resendError) setError(authErrorMessage(resendError, 'We couldn’t resend the email. Please try again.'))
+      else setResent(true)
+    } catch (error) {
+      setError(authErrorMessage(error, 'We couldn’t resend the email. Please try again.'))
+    } finally {
+      setResending(false)
+    }
   }
 
   if (sentTo) {
@@ -81,8 +92,8 @@ export function SignupForm({ selectedPlan, initialEmail = '' }: { selectedPlan: 
         <p className={s.sub} style={{ maxWidth: 360, margin: '12px auto 32px' }}>
           We sent a confirmation link to <strong>{sentTo}</strong>. Open it to continue setting up your account.
         </p>
-        <button type="button" className={s.textLink} onClick={resend} disabled={resent}>
-          {resent ? 'Sent again' : 'Resend the email'}
+        <button type="button" className={s.textLink} onClick={resend} disabled={resent || resending}>
+          {resent ? 'Sent again' : resending ? 'Sending…' : 'Resend the email'}
         </button>
         <p className={s.error} role="alert">
           {error}

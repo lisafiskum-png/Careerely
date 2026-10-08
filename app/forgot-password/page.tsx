@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { createClient } from '../../lib/supabase/client'
 import { isValidEmail } from '../../lib/onboarding'
+import { authErrorMessage } from '../../lib/auth-errors'
 import { CheckIcon, OnboardingShell, SignInLink } from '../../components/onboarding/shell'
 import s from '../../components/onboarding/onboarding.module.css'
 
@@ -16,14 +17,18 @@ export default function ForgotPasswordPage() {
     setError('')
     if (!isValidEmail(email)) return setError('Please enter a valid email address.')
     setPending(true)
-    const { error: resetError } = await createClient().auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/auth/confirm?next=/reset-password`,
-    })
-    setPending(false)
-    // Same message whether or not the account exists, so emails can't be probed.
-    if (resetError && resetError.status !== 429) return setError('Something went wrong. Please try again.')
-    if (resetError) return setError('Too many requests. Please wait a minute and try again.')
-    setSent(true)
+    try {
+      const { error: resetError } = await createClient().auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/auth/confirm?next=/reset-password`,
+      })
+      // Same message whether or not the account exists, so emails can't be probed.
+      if (resetError) return setError(authErrorMessage(resetError, 'Something went wrong. Please try again.'))
+      setSent(true)
+    } catch (error) {
+      setError(authErrorMessage(error, 'Something went wrong. Please try again.'))
+    } finally {
+      setPending(false)
+    }
   }
 
   return (
