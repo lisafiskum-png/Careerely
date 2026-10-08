@@ -49,15 +49,11 @@ export function ResumeStep({ userId, draft }: { userId: string; draft: Resume | 
     setPhase('parsing')
     const safeName = file.name.replace(/[^\w.\-]+/g, '_').slice(-120)
     const path = `${userId}/${Date.now()}-${safeName}`
-    const { error: uploadError } = await createClient().storage
-      .from('resumes')
-      .upload(path, file, { contentType: file.type || undefined, upsert: false })
-    if (uploadError) {
-      setPhase('upload')
-      return setError('Upload failed. Please try again.')
-    }
-
     try {
+      const { error: uploadError } = await createClient().storage
+        .from('resumes')
+        .upload(path, file, { contentType: file.type || undefined, upsert: false })
+      if (uploadError) throw new Error('Upload failed. Please try again.')
       const res = await fetch('/api/resume/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -85,18 +81,24 @@ export function ResumeStep({ userId, draft }: { userId: string; draft: Resume | 
     if (!resume) return
     setSaving(true)
     setError('')
-    const res = await fetch('/api/resume/confirm', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ resume }),
-    })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) {
+    try {
+      const res = await fetch('/api/resume/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resume }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(data.error || 'We couldn’t save your resume. Please try again.')
+        return
+      }
+      router.push('/onboarding/3')
+      router.refresh()
+    } catch {
+      setError('We couldn’t save your resume. Please try again.')
+    } finally {
       setSaving(false)
-      return setError(data.error || 'We couldn’t save your resume. Please try again.')
     }
-    router.push('/onboarding/3')
-    router.refresh()
   }
 
   if (phase === 'review' && resume) {

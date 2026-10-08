@@ -115,10 +115,12 @@ test.describe.serial('onboarding', () => {
     const sent = await (await request.get('http://localhost:4010/__last')).json()
     expect(JSON.stringify(sent.messages)).toContain('Nordic Bank')
 
-    // Draft is stored but not yet confirmed: reloading reopens the review state.
-    await page.reload()
-    await expect(page.getByRole('heading', { name: 'Review your profile' })).toBeVisible()
-    await page.getByLabel('Headline').fill('AML professional moving into fintech sales')
+    // Review continues within this visit; a fresh visit restarts at upload.
+    await page.route('**/api/resume/confirm', route => route.abort('failed'))
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await expect(page.getByText('We couldn’t save your resume. Please try again.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    await page.unroute('**/api/resume/confirm')
     await page.getByRole('button', { name: 'Continue' }).click()
     await expect(page).toHaveURL(/\/onboarding\/3$/)
 
@@ -137,6 +139,12 @@ test.describe.serial('onboarding', () => {
 
   test('Step 3: preferences, checkout on "Find my matches", first search', async ({ page }) => {
     await signIn(page, password)
+    await expect(page).toHaveURL(/\/onboarding\/2$/)
+    await expect(page.getByRole('heading', { name: 'Review your profile' })).not.toBeVisible()
+    await page.locator('input[type=file]').setInputFiles(resumePdf())
+    await expect(page.getByText('Resume received')).toBeVisible({ timeout: 30_000 })
+    await page.getByRole('button', { name: 'Continue' }).click()
+    await page.getByRole('button', { name: 'Continue' }).click()
     await expect(page).toHaveURL(/\/onboarding\/3$/)
 
     await expect(page.getByRole('heading', { name: 'Your next move' })).toBeVisible()
