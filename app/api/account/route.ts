@@ -39,7 +39,7 @@ export async function DELETE(request: Request) {
     if (error instanceof UnauthorizedError) return unauthorizedResponse()
     console.error('account deletion failed', error)
     return Response.json(
-      { error: 'We couldn’t delete your account. Nothing else will be changed until you try again.' },
+      { error: 'Account deletion did not finish. Billing or file removal may already have completed. Please retry to finish deleting your account, or contact hello@careerely.ai.' },
       { status: 500 },
     )
   }

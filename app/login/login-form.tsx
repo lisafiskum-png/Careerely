@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase/client'
 import { isValidEmail } from '../../lib/onboarding'
+import { authErrorMessage } from '../../lib/auth-errors'
 import s from '../../components/onboarding/onboarding.module.css'
 
 export function LoginForm({ next, notice }: { next: string; notice?: string }) {
@@ -20,17 +21,18 @@ export function LoginForm({ next, notice }: { next: string; notice?: string }) {
     if (!isValidEmail(email)) return setError('Please enter a valid email address.')
     if (!password) return setError('Please enter your password.')
     setPending(true)
-    const { error: signInError } = await createClient().auth.signInWithPassword({ email: email.trim(), password })
-    if (signInError) {
+    try {
+      const { error: signInError } = await createClient().auth.signInWithPassword({ email: email.trim(), password })
+      if (signInError) {
+        return setError(authErrorMessage(signInError, 'That email and password don’t match an account.'))
+      }
+      router.push(next)
+      router.refresh()
+    } catch (error) {
+      setError(authErrorMessage(error, 'Something went wrong. Please try again.'))
+    } finally {
       setPending(false)
-      return setError(
-        signInError.code === 'email_not_confirmed'
-          ? 'Please confirm your email first. Check your inbox for the confirmation link.'
-          : 'That email and password don’t match an account.',
-      )
     }
-    router.push(next)
-    router.refresh()
   }
 
   return (

@@ -5,6 +5,8 @@ export const dynamic = 'force-dynamic'
 /** Minimal, non-sensitive endpoint for uptime checks. */
 export async function GET() {
   const started = Date.now()
+  const deploymentSha = /^[a-f0-9]{40}$/.test(process.env.VERCEL_GIT_COMMIT_SHA ?? '')
+    ? process.env.VERCEL_GIT_COMMIT_SHA : null
   try {
     const admin = createAdminClient()
     const staleBefore = new Date(Date.now() - 15 * 60_000).toISOString()
@@ -30,13 +32,14 @@ export async function GET() {
         stale_search_runs: staleRunCount,
         expired_task_leases: expiredLeaseCount,
         latency_ms: Date.now() - started,
+        deployment_sha: deploymentSha,
       },
       { status: queueHealthy ? 200 : 503, headers: { 'Cache-Control': 'no-store' } },
     )
   } catch (err) {
     console.error('health check failed', { error: err instanceof Error ? err.message : 'Database unavailable' })
     return Response.json(
-      { status: 'degraded', database: 'unavailable' },
+      { status: 'degraded', database: 'unavailable', deployment_sha: deploymentSha },
       { status: 503, headers: { 'Cache-Control': 'no-store' } },
     )
   }

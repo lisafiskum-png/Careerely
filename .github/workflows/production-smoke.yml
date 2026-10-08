@@ -42,7 +42,9 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in $(seq 1 30); do
-            if curl --fail --silent --max-time 15 https://www.careerely.ai/api/health | jq -e '.queue == "ok"' >/dev/null \
+            if curl --fail --silent --max-time 15 https://www.careerely.ai/api/health \
+              | jq -e --arg sha "$GITHUB_SHA" --arg event "$GITHUB_EVENT_NAME" \
+                '.queue == "ok" and ($event != "push" or .deployment_sha == $sha)' >/dev/null \
               && curl --fail --silent --max-time 15 https://www.careerely.ai/terms | grep -q 'Terms of Service'; then
               exit 0
             fi
@@ -53,3 +55,13 @@ jobs:
 
       - name: Run mobile Chrome and Safari smoke tests
         run: npx playwright test --config=playwright.production.config.ts
+
+      - name: Keep browser verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-browser-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

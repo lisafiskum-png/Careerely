@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '../../lib/supabase/client'
+import { authErrorMessage } from '../../lib/auth-errors'
 import { MIN_PASSWORD_LENGTH } from '../../lib/onboarding'
 import { OnboardingShell } from '../../components/onboarding/shell'
 import s from '../../components/onboarding/onboarding.module.css'
@@ -19,7 +20,19 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => setHasSession(Boolean(data.user)))
+    let cancelled = false
+    Promise.resolve().then(() => createClient().auth.getUser()).then(({ data, error }) => {
+      if (cancelled) return
+      if (error && (!error.status || error.status >= 500)) {
+        setError(authErrorMessage(error, 'We couldn’t verify this link. Please try again.'))
+      }
+      setHasSession(Boolean(data.user))
+    }).catch(error => {
+      if (cancelled) return
+      setError(authErrorMessage(error, 'We couldn’t verify this link. Please try again.'))
+      setHasSession(false)
+    })
+    return () => { cancelled = true }
   }, [])
 
   async function submit(e: React.FormEvent) {
@@ -28,24 +41,31 @@ export default function ResetPasswordPage() {
     if (password.length < MIN_PASSWORD_LENGTH) return setError(`Your password needs at least ${MIN_PASSWORD_LENGTH} characters.`)
     if (password !== confirm) return setError('The two passwords don’t match.')
     setPending(true)
-    const { error: updateError } = await createClient().auth.updateUser({ password })
-    if (updateError) {
+    try {
+      const { error: updateError } = await createClient().auth.updateUser({ password })
+      if (updateError) {
+        return setError(authErrorMessage(updateError,
+          updateError.code === 'same_password' ? 'Choose a password you haven’t used before.' : updateError.message,
+        ))
+      }
+      // The update has already succeeded. Cleanup errors must not invite the
+      // user to repeat a password change that is now effective.
+      await createClient().auth.signOut({ scope: 'global' }).catch(() => undefined)
+      router.push('/login?notice=password_updated')
+    } catch (error) {
+      setError(authErrorMessage(error, 'Something went wrong. Please try again.'))
+    } finally {
       setPending(false)
-      return setError(
-        updateError.code === 'same_password' ? 'Choose a password you haven’t used before.' : updateError.message,
-      )
     }
-    // Sign out everywhere so the new password is required from now on.
-    await createClient().auth.signOut({ scope: 'global' })
-    router.push('/login?notice=password_updated')
   }
 
   return (
     <OnboardingShell>
       {hasSession === false ? (
         <div className={s.step}>
-          <h1>This link has expired</h1>
-          <p className={s.sub}>Password reset links can only be used once and expire after an hour.</p>
+          <h1>{error ? 'We couldn’t verify your link' : 'This link has expired'}</h1>
+          <p className={s.sub}>{error || 'Password reset links can only be used once and expire after an hour.'}</p>
+          {error && <button type="button" className={s.btnPrimary} onClick={() => window.location.reload()}>Try again</button>}
           <Link href="/forgot-password" className={s.textLink}>
             Request a new link
           </Link>
