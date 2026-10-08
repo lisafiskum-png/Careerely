@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 import type { ReactElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 
 const mocks = vi.hoisted(() => ({
   user: null as { id: string; email: string } | null,
@@ -37,7 +38,8 @@ vi.mock('../../app/(app)/_components/live-refresh', () => ({ LiveRefresh: () => 
 vi.mock('../../app/(app)/_components/top-nav', () => ({ TopNav: () => null }))
 
 import { proxy } from '../../proxy'
-import { GET } from '../../app/auth/confirm/route'
+import { GET, POST } from '../../app/auth/confirm/route'
+import EmailActionPage from '../../app/auth/email-action/page'
 import LoginPage from '../../app/login/page'
 import AppLayout from '../../app/(app)/layout'
 
@@ -133,5 +135,49 @@ describe('auth email destinations', () => {
     mocks.verifyOtp.mockResolvedValue({ error: new Error('expired') })
     const response = await GET(new NextRequest('https://careerely.test/auth/confirm?token_hash=expired&type=signup'))
     expect(response.headers.get('location')).toBe('https://careerely.test/login?notice=link_invalid')
+  })
+
+  it('does not consume recovery tokens when an email scanner opens the landing page', async () => {
+    const html = renderToStaticMarkup(await EmailActionPage({
+      searchParams: Promise.resolve({ token_hash: 'single-use-token', type: 'recovery', next: '/reset-password' }),
+    }))
+
+    expect(html).toContain('Continue to reset password')
+    expect(html).toContain('method="post"')
+    expect(html).toContain('action="/auth/confirm"')
+    expect(mocks.verifyOtp).not.toHaveBeenCalled()
+  })
+
+  it('consumes a recovery token only after the user submits the interstitial', async () => {
+    const response = await POST(new NextRequest('https://careerely.test/auth/confirm', {
+      method: 'POST',
+      body: new URLSearchParams({ token_hash: 'single-use-token', type: 'recovery', next: '/reset-password' }),
+    }))
+
+    expect(mocks.verifyOtp).toHaveBeenCalledWith({ token_hash: 'single-use-token', type: 'recovery' })
+    expect(response.status).toBe(303)
+    expect(response.headers.get('location')).toBe('https://careerely.test/reset-password')
+  })
+
+  it('confirms email through the same scanner-safe POST and keeps a safe destination', async () => {
+    const response = await POST(new NextRequest('https://careerely.test/auth/confirm', {
+      method: 'POST',
+      body: new URLSearchParams({ token_hash: 'single-use-token', type: 'email', next: '/onboarding/2' }),
+    }))
+
+    expect(mocks.verifyOtp).toHaveBeenCalledWith({ token_hash: 'single-use-token', type: 'email' })
+    expect(response.status).toBe(303)
+    expect(response.headers.get('location')).toBe('https://careerely.test/onboarding/2')
+  })
+
+  it('keeps invalid POSTed tokens on a recoverable email-link screen', async () => {
+    mocks.verifyOtp.mockResolvedValue({ error: new Error('expired') })
+    const response = await POST(new NextRequest('https://careerely.test/auth/confirm', {
+      method: 'POST',
+      body: new URLSearchParams({ token_hash: 'expired', type: 'recovery' }),
+    }))
+
+    expect(response.status).toBe(303)
+    expect(response.headers.get('location')).toBe('https://careerely.test/auth/email-action?error=link_invalid&type=recovery')
   })
 })
