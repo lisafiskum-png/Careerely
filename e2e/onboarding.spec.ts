@@ -7,8 +7,9 @@ import path from 'node:path'
 import { LOCAL_SERVICE_ROLE_KEY, LOCAL_SUPABASE_URL } from '../playwright.config'
 
 // Complete onboarding journey against the real app:
-// signup → email confirmation → resume upload/parse/review → preferences →
-// "Find my matches" → checkout → first search → dashboard, plus password reset.
+// signup → resume upload/parse/review → preferences → checkout → first search
+// → dashboard, plus password reset. Signup email is deliberately deferred until
+// Stripe payment succeeds.
 
 const MAILPIT = 'http://127.0.0.1:54324'
 const admin = createClient(LOCAL_SUPABASE_URL, LOCAL_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
@@ -59,7 +60,7 @@ async function signIn(page: Page, pass: string) {
 }
 
 test.describe.serial('onboarding', () => {
-  test('Step 1: sign up, then confirm the email', async ({ page }) => {
+  test('Step 1: sign up and continue without an early confirmation email', async ({ page }) => {
     await page.goto('/signup?plan=pro')
     await expect(page.getByText('Step 1 of 3')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible()
@@ -76,8 +77,7 @@ test.describe.serial('onboarding', () => {
     await page.getByRole('button', { name: 'Got it' }).click()
     await page.getByLabel(/I agree to the/).check()
     await continueButton.click()
-
-    await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
+    await expect(page).toHaveURL(/\/onboarding\/2$/)
 
     const { data: users } = await admin.auth.admin.listUsers()
     userId = users.users.find(u => u.email === email)!.id
@@ -85,13 +85,9 @@ test.describe.serial('onboarding', () => {
     expect(profile).toMatchObject({ first_name: 'Lisa', last_name: 'Fiskum', selected_plan: 'pro' })
     expect(profile.terms_accepted_at).not.toBeNull()
 
-    // Signed-out users cannot reach onboarding.
-    await page.goto('/onboarding/3')
-    await expect(page).toHaveURL(/\/login\?next=%2Fonboarding%2F3/)
-
-    // The confirmation link signs the user in and continues onboarding.
-    await page.goto(await latestEmailLink(email, /Confirm your Careerely account/))
-    await expect(page).toHaveURL(/\/onboarding\/2$/)
+    const earlyMail = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:"${email}"`)}`)
+    const { messages } = (await earlyMail.json()) as { messages: { Subject: string }[] }
+    expect(messages.some(message => /Confirm your Careerely account/.test(message.Subject))).toBe(false)
   })
 
   test('Step 2: upload, parse and review the resume', async ({ page, request }) => {

@@ -2,6 +2,7 @@ import { createAdminClient } from '../../../lib/supabase/admin'
 import { getStripe } from '../../../lib/stripe'
 import { syncSubscription } from '../../../lib/billing-sync'
 import { env } from '../../../lib/env'
+import { sendSubscriptionConfirmation } from '../../../lib/subscription-confirmation'
 
 // Stripe is the only writer of billing state (public.subscriptions).
 // Events are verified, processed idempotently, and always re-read from Stripe so
@@ -39,6 +40,16 @@ export async function POST(request) {
       if (session.mode === 'subscription' && session.subscription) {
         const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription.id
         await syncSubscription(admin, stripe, subscriptionId, session.client_reference_id)
+        const userId = session.client_reference_id
+        if (!userId) throw new Error(`Checkout Session ${session.id} has no Careerely user`)
+        const { data: subscription, error: subscriptionError } = await admin
+          .from('subscriptions')
+          .select('plan, current_period_end')
+          .eq('user_id', userId)
+          .single()
+        if (subscriptionError) throw subscriptionError
+        if (!subscription.plan) throw new Error(`Checkout Session ${session.id} has no active plan`)
+        await sendSubscriptionConfirmation(admin, userId, subscription.plan, subscription.current_period_end)
       }
     } else if (SUBSCRIPTION_EVENTS.has(event.type)) {
       const subscription = event.data.object

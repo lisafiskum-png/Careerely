@@ -15,6 +15,7 @@ export const env = {
   supabaseServiceRoleKey: () => required('SUPABASE_SERVICE_ROLE_KEY'),
   stripeSecretKey: () => required('STRIPE_SECRET_KEY'),
   stripeWebhookSecret: () => required('STRIPE_WEBHOOK_SECRET'),
+  resendApiKey: () => required('RESEND_API_KEY'),
   anthropicApiKey: () => required('ANTHROPIC_API_KEY'),
   appUrl: () => process.env.NEXT_PUBLIC_APP_URL || 'https://careerely.ai',
 }
