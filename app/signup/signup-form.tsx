@@ -6,7 +6,7 @@ import { authErrorMessage } from '../../lib/auth-errors'
 import { isValidEmail, MIN_PASSWORD_LENGTH, splitFullName } from '../../lib/onboarding'
 import type { PlanId } from '../../lib/plans'
 import { LegalModal, type LegalKind } from '../../components/onboarding/legal-modal'
-import { CheckIcon, ProgressDots } from '../../components/onboarding/shell'
+import { ProgressDots } from '../../components/onboarding/shell'
 import s from '../../components/onboarding/onboarding.module.css'
 
 // Step 1 — Account creation (design/onboarding-step1-step2-final.html, LOCKED).
@@ -20,14 +20,11 @@ export function SignupForm({ selectedPlan, initialEmail = '' }: { selectedPlan: 
   const [legal, setLegal] = useState<LegalKind | null>(null)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
-  const [sentTo, setSentTo] = useState<string | null>(null)
-  const [resent, setResent] = useState(false)
-  const [resending, setResending] = useState(false)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    const { first, last } = splitFullName(name)
+    const { first } = splitFullName(name)
     if (!first) return setError('Please enter your name.')
     if (!isValidEmail(email)) return setError('Please enter a valid email address.')
     if (password.length < MIN_PASSWORD_LENGTH) return setError(`Your password needs at least ${MIN_PASSWORD_LENGTH} characters.`)
@@ -35,71 +32,29 @@ export function SignupForm({ selectedPlan, initialEmail = '' }: { selectedPlan: 
 
     setPending(true)
     try {
-      const { data, error: signUpError } = await createClient().auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/confirm?next=/onboarding/2`,
-          data: {
-            first_name: first,
-            last_name: last,
-            terms_accepted: 'true',
-            ...(selectedPlan ? { selected_plan: selectedPlan } : {}),
-          },
-        },
+      const normalizedEmail = email.trim().toLowerCase()
+      const response = await fetch('/api/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email: normalizedEmail, password, selectedPlan, agreed: true }),
       })
-      if (signUpError) return setError(authErrorMessage(signUpError, signUpError.message))
-      if (data.session) {
-        router.push('/onboarding/2')
-        router.refresh()
-        return
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) return setError(result.error || 'We couldn’t create your account. Please try again.')
+
+      const { error: signInError } = await createClient().auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      })
+      if (signInError) {
+        return setError('Your account was created, but we couldn’t continue automatically. Please use Log in.')
       }
-      // Email confirmation is required before the account can be used.
-      setSentTo(email.trim())
+      router.push('/onboarding/2')
+      router.refresh()
     } catch (error) {
       setError(authErrorMessage(error, 'Something went wrong. Please try again.'))
     } finally {
       setPending(false)
     }
-  }
-
-  async function resend() {
-    if (!sentTo || resending || resent) return
-    setError('')
-    setResending(true)
-    try {
-      const { error: resendError } = await createClient().auth.resend({
-        type: 'signup',
-        email: sentTo,
-        options: { emailRedirectTo: `${window.location.origin}/auth/confirm?next=/onboarding/2` },
-      })
-      if (resendError) setError(authErrorMessage(resendError, 'We couldn’t resend the email. Please try again.'))
-      else setResent(true)
-    } catch (error) {
-      setError(authErrorMessage(error, 'We couldn’t resend the email. Please try again.'))
-    } finally {
-      setResending(false)
-    }
-  }
-
-  if (sentTo) {
-    return (
-      <div className={`${s.step} ${s.centered}`}>
-        <div className={s.successIcon}>
-          <CheckIcon />
-        </div>
-        <h1>Check your email</h1>
-        <p className={s.sub} style={{ maxWidth: 360, margin: '12px auto 32px' }}>
-          We sent a confirmation link to <strong>{sentTo}</strong>. Open it to continue setting up your account.
-        </p>
-        <button type="button" className={s.textLink} onClick={resend} disabled={resent || resending}>
-          {resent ? 'Sent again' : resending ? 'Sending…' : 'Resend the email'}
-        </button>
-        <p className={s.error} role="alert">
-          {error}
-        </p>
-      </div>
-    )
   }
 
   return (

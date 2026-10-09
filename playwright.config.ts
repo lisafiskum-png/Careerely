@@ -39,7 +39,9 @@ export default defineConfig({
     { command: 'node e2e/mock-anthropic.mjs', port: 4010, reuseExistingServer: true },
     {
       // NEXT_PUBLIC_* values are inlined at build time, so build with the local env.
-      command: 'npx next build && npx next start -p 3000',
+      // Bind explicitly so constrained CI/container runtimes do not need to
+      // enumerate host network interfaces just to print a LAN address.
+      command: 'npx next build && npx next start -H 127.0.0.1 -p 3000',
       port: 3000,
       timeout: 300_000,
       reuseExistingServer: true,
