@@ -34,12 +34,14 @@ export function ResumeStep({ userId, draft }: { userId: string; draft: Resume | 
   const [fileName, setFileName] = useState('')
   const [drag, setDrag] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [resume, setResume] = useState<Resume | null>(draft)
   const [saving, setSaving] = useState(false)
 
   async function handleFile(file: File | undefined) {
     if (!file) return
     setError('')
+    setNotice('')
     if (file.size > MAX_BYTES) return setError('This file is over 10MB. Try a smaller version.')
     if (!ALLOWED_TYPES.includes(file.type) && !/\.(pdf|doc|docx)$/i.test(file.name)) {
       return setError('We only accept PDF, DOC, or DOCX files.')
@@ -62,6 +64,7 @@ export function ResumeStep({ userId, draft }: { userId: string; draft: Resume | 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'We couldn’t read your resume.')
       setResume(data.resume)
+      setNotice(typeof data.warning === 'string' ? data.warning : '')
       setPhase('parsed')
     } catch (err) {
       setPhase('upload')
@@ -73,6 +76,7 @@ export function ResumeStep({ userId, draft }: { userId: string; draft: Resume | 
     if (inputRef.current) inputRef.current.value = ''
     setFileName('')
     setError('')
+    setNotice('')
     setResume(draft)
     setPhase('upload')
   }
@@ -112,6 +116,7 @@ export function ResumeStep({ userId, draft }: { userId: string; draft: Resume | 
             We’ve read your resume. Correct anything we got wrong — Careerely uses this to tailor every application.
           </p>
           <ResumeReview resume={resume} onChange={setResume} />
+          {notice && <p className={s.notice} role="status">{notice}</p>}
           <button type="button" className={s.btnPrimary} onClick={confirm} disabled={saving}>
             {saving ? 'Saving…' : 'Continue'}
           </button>
