@@ -17,10 +17,10 @@ beforeEach(() => {
 })
 
 describe('production health', () => {
-  it('identifies the exact healthy deployment without caching', async () => {
+  it('identifies the exact healthy deployment with a short shared cache', async () => {
     const response = await GET()
     expect(response.status).toBe(200)
-    expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(response.headers.get('cache-control')).toBe('public, s-maxage=60, stale-while-revalidate=300')
     expect(await response.json()).toMatchObject({ status: 'ok', queue: 'ok', deployment_sha: 'a'.repeat(40) })
   })
   it.each([1, 2, 3])('reports a backlog, stale search or expired lease as degraded: %s', async index => {

@@ -42,7 +42,10 @@ export const SOURCE_REFRESH_INTERVAL_MINUTES = 6 * 60
 export const SOURCE_REFRESH_CYCLES = SOURCE_REFRESH_INTERVAL_MINUTES / MARKET_CYCLE_MINUTES
 /** Leave the first minute of a cycle free for user-facing scan/prep work. */
 export const SOURCE_REFRESH_DELAY_MS = 60_000
-export const AI_FAILURE_COOLDOWN_MS = 30 * 60_000
+/** A provider/account configuration error must not create fresh paid work every cycle. */
+export const AI_FAILURE_COOLDOWN_MS = 24 * 60 * 60_000
+/** Direct sources refresh every six hours, so a full background rescan need not run more often. */
+export const SEARCH_SCAN_INTERVAL_CYCLES = SOURCE_REFRESH_CYCLES
 
 /** Shared across workers/deployments; failed queue rows are the cooldown record. */
 export async function preparationBlockedUntil(admin: SupabaseClient, now = new Date()): Promise<string | null> {
@@ -213,30 +216,36 @@ async function enqueueScheduledSyncs(admin: SupabaseClient, cycle: string, runAf
  */
 async function runMarketCycle(admin: SupabaseClient, task: Task) {
   const cycle = typeof task.payload.cycle === 'string' ? task.payload.cycle : marketCycleKey(new Date())
-  const { data: searches, error } = await admin.from('searches').select('id, user_id').eq('status', 'active')
-  if (error) throw error
+  const cycleNumber = Number.parseInt(cycle, 10)
+  const scheduledScan = Number.isFinite(cycleNumber) && cycleNumber % SEARCH_SCAN_INTERVAL_CYCLES === 0
   const discoverySlot = globalDiscoverySlot()
   const discoveryOn = globalDiscoveryEnabled()
 
-  for (const s of searches ?? []) {
-    const { data: access, error: accessError } = await admin.rpc('has_active_access', { uid: s.user_id })
-    if (accessError) throw accessError
-    if (!access) continue
-    await enqueue(admin, {
-      kind: 'scan_search',
-      dedupe_key: `scan:${s.id}:cycle:${cycle}`,
-      user_id: s.user_id,
-      search_id: s.id,
-      payload: { phase: 'start', trigger: 'continuous', cycle },
-    })
-    if (discoveryOn) {
-      await enqueue(admin, {
-        kind: 'discover_search',
-        dedupe_key: `discover:${s.id}:${discoverySlot}`,
-        user_id: s.user_id,
-        search_id: s.id,
-        payload: { discovery_slot: discoverySlot },
-      })
+  if (scheduledScan || discoveryOn) {
+    const { data: searches, error } = await admin.from('searches').select('id, user_id').eq('status', 'active')
+    if (error) throw error
+    for (const s of searches ?? []) {
+      const { data: access, error: accessError } = await admin.rpc('has_active_access', { uid: s.user_id })
+      if (accessError) throw accessError
+      if (!access) continue
+      if (scheduledScan) {
+        await enqueue(admin, {
+          kind: 'scan_search',
+          dedupe_key: `scan:${s.id}:cycle:${cycle}`,
+          user_id: s.user_id,
+          search_id: s.id,
+          payload: { phase: 'start', trigger: 'continuous', cycle },
+        })
+      }
+      if (discoveryOn) {
+        await enqueue(admin, {
+          kind: 'discover_search',
+          dedupe_key: `discover:${s.id}:${discoverySlot}`,
+          user_id: s.user_id,
+          search_id: s.id,
+          payload: { discovery_slot: discoverySlot },
+        })
+      }
     }
   }
   await enqueueScheduledSyncs(admin, cycle, new Date(Date.now() + SOURCE_REFRESH_DELAY_MS))
