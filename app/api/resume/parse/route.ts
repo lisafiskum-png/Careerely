@@ -4,6 +4,7 @@ import { createClient } from '../../../../lib/supabase/server'
 import { createAdminClient } from '../../../../lib/supabase/admin'
 import { detectResumeKind, extractResumeText, MAX_RESUME_BYTES } from '../../../../lib/resume/extract'
 import { parseResume, ResumeParseError } from '../../../../lib/resume/parse'
+import { parseResumeFallback } from '../../../../lib/resume/fallback'
 import { claimUsage } from '../../../../lib/usage'
 
 export const maxDuration = 60
@@ -58,7 +59,19 @@ export async function POST(request: Request) {
       )
     }
 
-    const result = await parseResume({ text, pdf: kind === 'pdf' ? bytes : undefined })
+    let result
+    let degraded = false
+    try {
+      result = await parseResume({ text, pdf: kind === 'pdf' ? bytes : undefined })
+    } catch (err) {
+      // A text-based resume must never strand a new customer because the AI
+      // provider is out of credits or temporarily unavailable. Extract what we
+      // can locally and require the candidate to review it before continuing.
+      if (!(err instanceof ResumeParseError) || text.length < 200) throw err
+      console.warn('resume parse: using deterministic fallback')
+      result = parseResumeFallback(text)
+      degraded = true
+    }
 
     const { error: saveError } = await admin.from('career_profiles').upsert(
       {
@@ -74,7 +87,11 @@ export async function POST(request: Request) {
     )
     if (saveError) throw saveError
 
-    return Response.json({ resume: result.resume, suggestions: result.suggestions })
+    return Response.json({
+      resume: result.resume,
+      suggestions: result.suggestions,
+      warning: degraded ? 'We extracted your resume without AI. Please check the details carefully before continuing.' : undefined,
+    })
   } catch (err) {
     if (err instanceof UnauthorizedError) return unauthorizedResponse()
     if (err instanceof ResumeParseError) return Response.json({ error: err.message }, { status: 502 })
