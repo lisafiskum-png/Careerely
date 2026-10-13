@@ -5,6 +5,7 @@ import { normalizeResume, normalizeSuggestions, type Resume } from '../../lib/re
 
 vi.mock('server-only', () => ({}))
 const { detectResumeKind, extractResumeText, normalizeWhitespace } = await import('../../lib/resume/extract')
+const { parseResumeFallback } = await import('../../lib/resume/fallback')
 
 const base: Resume = {
   full_name: ' Lisa Fiskum ',
@@ -87,5 +88,79 @@ describe('resume files', () => {
 
   it('normalises whitespace', () => {
     expect(normalizeWhitespace('a  \t b\r\n\r\n\r\n\nc ')).toBe('a b\n\nc')
+  })
+})
+
+describe('degraded resume parsing', () => {
+  it('keeps onboarding usable and extracts only facts present in a text resume', () => {
+    const parsed = parseResumeFallback(`JOHN BERG
+Oslo, Norway
+john.berg@example.com
++47 900 00 000
+HR ADVISOR · PEOPLE OPERATIONS
+
+PROFILE
+People-focused HR professional with seven years of experience.
+
+CORE EXPERTISE
+Recruitment & selection
+Employee relations
+HRIS administration
+
+PROFESSIONAL EXPERIENCE
+HR Advisor | Northline Technologies
+2023–Present
+Oslo, Norway
+Advise managers on recruitment, performance and employee relations.
+Built monthly people dashboards for leadership reviews.
+
+HR Coordinator | Fjord Retail Group
+2020–2023
+Oslo, Norway
+Managed contracts, personnel records and HRIS updates.
+
+EDUCATION & CERTIFICATIONS
+BI Norwegian Business School | 2015–2018
+BSc Human Resource Management
+HR Norge | 2022
+Employment Law for HR Professionals
+
+SYSTEMS & LANGUAGES
+Systems: Workday, Teamtailor, Power BI
+Languages: Norwegian (native), English (professional)`)
+
+    expect(parsed.resume.full_name).toBe('JOHN BERG')
+    expect(parsed.resume.email).toBe('john.berg@example.com')
+    expect(parsed.resume.phone).toBe('+47 900 00 000')
+    expect(parsed.resume.headline).toBe('HR ADVISOR · PEOPLE OPERATIONS')
+    expect(parsed.resume.experience).toHaveLength(2)
+    expect(parsed.resume.experience[0]).toMatchObject({
+      title: 'HR Advisor', company: 'Northline Technologies', start: '2023', current: true,
+    })
+    expect(parsed.resume.education[0]).toMatchObject({ institution: 'BI Norwegian Business School' })
+    expect(parsed.resume.certifications[0]).toContain('Employment Law for HR Professionals')
+    expect(parsed.resume.skills).toContain('HRIS administration')
+    expect(parsed.resume.languages).toEqual(['Norwegian (native)', 'English (professional)'])
+    expect(parsed.suggestions.industries).toContain('Human Resources')
+  })
+
+  it('repairs an email address wrapped before the top-level domain', () => {
+    const parsed = parseResumeFallback(`JANE DOE
+jane.doe@example
+.com
+MARKETING MANAGER
+
+PROFILE
+Marketing professional with experience in brand campaigns and analytics.
+
+SKILLS
+Campaign management
+Brand strategy
+
+EXPERIENCE
+Marketing Manager | Example Company
+2022–Present
+Led integrated brand campaigns across digital channels.`)
+    expect(parsed.resume.email).toBe('jane.doe@example.com')
   })
 })
