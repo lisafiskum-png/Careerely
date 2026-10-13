@@ -24,23 +24,30 @@ import { goalEvidence, primaryEvidence, verifyEvaluation, type VerifiedEvaluatio
 export const CANDIDATE_MAX_AGE_DAYS = 45
 /** Full AI evaluations per search per scan (cost control); the rest stay in the pool. */
 export const EVALUATIONS_PER_SCAN = 20
+/** Fetch descriptions only for the strongest deterministic candidates. */
+export const EVALUATION_PRESELECT_PER_SCAN = 100
 export const EVALUATION_BATCH = 5
 /** Eligible-but-not-selected roles may compete again after this cooldown. */
 export const NOT_SELECTED_RECHECK_MS = 24 * 60 * 60_000
 /** Transient AI failures cool down before another paid attempt. */
-export const FAILED_EVALUATION_RECHECK_MS = 30 * 60_000
+export const FAILED_EVALUATION_RECHECK_MS = 24 * 60 * 60_000
 
 export type JobRow = CandidateJob & {
   description: string | null
   posted_at: string | null
   salary_min: number | null
+  content_hash: string | null
 }
 
-export const JOB_COLUMNS = 'id, title, company, location, work_style, salary_min, salary_max, salary_currency, is_active, dedupe_key, description, posted_at'
+export const JOB_METADATA_COLUMNS = 'id, title, company, location, work_style, salary_min, salary_max, salary_currency, is_active, dedupe_key, posted_at, content_hash'
+export const JOB_COLUMNS = `${JOB_METADATA_COLUMNS}, description`
 
 /** Fingerprint of everything an evaluation sees: resume, search preferences, posting. */
 export function evaluationInputsHash(ctx: Pick<SearchContext, 'resumeCorpus' | 'preferencesText'>, job: Parameters<typeof jobDocument>[0]): string {
-  return createHash('sha256').update(ctx.resumeCorpus).update('\u0000').update(ctx.preferencesText).update('\u0000').update(jobDocument(job)).digest('hex')
+  const contentHash = 'content_hash' in job && typeof job.content_hash === 'string' && job.content_hash
+    ? `content-hash:${job.content_hash}`
+    : jobDocument(job)
+  return createHash('sha256').update(ctx.resumeCorpus).update('\u0000').update(ctx.preferencesText).update('\u0000').update(contentHash).digest('hex')
 }
 
 async function logRejections(
@@ -127,8 +134,8 @@ export async function startScan(admin: SupabaseClient, searchId: string, now = n
   try {
   const since = new Date(now.getTime() - CANDIDATE_MAX_AGE_DAYS * 86_400_000).toISOString()
   const [pool, rejected, existing, previousRows] = await Promise.all([
-    allRows<JobRow>((a, b) =>
-      admin.from('jobs').select(JOB_COLUMNS).eq('is_active', true).gte('first_seen_at', since).order('first_seen_at', { ascending: false }).range(a, b),
+    allRows<Omit<JobRow, 'description'>>((a, b) =>
+      admin.from('jobs').select(JOB_METADATA_COLUMNS).eq('is_active', true).gte('first_seen_at', since).order('first_seen_at', { ascending: false }).range(a, b),
     ),
     allRows<{ job_id: string }>((a, b) => admin.from('rejections').select('job_id').eq('search_id', searchId).range(a, b)),
     allRows<{ job_id: string; jobs: { dedupe_key: string | null } | null }>((a, b) =>
@@ -151,13 +158,13 @@ export async function startScan(admin: SupabaseClient, searchId: string, now = n
   const hashes = new Map<string, string>()
   const candidates = pool.filter(j => {
     if (done.has(j.id)) return false
-    const hash = evaluationInputsHash(ctx, j)
+    const hash = evaluationInputsHash(ctx, { ...j, description: null })
     hashes.set(j.id, hash)
     return shouldReevaluate(previous.get(j.id), hash, now)
   })
 
   const rejections: Parameters<typeof logRejections>[1] = []
-  const survivors: JobRow[] = []
+  const survivors: Omit<JobRow, 'description'>[] = []
   for (const job of candidates) {
     const result = hardFilter(job, ctx.prefs, seenDedupe, now)
     if (job.dedupe_key) seenDedupe.add(job.dedupe_key)
@@ -176,7 +183,18 @@ export async function startScan(admin: SupabaseClient, searchId: string, now = n
   }
   await logRejections(admin, rejections)
 
-  const picked = survivors
+  const preselected = survivors
+    .map(job => ({ job, score: relevance(job, ctx.prefs, now) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, EVALUATION_PRESELECT_PER_SCAN)
+  const detailed: JobRow[] = []
+  for (let i = 0; i < preselected.length; i += 100) {
+    const ids = preselected.slice(i, i + 100).map(item => item.job.id)
+    const { data, error } = await admin.from('jobs').select(JOB_COLUMNS).in('id', ids)
+    if (error) throw error
+    detailed.push(...((data ?? []) as JobRow[]))
+  }
+  const picked = detailed
     .map(job => ({ job, score: relevance(job, ctx.prefs, now) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, EVALUATIONS_PER_SCAN)
@@ -432,14 +450,14 @@ export async function finalizeRun(admin: SupabaseClient, runId: string): Promise
   // became opportunities/rejections are no longer needed; retained cooldown
   // outcomes carry the latest inputs hash and timestamp.
   await admin.from('candidate_evaluations').delete().eq('run_id', runId).eq('status', 'evaluated')
-  const settled = (rows ?? []).filter(r => r.status === 'evaluated').map(r => r.job_id as string)
-  for (let i = 0; i < settled.length; i += 200) {
+  const touched = [...new Set((rows ?? []).map(r => r.job_id as string))]
+  for (let i = 0; i < touched.length; i += 200) {
     await admin
       .from('candidate_evaluations')
       .delete()
       .eq('search_id', run.search_id)
       .neq('run_id', runId)
-      .in('job_id', settled.slice(i, i + 200))
+      .in('job_id', touched.slice(i, i + 200))
   }
   if (created.length) {
     await admin.from('activity').insert({ user_id: run.user_id, kind: 'opportunities_shortlisted', payload: { count: created.length, run_id: runId } })
