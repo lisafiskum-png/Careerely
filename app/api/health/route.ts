@@ -39,8 +39,19 @@ export async function GET() {
   } catch (err) {
     console.error('health check failed', { error: err instanceof Error ? err.message : 'Database unavailable' })
     return Response.json(
-      { status: 'degraded', database: 'unavailable', deployment_sha: deploymentSha },
-      { status: 503, headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' } },
+      {
+        status: 'degraded',
+        code: 'database_unavailable',
+        database: 'unavailable',
+        deployment_sha: deploymentSha,
+      },
+      {
+        status: 503,
+        headers: {
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+          'Retry-After': '60',
+        },
+      },
     )
   }
 }
