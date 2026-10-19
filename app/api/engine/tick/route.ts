@@ -25,6 +25,12 @@ export async function GET(request: Request) {
     return Response.json(result)
   } catch (err) {
     console.error('engine tick failed', { error: errorMessage(err) })
-    return Response.json({ error: 'Engine tick failed' }, { status: 500 })
+    // A failed scheduler tick is a temporary service failure, not an invalid
+    // request. Keep the public response non-sensitive while giving Cron and
+    // uptime monitors a stable code and retry hint they can act on.
+    return Response.json(
+      { error: 'Engine tick unavailable', code: 'engine_unavailable' },
+      { status: 503, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } },
+    )
   }
 }
