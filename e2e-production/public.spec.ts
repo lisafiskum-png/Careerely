@@ -31,3 +31,21 @@ test('legal pages and production health are available', async ({ page, request }
   expect(response.status()).toBe(200)
   await expect(response.json()).resolves.toMatchObject({ status: 'ok', database: 'ok', queue: 'ok' })
 })
+
+test('public discovery metadata does not expose private app routes', async ({ request }) => {
+  const robots = await request.get('/robots.txt')
+  expect(robots.ok()).toBe(true)
+  const robotsText = await robots.text()
+  expect(robotsText).toContain('Disallow: /dashboard')
+  expect(robotsText).toContain('Sitemap: https://www.careerely.ai/sitemap.xml')
+
+  const sitemap = await request.get('/sitemap.xml')
+  expect(sitemap.ok()).toBe(true)
+  const xml = await sitemap.text()
+  expect(xml).toContain('<loc>https://www.careerely.ai</loc>')
+  expect(xml).not.toContain('/dashboard')
+
+  const manifest = await request.get('/manifest.webmanifest')
+  expect(manifest.ok()).toBe(true)
+  await expect(manifest.json()).resolves.toMatchObject({ name: 'Careerely', start_url: '/' })
+})
