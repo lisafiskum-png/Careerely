@@ -188,7 +188,10 @@ export default function Home() {
               <Link href="/privacy">Privacy</Link>
             </div>
             <SocialLinks />
-            <span className={s.footCopy}>© {new Date().getFullYear()} Careerely</span>
+            <span className={s.footCopy}>
+              <span>© {new Date().getFullYear()} Careerely</span>
+              <span>All rights reserved.</span>
+            </span>
           </div>
         </div>
       </footer>
