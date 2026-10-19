@@ -30,6 +30,10 @@ describe('V1 job sources', () => {
       salary_currency: 'EUR',
     })
     expect(bd.description).toContain("Grow Stripe's payments partnerships")
+    expect(bd.content_hash).toMatch(/^[a-f0-9]{32}$/)
+    const changed = structuredClone(fixture('greenhouse'))
+    changed.jobs[0].content += '<p>New requirement</p>'
+    expect(parseGreenhouse({ provider: 'greenhouse', slug: 'stripe', company: 'Stripe' }, changed)[0].content_hash).not.toBe(bd.content_hash)
     expect(bd.requirements).toEqual([
       '5+ years in business development or partnerships',
       'Experience with AML or financial compliance',
