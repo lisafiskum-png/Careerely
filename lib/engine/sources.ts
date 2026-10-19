@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type { WorkStyle } from './schema'
 import type { AtsProvider, CompanyBoard } from './companies'
 import { htmlToText, normalizeForMatch } from './text'
@@ -21,6 +22,7 @@ export type NormalizedJob = {
   salary_currency: string | null
   posted_at: string | null
   dedupe_key: string
+  content_hash: string
 }
 
 type Fetch = typeof fetch
@@ -295,7 +297,7 @@ export function parseAshby(board: CompanyBoard, data: unknown): NormalizedJob[] 
 
 function finalize(
   board: CompanyBoard,
-  job: Omit<NormalizedJob, 'source' | 'company' | 'company_slug' | 'requirements' | 'dedupe_key'>,
+  job: Omit<NormalizedJob, 'source' | 'company' | 'company_slug' | 'requirements' | 'dedupe_key' | 'content_hash'>,
 ): NormalizedJob {
   return {
     ...job,
@@ -304,6 +306,9 @@ function finalize(
     company_slug: board.slug,
     requirements: extractRequirements(job.description),
     dedupe_key: dedupeKey(board.company, job.title, job.location),
+    // Not security-sensitive: this is a compact change detector used to avoid
+    // transferring every large description during every search scan.
+    content_hash: createHash('md5').update(job.description).digest('hex'),
   }
 }
 
