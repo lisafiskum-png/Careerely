@@ -4,7 +4,7 @@ test('public customer entry points work without horizontal overflow', async ({ p
   await page.goto('/')
   await expect(page.getByRole('heading', { name: /Career growth,\s*powered by AI/ })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login')
-  await expect(page.getByRole('link', { name: 'hello@careerely.ai' })).toHaveAttribute('href', 'mailto:hello@careerely.ai')
+  await expect(page.getByRole('link', { name: 'Contact us' })).toHaveAttribute('href', 'mailto:hello@careerely.ai')
   await expect(page.getByText('All rights reserved.', { exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Terms' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible()
