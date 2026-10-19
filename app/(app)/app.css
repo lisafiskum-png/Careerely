@@ -99,7 +99,7 @@
   & .app-footer-social { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink4); transition: color .14s }
   & a.app-footer-social:hover { color: var(--ink) }
   & .app-footer-social-pending { color: var(--ink5) }
-  & .app-footer-copy { font-size: 12px; color: var(--ink5); white-space: nowrap }
+  & .app-footer-copy { display: flex; flex-direction: column; font-size: 12px; line-height: 1.45; color: var(--ink5); white-space: nowrap }
   & .app-footer a:focus-visible { outline: 2px solid var(--pu); outline-offset: 4px; border-radius: 2px }
 
   /* added: read-only account notice */

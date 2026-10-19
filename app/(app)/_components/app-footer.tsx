@@ -19,7 +19,10 @@ export function AppFooter() {
           linkClassName="app-footer-social"
           pendingClassName="app-footer-social app-footer-social-pending"
         />
-        <span className="app-footer-copy">© {new Date().getFullYear()} Careerely</span>
+        <span className="app-footer-copy">
+          <span>© {new Date().getFullYear()} Careerely</span>
+          <span>All rights reserved.</span>
+        </span>
       </div>
     </footer>
   )
