@@ -44,10 +44,10 @@ export const JOB_COLUMNS = `${JOB_METADATA_COLUMNS}, description`
 
 /** Fingerprint of everything an evaluation sees: resume, search preferences, posting. */
 export function evaluationInputsHash(ctx: Pick<SearchContext, 'resumeCorpus' | 'preferencesText'>, job: Parameters<typeof jobDocument>[0]): string {
-  const contentHash = 'content_hash' in job && typeof job.content_hash === 'string' && job.content_hash
-    ? `content-hash:${job.content_hash}`
+  const posting = 'content_hash' in job && typeof job.content_hash === 'string' && job.content_hash
+    ? `${jobDocument({ ...job, description: null })}\nContent hash: ${job.content_hash}`
     : jobDocument(job)
-  return createHash('sha256').update(ctx.resumeCorpus).update('\u0000').update(ctx.preferencesText).update('\u0000').update(contentHash).digest('hex')
+  return createHash('sha256').update(ctx.resumeCorpus).update('\u0000').update(ctx.preferencesText).update('\u0000').update(posting).digest('hex')
 }
 
 async function logRejections(
