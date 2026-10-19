@@ -183,7 +183,7 @@ export default function Home() {
             </span>
             <div className={s.footLinks}>
               <a href="#faq">FAQ</a>
-              <a href="mailto:hello@careerely.ai">hello@careerely.ai</a>
+              <a href="mailto:hello@careerely.ai">Contact us</a>
               <Link href="/terms">Terms</Link>
               <Link href="/privacy">Privacy</Link>
             </div>
