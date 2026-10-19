@@ -36,7 +36,13 @@ describe('production health', () => {
     try {
       const response = await GET()
       expect(response.status).toBe(503)
-      expect(await response.json()).toEqual({ status: 'degraded', database: 'unavailable', deployment_sha: null })
+      expect(response.headers.get('retry-after')).toBe('60')
+      expect(await response.json()).toEqual({
+        status: 'degraded',
+        code: 'database_unavailable',
+        database: 'unavailable',
+        deployment_sha: null,
+      })
     } finally { log.mockRestore() }
   })
 })
