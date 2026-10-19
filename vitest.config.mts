@@ -11,8 +11,9 @@ export default defineConfig({
     environment: 'node',
     testTimeout: 30_000,
     // PGlite applies the full migration history in beforeAll hooks. On a busy
-    // CI runner that setup can exceed Vitest's 10 s default even though the
-    // individual database tests are healthy.
-    hookTimeout: 30_000,
+    // CI runner that setup can exceed Vitest's default even though the
+    // individual database tests are healthy. The migration history grows over
+    // time, so keep enough headroom to avoid flaky launch-gate failures.
+    hookTimeout: 60_000,
   },
 })
