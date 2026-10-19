@@ -10,6 +10,7 @@ export function AppFooter() {
         </Link>
         <nav className="app-footer-links" aria-label="Footer">
           <Link href="/#faq">FAQ</Link>
+          <a href="mailto:hello@careerely.ai">hello@careerely.ai</a>
           <Link href="/terms">Terms</Link>
           <Link href="/privacy">Privacy</Link>
         </nav>
