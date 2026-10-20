@@ -49,7 +49,7 @@ export async function POST(request) {
           .single()
         if (subscriptionError) throw subscriptionError
         if (!subscription.plan) throw new Error(`Checkout Session ${session.id} has no active plan`)
-        await sendSubscriptionConfirmation(admin, userId, subscription.plan, subscription.current_period_end)
+        await sendSubscriptionConfirmation(admin, userId, subscription.plan, subscription.current_period_end, event.id)
       }
     } else if (SUBSCRIPTION_EVENTS.has(event.type)) {
       const subscription = event.data.object
