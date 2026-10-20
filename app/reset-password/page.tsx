@@ -48,6 +48,10 @@ export default function ResetPasswordPage() {
           updateError.code === 'same_password' ? 'Choose a password you haven’t used before.' : updateError.message,
         ))
       }
+      // The security notification is deliberately sent only after Supabase
+      // confirms the password change. A mail outage must not make users repeat
+      // a password change that has already succeeded.
+      await fetch('/api/auth/password-changed', { method: 'POST' }).catch(() => undefined)
       // The update has already succeeded. Cleanup errors must not invite the
       // user to repeat a password change that is now effective.
       await createClient().auth.signOut({ scope: 'global' }).catch(() => undefined)
