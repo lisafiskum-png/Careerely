@@ -4,7 +4,7 @@ import { jsPDF } from 'jspdf'
 import { normalizeResume, normalizeSuggestions, type Resume } from '../../lib/resume/schema'
 
 vi.mock('server-only', () => ({}))
-const { detectResumeKind, extractResumeText, normalizeWhitespace } = await import('../../lib/resume/extract')
+const { assertSafeDocx, detectResumeKind, extractResumeText, normalizeWhitespace } = await import('../../lib/resume/extract')
 const { parseResumeFallback } = await import('../../lib/resume/fallback')
 
 const base: Resume = {
@@ -84,6 +84,22 @@ describe('resume files', () => {
   it('extracts text from a DOCX', async () => {
     const text = await extractResumeText(await makeDocx('Business development at Nordic Bank'), 'docx')
     expect(text).toBe('Business development at Nordic Bank')
+  })
+
+  it('rejects a ZIP renamed to DOCX and oversized advertised expansion', async () => {
+    const genericZip = new JSZip()
+    genericZip.file('notes.txt', 'not a resume')
+    await expect(extractResumeText(new Uint8Array(await genericZip.generateAsync({ type: 'uint8array' })), 'docx'))
+      .rejects.toThrow('not a DOCX')
+
+    const oversized = await makeDocx('Safe text')
+    for (let offset = 0; offset + 46 <= oversized.length; offset += 1) {
+      if (new DataView(oversized.buffer, oversized.byteOffset, oversized.byteLength).getUint32(offset, true) === 0x02014b50) {
+        new DataView(oversized.buffer, oversized.byteOffset, oversized.byteLength).setUint32(offset + 24, 51 * 1024 * 1024, true)
+        break
+      }
+    }
+    expect(() => assertSafeDocx(oversized)).toThrow('safe limit')
   })
 
   it('normalises whitespace', () => {
