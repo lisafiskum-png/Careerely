@@ -7,7 +7,7 @@ export type LegalDoc = { title: string; updated: string; blocks: LegalBlock[] }
 
 export const TERMS: LegalDoc = {
   title: 'Terms of Service',
-  updated: 'Last updated: June 2026',
+  updated: 'Last updated: October 2026',
   blocks: [
     {
       paragraphs: [
@@ -121,7 +121,7 @@ export const TERMS: LegalDoc = {
 
 export const PRIVACY: LegalDoc = {
   title: 'Privacy Policy',
-  updated: 'Last updated: June 2026',
+  updated: 'Last updated: October 2026',
   blocks: [
     {
       paragraphs: [
@@ -165,7 +165,7 @@ export const PRIVACY: LegalDoc = {
     {
       heading: 'Who We Share Data With',
       paragraphs: [
-        'We share data only with trusted service providers who help us operate the platform, such as infrastructure providers, AI processing services, payment processors, and email delivery services. All providers are bound by data processing agreements and confidentiality obligations.',
+        'We share data only with service providers needed to operate Careerely: Supabase (database, authentication and file storage), Vercel (hosting and privacy-focused analytics), Anthropic (AI processing), Stripe (payments), and Resend (service email). These providers process data under their applicable data-protection and confidentiality terms.',
         'We do not share your data with employers, recruiters, or job boards. We do not sell your data to third parties for advertising or any other purpose.',
       ],
     },
@@ -190,7 +190,7 @@ export const PRIVACY: LegalDoc = {
     {
       heading: 'Cookies',
       paragraphs: [
-        'We use essential cookies to keep you signed in and remember your preferences. We use analytics cookies to understand how the platform is used. We do not use advertising or tracking cookies. You can manage cookie preferences in your browser settings.',
+        'We use essential cookies to keep you signed in and remember your preferences. We use Vercel Web Analytics to understand aggregate site usage; it does not use third-party cookies or track you across websites. We do not use advertising cookies.',
       ],
     },
     {

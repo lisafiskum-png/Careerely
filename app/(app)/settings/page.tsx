@@ -94,6 +94,17 @@ export default async function SettingsPage() {
         <div className="set-card">
           <div className="set-row">
             <div>
+              <div className="set-label">Download your data</div>
+              <div className="set-value">
+                Export your account, profile, searches, matches and application history as JSON.
+              </div>
+              <a className="btn-ghost" href="/api/account/export" download>
+                Download my data
+              </a>
+            </div>
+          </div>
+          <div className="set-row">
+            <div>
               <div className="set-label">Account deletion</div>
               <div className="set-value">
                 Permanently remove your Careerely account and personal data.
