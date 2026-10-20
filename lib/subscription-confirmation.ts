@@ -47,6 +47,7 @@ export async function sendSubscriptionConfirmation(
   userId: string,
   plan: PlanId,
   currentPeriodEnd: string | null,
+  eventId: string,
 ): Promise<void> {
   const { data: profile, error: profileError } = await admin
     .from('profiles')
@@ -61,11 +62,16 @@ export async function sendSubscriptionConfirmation(
   if (!userData.user.email) throw new Error(`Careerely user ${userId} has no email address`)
 
   const message = subscriptionConfirmationMessage({ firstName: profile.first_name, plan, currentPeriodEnd })
-  const { error: sendError } = await new Resend(env.resendApiKey()).emails.send({
-    from: 'Careerely <hello@careerely.ai>',
-    to: userData.user.email,
-    ...message,
-  })
+  const { error: sendError } = await new Resend(env.resendApiKey()).emails.send(
+    {
+      from: 'Careerely <hello@careerely.ai>',
+      to: userData.user.email,
+      ...message,
+    },
+    // Stripe retries webhooks until they succeed. If delivery succeeds but
+    // marking the profile fails, the same event must not send a second email.
+    { idempotencyKey: `subscription-confirmation/${eventId}` },
+  )
   if (sendError) throw new Error(`Subscription confirmation email failed: ${sendError.message}`)
 
   const { error: markError } = await admin
