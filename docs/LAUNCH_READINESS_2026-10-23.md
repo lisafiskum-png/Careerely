@@ -15,7 +15,6 @@ itself is not production verification.
 
 | Capability | Severity | Status | Evidence / next gate |
 |---|---:|---|---|
-| Vercel → Supabase Data API | P0 | BLOCKED | Production health returns `503 database_unavailable`; restore Supabase service/quota, then rerun production smoke and full customer journey. |
 | New customer checkout | P0 | BLOCKED | Requires restored database plus an explicitly approved Stripe test/live transaction. Verify signup → checkout → webhook → subscription → welcome email → dashboard. |
 | AI matching and application generation | P0 | BLOCKED | Anthropic credits unavailable. After funding, run controlled generation and retry only eligible failed tasks. |
 | Legal entity and consumer terms | P0 | BLOCKED | Owner/legal professional must supply the contracting entity name, registration number and business address, and review Norway/EU/UK withdrawal, refund, tax and governing-law wording. Do not claim legal approval before that review. |
@@ -31,22 +30,21 @@ itself is not production verification.
 | Personal-data export | P1 | VERIFIED | Settings download produces a non-cacheable JSON export under user RLS; internal Stripe identifiers are excluded. Unit tests cover complete and failed exports. |
 | Subscription email idempotency | P0 | VERIFIED | Stripe event ID is used as the Resend idempotency key; webhook retries cannot duplicate the paid welcome email. |
 | Queue outage behavior | P0 | VERIFIED | Database outages return machine-readable retryable `503`, not false success. Queue is currently empty rather than growing during the outage. |
+| Vercel → Supabase Data API | P0 | VERIFIED | After the Pro upgrade, production health returned `200` with database/queue OK, zero claimable tasks, zero stale runs and zero expired leases. Direct SQL also succeeded. |
 | AI claim traceability | P0 | VERIFIED | Match claims require stored job/resume evidence; unsupported numbers are removed and inferred claims are labelled. |
 | SerpApi launch state | P0 | VERIFIED | SerpApi remains deliberately OFF. |
 | Terms acceptance | P1 | VERIFIED | Signup records an explicit acceptance timestamp and links both Terms and Privacy Policy. |
 | Privacy controls | P1 | VERIFIED | Private Storage, RLS, account deletion and data export are available. Policy identifies production processors and describes cookie-free Vercel analytics accurately. |
 | Global onboarding taxonomy | P1 | VERIFIED | Broad role/industry/location starters are present and custom values are allowed; lists are helpers, not whitelists. |
 
-## Must be rerun after Supabase recovery
+## Production gates still to run
 
-1. Production health returns `200` from the deployed commit.
-2. Supabase security and performance advisors; no unexplained critical/error findings.
-3. Existing paid user: login → dashboard, with no onboarding or payment prompt.
-4. Brand-new address: signup → resume → review → preferences → plan → checkout → email → dashboard.
-5. Password reset using a newly issued link; old link must fail safely.
-6. Customer Portal: invoice history, update payment method, upgrade/downgrade and cancel-at-period-end.
-7. Account export and deletion against a disposable paid test account.
-8. Engine tick, source sync, search scan and queue retry/backoff while monitoring queue depth.
+1. Existing paid user: login → dashboard, with no onboarding or payment prompt.
+2. Brand-new address: signup → resume → review → preferences → plan → checkout → email → dashboard.
+3. Password reset using a newly issued link; old link must fail safely.
+4. Customer Portal: invoice history, update payment method, upgrade/downgrade and cancel-at-period-end.
+5. Account export and deletion against a disposable paid test account.
+6. Engine tick, source sync, search scan and queue retry/backoff while monitoring queue depth.
 
 ## Global capability statement
 
@@ -61,6 +59,7 @@ itself is not production verification.
 
 ## Final release decision
 
-**Current decision: NO-GO for public paid launch.** The application has a hard
-database connectivity blocker and the paid AI workflow cannot be verified.
-This changes to GO only after every P0 blocker above has production evidence.
+**Current decision: NO-GO for public paid launch.** Database connectivity is
+restored, but the paid checkout and AI generation workflow still lack complete
+production evidence. This changes to GO only after every P0 blocker above has
+that evidence.
