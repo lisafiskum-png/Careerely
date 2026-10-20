@@ -67,6 +67,9 @@ export function ResumeStep({ userId, draft }: { userId: string; draft: Resume | 
       setNotice(typeof data.warning === 'string' ? data.warning : '')
       setPhase('parsed')
     } catch (err) {
+      // Parsing failures must not accumulate unreadable or hostile uploads in
+      // private storage. RLS limits removal to this user's own folder.
+      await createClient().storage.from('resumes').remove([path]).catch(() => undefined)
       setPhase('upload')
       setError(err instanceof Error ? err.message : 'We couldn’t read your resume.')
     }
