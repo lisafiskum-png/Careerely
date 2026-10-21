@@ -40,6 +40,16 @@ itself is not production verification.
 | Operational incident handling | P1 | VERIFIED | `docs/OPERATIONS_RUNBOOK.md` covers health, queue, AI, billing, auth/email, privacy/security, rollback and support procedures. |
 | Honest global scope | P1 | VERIFIED | `docs/GLOBAL_CAPABILITY_MATRIX.md` labels industry, country, language, discovery and commercial coverage without claiming untested support. |
 
+## Documented non-blocking risks
+
+- `npm audit --omit=dev` reports the moderate `sprintf-js` precision DoS
+  advisory through Mammoth's command-line-only `argparse` dependency. Careerely
+  imports Mammoth's library API, not its CLI or attacker-controlled format
+  strings. The advisory has no patched `sprintf-js` release, and npm's proposed
+  fix is a breaking downgrade of the resume parser. Keep the upload size/ZIP
+  limits in place, monitor the upstream dependency, and upgrade when a safe
+  patched release exists.
+
 ## Production gates still to run
 
 1. Existing paid user: login → dashboard, with no onboarding or payment prompt.
