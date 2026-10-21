@@ -18,7 +18,7 @@ itself is not production verification.
 | New customer checkout | P0 | BLOCKED | Requires restored database plus an explicitly approved Stripe test/live transaction. Verify signup → checkout → webhook → subscription → welcome email → dashboard. |
 | AI matching and application generation | P0 | BLOCKED | Anthropic credits unavailable. After funding, run controlled generation and retry only eligible failed tasks. |
 | Legal entity and consumer terms | P0 | BLOCKED | Owner/legal professional must supply the contracting entity name, registration number and business address, and review Norway/EU/UK withdrawal, refund, tax and governing-law wording. Do not claim legal approval before that review. |
-| Supabase leaked-password protection | P1 | BLOCKED | Enable after Pro upgrade; Supabase pricing lists this as a Pro feature. Rerun security advisor afterwards. |
+| Supabase leaked-password protection | P1 | VERIFIED | Enabled in production on 21 October 2026. The follow-up Security Advisor run no longer reports the leaked-password warning. |
 
 ## Verified in code and CI
 
@@ -36,6 +36,9 @@ itself is not production verification.
 | Terms acceptance | P1 | VERIFIED | Signup records an explicit acceptance timestamp and links both Terms and Privacy Policy. |
 | Privacy controls | P1 | VERIFIED | Private Storage, RLS, account deletion and data export are available. Policy identifies production processors and describes cookie-free Vercel analytics accurately. |
 | Global onboarding taxonomy | P1 | VERIFIED | Broad role/industry/location starters are present and custom values are allowed; lists are helpers, not whitelists. |
+| Vulnerability contact | P1 | VERIFIED | `/.well-known/security.txt` publishes the monitored support/security address and is covered by production smoke tests. |
+| Operational incident handling | P1 | VERIFIED | `docs/OPERATIONS_RUNBOOK.md` covers health, queue, AI, billing, auth/email, privacy/security, rollback and support procedures. |
+| Honest global scope | P1 | VERIFIED | `docs/GLOBAL_CAPABILITY_MATRIX.md` labels industry, country, language, discovery and commercial coverage without claiming untested support. |
 
 ## Production gates still to run
 
@@ -45,6 +48,11 @@ itself is not production verification.
 4. Customer Portal: invoice history, update payment method, upgrade/downgrade and cancel-at-period-end.
 5. Account export and deletion against a disposable paid test account.
 6. Engine tick, source sync, search scan and queue retry/backoff while monitoring queue depth.
+
+Production evidence on 21 October 2026: health is OK; there are zero queued,
+running, or expired-lease tasks; four searches completed successfully in the
+last 24 hours. Recent failures are controlled source `not_found` outcomes plus
+two AI package failures while the provider remains blocked.
 
 ## Global capability statement
 
