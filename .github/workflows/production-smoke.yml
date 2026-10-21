@@ -53,7 +53,7 @@ jobs:
           echo 'Production did not become ready within five minutes.' >&2
           exit 1
 
-      - name: Run mobile Chrome and Safari smoke tests
+      - name: Run desktop Chrome and mobile Chrome/Safari smoke tests
         run: npx playwright test --config=playwright.production.config.ts
 
       - name: Keep browser verification evidence
