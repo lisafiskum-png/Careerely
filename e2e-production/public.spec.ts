@@ -67,6 +67,8 @@ test('public responses keep the launch security baseline', async ({ request }) =
     expect(response.ok(), path).toBe(true)
     expect(response.headers()['x-frame-options'], path).toBe('DENY')
     expect(response.headers()['x-content-type-options'], path).toBe('nosniff')
+    expect(response.headers()['x-permitted-cross-domain-policies'], path).toBe('none')
+    expect(response.headers()['x-powered-by'], path).toBeUndefined()
     expect(response.headers()['referrer-policy'], path).toBe('strict-origin-when-cross-origin')
     expect(response.headers()['permissions-policy'], path).toContain('camera=()')
     expect(response.headers()['content-security-policy'], path).toContain("frame-ancestors 'none'")
